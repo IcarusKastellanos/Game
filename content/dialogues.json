@@ -1,0 +1,101 @@
+[
+  {
+    "id": "mara_intro",
+    "npcId": "npc_mara",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "Welcome to the Veiled Moon. Looking for candles, herbs, or something sharper?",
+        "choices": [
+          { "label": "I need supplies for protection work.", "next": "protection", "relationshipDelta": 1 },
+          { "label": "Tell me about folk magic.", "next": "folk_lore", "relationshipDelta": 2 },
+          { "label": "Just browsing.", "next": "end" }
+        ]
+      },
+      {
+        "id": "protection",
+        "text": "Rosemary and salt for thresholds. Black candles if you mean business. Don't skip the intent.",
+        "choices": [{ "label": "Thank you.", "next": "end", "relationshipDelta": 1 }]
+      },
+      {
+        "id": "folk_lore",
+        "text": "Cunning folk worked with what was at hand — pins, pins, petitions, and nerve. Read the primer if you're serious.",
+        "choices": [
+          { "label": "I'll take the book.", "next": "end", "grantItem": "book_folk_magic" },
+          { "label": "Good to know.", "next": "end" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tom_greeting",
+    "npcId": "npc_tom",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "Morning! Bread's fresh. Tea helps when you've been up all night with... whatever you witches get up to.",
+        "choices": [{ "label": "I'll take some bread.", "next": "end" }]
+      }
+    ]
+  },
+  {
+    "id": "elena_greeting",
+    "npcId": "npc_elena",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "Herbal teas and salts only. If you need something stronger, speak to Mara.",
+        "choices": [{ "label": "Understood.", "next": "end" }]
+      }
+    ]
+  },
+  {
+    "id": "agatha_archive",
+    "npcId": "npc_librarian",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "The archive holds county folklore records. Some entries mention wards older than the town itself.",
+        "choices": [
+          { "label": "Can I study correspondence charts?", "next": "study", "statBoost": { "herbalism": 1 } },
+          { "label": "Maybe later.", "next": "end" }
+        ]
+      },
+      {
+        "id": "study",
+        "text": "Bay for divination, rosemary for protection, sage for cleansing. Write them down — memory fails under stress.",
+        "choices": [{ "label": "Noted.", "next": "end", "relationshipDelta": 1 }]
+      }
+    ]
+  },
+  {
+    "id": "silas_cafe",
+    "npcId": "npc_cafe_owner",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "Coffee, tea, and a quiet corner. The study circle meets nearby — don't stir trouble in my café.",
+        "choices": [{ "label": "Fair enough.", "next": "end" }]
+      }
+    ]
+  },
+  {
+    "id": "rowan_circle",
+    "npcId": "npc_circle_leader",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "We gather to compare notes — never to play at Hollywood magic. Are you practicing seriously?",
+        "choices": [
+          { "label": "I'm learning the old ways.", "next": "welcome", "relationshipDelta": 2 },
+          { "label": "Still finding my path.", "next": "end" }
+        ]
+      },
+      {
+        "id": "welcome",
+        "text": "Good. Raise your ritual skill through repetition. Consistency beats flash every time.",
+        "choices": [{ "label": "I'll remember that.", "next": "end", "statBoost": { "ritualSkill": 0.5 } }]
+      }
+    ]
+  }
+]

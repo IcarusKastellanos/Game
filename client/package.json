@@ -1,0 +1,22 @@
+{
+  "name": "@witchcraft/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@witchcraft/shared": "*",
+    "colyseus.js": "^0.15.28",
+    "@colyseus/schema": "^2.0.36",
+    "phaser": "^3.87.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
+  }
+}

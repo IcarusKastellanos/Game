@@ -1,0 +1,397 @@
+{
+  "source": "src/assets/hud/practitioner-hud-reference.png",
+  "sheet": "src/assets/hud/practitioner-hud-spritesheet.png",
+  "padding": 20,
+  "sizes": {
+    "navigation_button": {
+      "w": 120,
+      "h": 191
+    },
+    "inventory_slot": {
+      "w": 84,
+      "h": 84
+    },
+    "resource_counter": {
+      "w": 290,
+      "h": 58
+    }
+  },
+  "assets": {
+    "player_info_panel": {
+      "x": 127,
+      "y": 40,
+      "w": 256,
+      "h": 182,
+      "category": "player",
+      "notes": "Empty framed panel \u2014 no name/rank/reputation/values."
+    },
+    "portrait_frame": {
+      "x": 510,
+      "y": 26,
+      "w": 175,
+      "h": 210,
+      "category": "player",
+      "notes": "Hooded portrait + banner; replace inner portrait dynamically."
+    },
+    "intuition_gem": {
+      "x": 885,
+      "y": 80,
+      "w": 75,
+      "h": 103,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_glow_aware": {
+      "x": 1297,
+      "y": 56,
+      "w": 123,
+      "h": 151,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_glow_dormant": {
+      "x": 1683,
+      "y": 80,
+      "w": 75,
+      "h": 103,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_glow_faint": {
+      "x": 1996,
+      "y": 68,
+      "w": 99,
+      "h": 127,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_glow_overwhelming": {
+      "x": 2338,
+      "y": 20,
+      "w": 195,
+      "h": 223,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_glow_strong": {
+      "x": 2733,
+      "y": 40,
+      "w": 155,
+      "h": 183,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_meter_frame": {
+      "x": 20,
+      "y": 263,
+      "w": 470,
+      "h": 160,
+      "category": "intuition",
+      "notes": "No cardinal letters."
+    },
+    "intuition_pulse_ring": {
+      "x": 565,
+      "y": 311,
+      "w": 64,
+      "h": 64,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_rune_particles": {
+      "x": 891,
+      "y": 311,
+      "w": 64,
+      "h": 64,
+      "category": "intuition",
+      "notes": ""
+    },
+    "intuition_tick_track": {
+      "x": 1161,
+      "y": 323,
+      "w": 395,
+      "h": 39,
+      "category": "intuition",
+      "notes": ""
+    },
+    "coin_counter": {
+      "x": 1576,
+      "y": 314,
+      "w": 290,
+      "h": 58,
+      "category": "resources",
+      "notes": ""
+    },
+    "essence_counter": {
+      "x": 1901,
+      "y": 314,
+      "w": 290,
+      "h": 58,
+      "category": "resources",
+      "notes": ""
+    },
+    "favor_counter": {
+      "x": 2291,
+      "y": 314,
+      "w": 290,
+      "h": 58,
+      "category": "resources",
+      "notes": ""
+    },
+    "reputation_counter": {
+      "x": 2666,
+      "y": 314,
+      "w": 290,
+      "h": 58,
+      "category": "resources",
+      "notes": "Template frame; icon area blank."
+    },
+    "resource_counter_template": {
+      "x": 110,
+      "y": 509,
+      "w": 290,
+      "h": 58,
+      "category": "resources",
+      "notes": ""
+    },
+    "nav_bag": {
+      "x": 537,
+      "y": 443,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "nav_button_template": {
+      "x": 863,
+      "y": 443,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "nav_coven": {
+      "x": 1298,
+      "y": 443,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "nav_grimoire": {
+      "x": 1661,
+      "y": 443,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "nav_map": {
+      "x": 1986,
+      "y": 443,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "nav_settings": {
+      "x": 2376,
+      "y": 443,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": "From bottom gear; normalized to nav size."
+    },
+    "nav_social": {
+      "x": 2751,
+      "y": 443,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "nav_spells": {
+      "x": 195,
+      "y": 654,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "nav_teleport": {
+      "x": 537,
+      "y": 654,
+      "w": 120,
+      "h": 191,
+      "category": "navigation",
+      "notes": ""
+    },
+    "hotbar_frame": {
+      "x": 705,
+      "y": 677,
+      "w": 436,
+      "h": 144,
+      "category": "inventory",
+      "notes": ""
+    },
+    "inventory_slot_empty_1": {
+      "x": 1316,
+      "y": 707,
+      "w": 84,
+      "h": 84,
+      "category": "inventory",
+      "notes": "Slot frame 1."
+    },
+    "inventory_slot_empty_2": {
+      "x": 1679,
+      "y": 707,
+      "w": 84,
+      "h": 84,
+      "category": "inventory",
+      "notes": "Slot frame 2."
+    },
+    "inventory_slot_empty_3": {
+      "x": 2004,
+      "y": 707,
+      "w": 84,
+      "h": 84,
+      "category": "inventory",
+      "notes": "Slot frame 3."
+    },
+    "inventory_slot_empty_4": {
+      "x": 2394,
+      "y": 707,
+      "w": 84,
+      "h": 84,
+      "category": "inventory",
+      "notes": "Slot frame 4."
+    },
+    "inventory_slot_empty_5": {
+      "x": 2769,
+      "y": 707,
+      "w": 84,
+      "h": 84,
+      "category": "inventory",
+      "notes": "Slot frame 5."
+    },
+    "symbol_experience": {
+      "x": 237,
+      "y": 905,
+      "w": 36,
+      "h": 40,
+      "category": "symbols",
+      "notes": ""
+    },
+    "symbol_health": {
+      "x": 579,
+      "y": 905,
+      "w": 36,
+      "h": 40,
+      "category": "symbols",
+      "notes": ""
+    },
+    "symbol_magnetic_energy": {
+      "x": 905,
+      "y": 907,
+      "w": 36,
+      "h": 35,
+      "category": "symbols",
+      "notes": ""
+    },
+    "bar_track_experience": {
+      "x": 1233,
+      "y": 905,
+      "w": 250,
+      "h": 40,
+      "category": "bars",
+      "notes": ""
+    },
+    "bar_track_health": {
+      "x": 1596,
+      "y": 905,
+      "w": 250,
+      "h": 40,
+      "category": "bars",
+      "notes": ""
+    },
+    "bar_track_magical_energy": {
+      "x": 1921,
+      "y": 907,
+      "w": 250,
+      "h": 35,
+      "category": "bars",
+      "notes": ""
+    },
+    "icon_candle": {
+      "x": 2393,
+      "y": 865,
+      "w": 85,
+      "h": 120,
+      "category": "icons",
+      "notes": ""
+    },
+    "icon_herb_bundle": {
+      "x": 2768,
+      "y": 865,
+      "w": 85,
+      "h": 120,
+      "category": "icons",
+      "notes": ""
+    },
+    "icon_potion": {
+      "x": 212,
+      "y": 1020,
+      "w": 85,
+      "h": 120,
+      "category": "icons",
+      "notes": ""
+    },
+    "icon_purple_crystal": {
+      "x": 555,
+      "y": 1020,
+      "w": 85,
+      "h": 120,
+      "category": "icons",
+      "notes": ""
+    },
+    "icon_scroll": {
+      "x": 856,
+      "y": 1005,
+      "w": 134,
+      "h": 151,
+      "category": "icons",
+      "notes": ""
+    },
+    "decor_corner_gold": {
+      "x": 1346,
+      "y": 1068,
+      "w": 24,
+      "h": 24,
+      "category": "decor",
+      "notes": ""
+    },
+    "decor_jewel_purple": {
+      "x": 1711,
+      "y": 1070,
+      "w": 20,
+      "h": 20,
+      "category": "decor",
+      "notes": ""
+    },
+    "moon_time_location_panel": {
+      "x": 1886,
+      "y": 1020,
+      "w": 320,
+      "h": 120,
+      "category": "misc",
+      "notes": "NOT PRESENT in attached reference \u2014 placeholder slot only (0\u00d70 usable art)."
+    },
+    "notification_panel_empty": {
+      "x": 2226,
+      "y": 1035,
+      "w": 420,
+      "h": 90,
+      "category": "misc",
+      "notes": "Not in reference layout; frame sampled from player panel divider style."
+    }
+  }
+}

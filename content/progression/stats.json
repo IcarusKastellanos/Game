@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "note": "Defaults, caps and scaling for player attributes. Canonical runtime source is @witchcraft/shared (DEFAULT_STATS + stats-catalog). Keep in sync. Awareness maps to spiritualAwareness, hexWork to cursecraft, divination to divinationSkill, protection to warding.",
+  "groups": {
+    "core": {
+      "health": { "default": 100, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "hunger": { "default": 80, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "stamina": { "default": 100, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "magicalEnergy": { "default": 55, "minimum": 0, "maximum": 100, "levelScaling": 2 }
+    },
+    "mental": {
+      "intuition": { "default": 4, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "awareness": { "default": 4, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "willpower": { "default": 1, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "memory": { "default": 1, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "presence": { "default": 1, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "authority": { "default": 1, "minimum": 0, "maximum": 100, "levelScaling": 0 },
+      "mediumship": { "default": 1, "minimum": 0, "maximum": 100, "levelScaling": 0 }
+    },
+    "technical": {
+      "ritualSkill": { "default": 2, "minimum": 0, "maximum": 100 },
+      "protection": { "default": 2, "minimum": 0, "maximum": 100 },
+      "hexWork": { "default": 1, "minimum": 0, "maximum": 100 },
+      "healing": { "default": 2, "minimum": 0, "maximum": 100 },
+      "herbalism": { "default": 2, "minimum": 0, "maximum": 100 },
+      "divination": { "default": 2, "minimum": 0, "maximum": 100 },
+      "potionMaking": { "default": 1, "minimum": 0, "maximum": 100 },
+      "spiritNegotiation": { "default": 1, "minimum": 0, "maximum": 100 }
+    }
+  },
+  "hunger": {
+    "minimum": 0,
+    "maximum": 100,
+    "lowThreshold": 20,
+    "criticalThreshold": 10,
+    "decayPerMinute": 0.5,
+    "lowHungerEffects": {
+      "magicalEnergyRegenMultiplier": 0.5,
+      "staminaRegenMultiplier": 0.75
+    },
+    "hungerDebuffs": [
+      {
+        "belowHunger": 20,
+        "effects": {
+          "magicalEnergyRegenMultiplier": 0.5,
+          "staminaRegenMultiplier": 0.75
+        }
+      },
+      {
+        "belowHunger": 10,
+        "effects": {
+          "magicalEnergyRegenMultiplier": 0.25,
+          "staminaRegenMultiplier": 0.4,
+          "ritualStabilityModifier": -0.15
+        }
+      }
+    ]
+  },
+  "stamina": {
+    "idleRegenPerMinute": 3,
+    "eatingRegenPerMinute": 6,
+    "sleepingRegenPerMinute": 12,
+    "sleepHealthRegenPerMinute": 0.5
+  }
+}

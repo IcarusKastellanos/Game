@@ -1,0 +1,21 @@
+{
+  "health": "Health",
+  "hunger": "Hunger",
+  "stamina": "Stamina",
+  "magicalEnergy": "Magical Energy",
+  "intuition": "Intuition",
+  "awareness": "Awareness",
+  "willpower": "Willpower",
+  "memory": "Memory",
+  "presence": "Presence",
+  "authority": "Authority",
+  "mediumship": "Mediumship",
+  "ritualSkill": "Ritual Skill",
+  "protection": "Protection",
+  "hexWork": "Hex Work",
+  "healing": "Healing",
+  "herbalism": "Herbalism",
+  "divination": "Divination",
+  "potionMaking": "Potion Making",
+  "spiritNegotiation": "Spirit Negotiation"
+}

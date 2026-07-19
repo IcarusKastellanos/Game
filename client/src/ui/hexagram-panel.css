@@ -1,0 +1,474 @@
+#hexagram-panel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9700;
+  font-family: 'Courier New', monospace;
+  color: #ddccbb;
+}
+
+#hexagram-panel .hex-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, #1a1028cc 0%, #050208ee 70%);
+  backdrop-filter: blur(2px);
+}
+
+#hexagram-panel .hex-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
+}
+
+#hexagram-panel .hex-header {
+  position: relative;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #664488;
+}
+
+#hexagram-panel .hex-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #fc8;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#hexagram-panel .hex-sub {
+  margin: 4px 0 0;
+  font-size: 10px;
+  color: #998877;
+}
+
+#hexagram-panel .hex-close {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: #221133;
+  border: 1px solid #664488;
+  color: #fc8;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#hexagram-panel .hex-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 0;
+  justify-content: center;
+}
+
+#hexagram-panel .hex-tab {
+  padding: 6px 12px;
+  background: linear-gradient(180deg, #1a1028, #0e0818);
+  border: 1px solid #554466;
+  color: #bbaacc;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#hexagram-panel .hex-tab.active,
+#hexagram-panel .hex-tab:hover {
+  border-color: #fc8;
+  color: #fc8;
+  box-shadow: 0 0 10px #ffcc8844;
+}
+
+#hexagram-panel .hex-body {
+  display: grid;
+  grid-template-columns: 220px 1fr 240px;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+#hexagram-panel .hex-inventory,
+#hexagram-panel .hex-info {
+  background: linear-gradient(180deg, #120818 0%, #0a0610 100%);
+  border: 1px solid #664488;
+  border-radius: 8px;
+  padding: 10px;
+  overflow-y: auto;
+  box-shadow: inset 0 0 20px #00000066, 0 0 12px #66448833;
+}
+
+#hexagram-panel .hex-inventory h3,
+#hexagram-panel .hex-info h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #fc8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#hexagram-panel .hex-search,
+#hexagram-panel .hex-filter,
+#hexagram-panel .hex-decl,
+#hexagram-panel .hex-decl-custom {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: #0c0614;
+  border: 1px solid #443355;
+  color: #ddccbb;
+  font-family: inherit;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+#hexagram-panel .hex-inv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+#hexagram-panel .hex-inv-card {
+  position: relative;
+  background: #1a1028;
+  border: 1px solid #443355;
+  border-radius: 6px;
+  padding: 6px 4px 4px;
+  text-align: center;
+  cursor: grab;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#hexagram-panel .hex-inv-card:hover {
+  border-color: #8866aa;
+  box-shadow: 0 0 10px #66448855;
+}
+
+#hexagram-panel .hex-inv-card.fav {
+  border-color: #aa8844;
+}
+
+#hexagram-panel .hex-inv-qty {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 9px;
+  color: #88aaff;
+}
+
+#hexagram-panel .hex-inv-name {
+  display: block;
+  font-size: 8px;
+  color: #998877;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#hexagram-panel .hex-fav-btn {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  background: none;
+  border: none;
+  color: #aa8844;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+}
+
+#hexagram-panel .hex-aug-title {
+  margin: 12px 0 6px;
+  font-size: 10px;
+  color: #bbaacc;
+}
+
+#hexagram-panel .hex-aug-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#hexagram-panel .hex-aug-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #1a1028;
+  border: 1px solid #443355;
+  color: #bbaacc;
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+#hexagram-panel .hex-aug-chip.on {
+  border-color: #fc8;
+  color: #fc8;
+  box-shadow: 0 0 8px #ffcc8844;
+}
+
+#hexagram-panel .hex-aug-chip.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#hexagram-panel .hex-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+#hexagram-panel #hex-canvas {
+  max-width: 100%;
+  border: 2px solid #664488;
+  border-radius: 12px;
+  background: #0a0610;
+  box-shadow: 0 0 30px #66448844, inset 0 0 40px #00000088;
+  cursor: crosshair;
+}
+
+#hexagram-panel .hex-recipe-picker label {
+  font-size: 10px;
+  color: #bbaacc;
+}
+
+#hexagram-panel .hex-recipe-picker select {
+  margin-left: 8px;
+  padding: 4px 8px;
+  background: #0c0614;
+  border: 1px solid #664488;
+  color: #ddccbb;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+#hexagram-panel .hex-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+#hexagram-panel .hex-btn {
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #664488;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#hexagram-panel .hex-btn.primary {
+  background: linear-gradient(180deg, #442266, #221133);
+  color: #fc8;
+  border-color: #aa8844;
+  box-shadow: 0 0 12px #66448866;
+}
+
+#hexagram-panel .hex-btn.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#hexagram-panel .hex-btn.secondary {
+  background: #1a1028;
+  color: #bbaacc;
+}
+
+#hexagram-panel .hex-desc {
+  font-size: 10px;
+  color: #998877;
+  line-height: 1.4;
+}
+
+#hexagram-panel .hex-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  font-size: 9px;
+  margin: 8px 0;
+}
+
+#hexagram-panel .hex-stats dt {
+  color: #887766;
+}
+
+#hexagram-panel .hex-stats dd {
+  margin: 0;
+  color: #ddccbb;
+}
+
+#hexagram-panel .hex-meter {
+  margin: 6px 0;
+  font-size: 9px;
+}
+
+#hexagram-panel .hex-meter span {
+  color: #887766;
+}
+
+#hexagram-panel .hex-meter .bar {
+  height: 6px;
+  background: #221133;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 2px 0;
+}
+
+#hexagram-panel .hex-meter .bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #446688, #88bbff);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+#hexagram-panel .hex-meter.warn .bar i {
+  background: linear-gradient(90deg, #886644, #ffcc66);
+}
+
+#hexagram-panel .hex-meter.danger .bar i {
+  background: linear-gradient(90deg, #662222, #cc4444);
+}
+
+#hexagram-panel .hex-meter em {
+  font-style: normal;
+  color: #bbaacc;
+  font-size: 8px;
+}
+
+#hexagram-panel .hex-req-guide {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+  font-size: 9px;
+}
+
+#hexagram-panel .hex-req-row {
+  padding: 8px 0;
+  border-bottom: 1px solid #221133;
+}
+
+#hexagram-panel .hex-req-row.pending .hex-req-socket { color: #998877; }
+#hexagram-panel .hex-req-row.ok .hex-req-socket { color: #88ccaa; }
+#hexagram-panel .hex-req-row.bad .hex-req-socket { color: #cc6666; }
+
+#hexagram-panel .hex-req-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+#hexagram-panel .hex-req-socket {
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fc8;
+}
+
+#hexagram-panel .hex-req-flavor {
+  font-style: italic;
+  color: #776655;
+  font-size: 8px;
+}
+
+#hexagram-panel .hex-req-needs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #bbaacc;
+  margin-bottom: 3px;
+}
+
+#hexagram-panel .hex-req-placed {
+  color: #887766;
+  font-size: 8px;
+}
+
+#hexagram-panel .hex-req-row.ok .hex-req-placed { color: #88ccaa; }
+#hexagram-panel .hex-req-row.bad .hex-req-placed { color: #cc8888; }
+
+#hexagram-panel .hex-aug-guide {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+  font-size: 8px;
+}
+
+#hexagram-panel .hex-aug-guide li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid #1a1028;
+  color: #887766;
+}
+
+#hexagram-panel .hex-aug-guide li.on {
+  color: #fc8;
+}
+
+#hexagram-panel .hex-aug-guide em {
+  margin-left: auto;
+  font-style: normal;
+  color: #665544;
+  font-size: 7px;
+}
+
+#hexagram-panel .hex-reqs {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+  font-size: 9px;
+}
+
+#hexagram-panel .hex-reqs li {
+  padding: 3px 0;
+  border-bottom: 1px solid #221133;
+  color: #887766;
+}
+
+#hexagram-panel .hex-reqs li.ok {
+  color: #88ccaa;
+}
+
+#hexagram-panel .hex-reqs li.bad {
+  color: #cc6666;
+}
+
+#hexagram-panel .hex-empty {
+  font-size: 9px;
+  color: #665544;
+  font-style: italic;
+}
+
+#hexagram-panel h4 {
+  margin: 10px 0 4px;
+  font-size: 10px;
+  color: #bbaacc;
+}
+
+@media (max-width: 900px) {
+  #hexagram-panel .hex-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}

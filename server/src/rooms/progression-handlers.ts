@@ -1,0 +1,546 @@
+import type { Client } from '@colyseus/core';
+import type { ClientMessage, MagicTradition, PlayerProgression, PlayerStats, HexagramEnchantPayload, AuraState } from '@witchcraft/shared';
+import {
+  BOOK_CONTENT,
+  applyNpcRelationshipDelta,
+  discoverCorrespondences,
+  eligibleSpecialtyTraditions,
+  clampPlayerStatValue,
+  addItemToInventory,
+  normalizePlayerStats,
+  applyCleanserToAura,
+  formatCleanserMessage,
+  CLEANSER_MORALITY_COST,
+  grantSkillXp,
+  resolveTechnicalSkillKey,
+} from '@witchcraft/shared';
+import { contentRegistry } from '../content/registry.js';
+import { craftingSystem } from '../systems/crafting-system.js';
+import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
+import { applyPocketSpellToRecipient, resolveAndReleasePocketSpell } from '../systems/pocket-spell-system.js';
+import { questSystem } from '../systems/quest-system.js';
+import { isInteractableNpcAvailable, getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
+import { getWorldHour, formatWorldHour } from '../systems/world-clock.js';
+import { logSpellCast } from '../services/player-service.js';
+import { auraSystem } from '../systems/inventory-ward-aura.js';
+import type { PlayerSchema } from '../schemas/game-state.js';
+import type { PersistedPlayer } from '../services/player-service.js';
+import { prisma } from '../services/db.js';
+
+export type HandlerCtx = {
+  client: Client;
+  player: PlayerSchema;
+  data: PersistedPlayer;
+  sendPlayerSync: (client: Client, player: PlayerSchema) => void;
+  sendProgression: (client: Client, progression: PlayerProgression) => void;
+  resolvePlayer?: (sessionId: string) => { player: PlayerSchema; client?: Client } | null;
+  refreshWardWeb?: (sessionId: string) => void;
+};
+
+function applyReputation(stats: PlayerStats, delta: number): PlayerStats {
+  return { ...stats, reputation: Math.max(-100, Math.min(100, stats.reputation + delta)) };
+}
+
+function checkSpecialtyOffer(client: Client, stats: PlayerStats): void {
+  if (stats.specialty) return;
+  const eligible = eligibleSpecialtyTraditions(stats.affinities);
+  if (eligible.length) {
+    client.send('specialty_offer', { traditions: eligible });
+  }
+}
+
+export function sendWorldState(client: Client): void {
+  client.send('world_state', {
+    hour: getWorldHour(),
+    hourLabel: formatWorldHour(getWorldHour()),
+    hiddenNpcIds: getUnavailableNpcInteractableIds(),
+  });
+}
+
+export function handleDialogueProgression(
+  ctx: HandlerCtx,
+  dialogueTreeId: string,
+  relationshipDelta?: number,
+  npcId?: string
+): void {
+  const { data, player } = ctx;
+  const tree = dialogueSystemGetNpcId(dialogueTreeId);
+  const resolvedNpcId = npcId ?? tree;
+
+  if (relationshipDelta && resolvedNpcId) {
+    data.progression = applyNpcRelationshipDelta(data.progression, resolvedNpcId, relationshipDelta);
+    const stats = applyReputation(player.stats, relationshipDelta);
+    player.stats = stats;
+  }
+
+  if (resolvedNpcId === 'npc_mara' && !data.progression.questProgress.quest_first_steps) {
+    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps');
+  }
+
+  ctx.sendProgression(ctx.client, data.progression);
+  checkSpecialtyOffer(ctx.client, player.stats);
+}
+
+function dialogueSystemGetNpcId(dialogueTreeId: string): string | undefined {
+  const tree = contentRegistry.dialogues.get(dialogueTreeId);
+  return tree?.npcId;
+}
+
+export function handleUseItemProgression(ctx: HandlerCtx, itemId: string): boolean {
+  const itemDef = contentRegistry.ingredients.get(itemId);
+  if (!itemDef) return false;
+
+  if (itemDef.category === 'books') {
+    const book = BOOK_CONTENT[itemId];
+    if (!book) {
+      ctx.client.send('notification', {
+        type: 'notification',
+        message: 'The pages resist your reading.',
+        level: 'error',
+      });
+      return true;
+    }
+    ctx.client.send('book_open', { bookId: itemId, pages: book.pages, title: itemDef.name });
+    return true;
+  }
+  return false;
+}
+
+export function handleReadBookComplete(ctx: HandlerCtx, bookId: string): void {
+  const book = BOOK_CONTENT[bookId];
+  if (!book) return;
+  const { data, player } = ctx;
+  if (data.progression.readBooks.includes(bookId)) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: 'You have already studied this text.',
+      level: 'info',
+    });
+    return;
+  }
+
+  data.progression = {
+    ...data.progression,
+    readBooks: [...data.progression.readBooks, bookId],
+  };
+  if (book.discoverItems?.length) {
+    data.progression = discoverCorrespondences(data.progression, book.discoverItems);
+  }
+
+  let stats = player.stats;
+  if (book.statBoost) {
+    for (const [k, v] of Object.entries(book.statBoost)) {
+      const techKey = resolveTechnicalSkillKey(k);
+      if (techKey) {
+        const granted = grantSkillXp(stats, data.progression, techKey, Math.max(1, Math.round(v * 12)));
+        stats = granted.stats;
+        data.progression = granted.progression;
+        continue;
+      }
+      const key = k as keyof PlayerStats;
+      if (typeof stats[key] === 'number') {
+        stats = {
+          ...stats,
+          [key]: clampPlayerStatValue(key, (stats[key] as number) + v, stats.experience),
+        };
+      }
+    }
+  }
+  if (book.affinity) {
+    stats = {
+      ...stats,
+      affinities: {
+        ...stats.affinities,
+        [book.affinity]: (stats.affinities[book.affinity] ?? 0) + 3,
+      },
+    };
+  }
+  player.stats = normalizePlayerStats(stats);
+
+  ctx.sendProgression(ctx.client, data.progression);
+  ctx.sendPlayerSync(ctx.client, player);
+  checkSpecialtyOffer(ctx.client, player.stats);
+  ctx.client.send('notification', {
+    type: 'notification',
+    message: `Finished reading — correspondences and insights recorded in your journal.`,
+    level: 'success',
+  });
+}
+
+export function handleChooseSpecialty(ctx: HandlerCtx, specialty: MagicTradition): void {
+  const { player, data } = ctx;
+  if (player.stats.specialty) {
+    ctx.client.send('notification', { type: 'notification', message: 'Specialty already chosen.', level: 'error' });
+    return;
+  }
+  const eligible = eligibleSpecialtyTraditions(player.stats.affinities);
+  if (!eligible.includes(specialty)) {
+    ctx.client.send('notification', { type: 'notification', message: 'Affinity too low for that tradition.', level: 'error' });
+    return;
+  }
+  player.stats = { ...player.stats, specialty };
+  ctx.sendPlayerSync(ctx.client, player);
+  ctx.client.send('notification', {
+    type: 'notification',
+    message: `You have claimed the ${specialty.replace(/_/g, ' ')} path.`,
+    level: 'success',
+  });
+}
+
+export function handleCraftRecipe(ctx: HandlerCtx, recipeId: string): void {
+  const { player, data, client } = ctx;
+  const result = craftingSystem.craft(recipeId, player.inventory, data.progression, player.stats);
+  if (!result.ok) {
+    client.send('notification', { type: 'notification', message: result.error ?? 'Craft failed.', level: 'error' });
+    return;
+  }
+  player.inventory = result.inventory!;
+  data.progression = result.progression!;
+  if (result.stats) player.stats = result.stats;
+  ctx.sendProgression(client, data.progression);
+  ctx.sendPlayerSync(client, player);
+  client.send('notification', {
+    type: 'notification',
+    message: result.message ?? 'Craft complete.',
+    level: 'success',
+  });
+}
+
+export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetPlayerId?: string): void {
+  const { player, data, client } = ctx;
+  const pocket = data.progression.pocketSpells.find((p) => p.id === pocketId);
+  if (!pocket) {
+    client.send('notification', { type: 'notification', message: 'Pocket spell not found.', level: 'error' });
+    return;
+  }
+
+  const spell = contentRegistry.spells.get(pocket.spellId);
+  const recipientSessionId = targetPlayerId ?? client.sessionId;
+  const resolved = ctx.resolvePlayer?.(recipientSessionId);
+  if (!resolved) {
+    client.send('notification', { type: 'notification', message: 'Target not in reach.', level: 'error' });
+    return;
+  }
+
+  const targetIsSelf = recipientSessionId === client.sessionId;
+  if (!targetIsSelf) {
+    if (resolved.player.scene !== player.scene) {
+      client.send('notification', { type: 'notification', message: 'Target is not in the same place as you.', level: 'error' });
+      return;
+    }
+    const dx = Math.abs(resolved.player.x - player.x);
+    const dy = Math.abs(resolved.player.y - player.y);
+    if (dx > 24 || dy > 24) {
+      client.send('notification', { type: 'notification', message: 'Target is too far — move closer to touch range.', level: 'error' });
+      return;
+    }
+  }
+
+  const beforeQuest = data.progression.questProgress.quest_first_steps?.completedAt;
+  const outcome = resolveAndReleasePocketSpell(
+    pocket,
+    data.progression,
+    player.stats,
+    resolved.player.stats,
+    resolved.player.aura as AuraState,
+    targetIsSelf,
+    player.aura as AuraState
+  );
+
+  if (!('cast' in outcome)) {
+    client.send('notification', { type: 'notification', message: outcome.error ?? 'Release failed.', level: 'error' });
+    return;
+  }
+
+  const { cast, resolution, appliedToTarget } = outcome;
+  data.progression = cast.progression!;
+  player.stats = cast.stats!;
+
+  if (appliedToTarget) {
+    const applied = applyPocketSpellToRecipient(
+      cast.spellId!,
+      resolution.effectivePotency,
+      resolved.player.stats,
+      resolved.player.aura as AuraState,
+      player.dbPlayerId,
+      player.displayName
+    );
+    resolved.player.stats = applied.stats;
+    resolved.player.aura = applied.aura;
+  }
+
+  void logSpellCast(
+    player.dbPlayerId,
+    cast.spellId!,
+    appliedToTarget,
+    Math.round(resolution.effectivePotency),
+    recipientSessionId
+  );
+  if (appliedToTarget) {
+    data.progression = questSystem.onSpellCast(data.progression, cast.spellId!);
+  }
+  const afterQuest = data.progression.questProgress.quest_first_steps?.completedAt;
+  if (!beforeQuest && afterQuest) completeQuestRewards(ctx, 'quest_first_steps');
+
+  ctx.sendProgression(client, data.progression);
+  ctx.sendPlayerSync(client, player);
+
+  if (resolved.client && !targetIsSelf) {
+    if (appliedToTarget) ctx.sendPlayerSync(resolved.client, resolved.player);
+    resolved.client.send('pocket_spell_result', {
+      type: 'pocket_spell_result',
+      success: appliedToTarget,
+      blocked: resolution.blocked,
+      partial: resolution.partial,
+      detected: resolution.detected,
+      fromName: player.displayName,
+      spellId: cast.spellId,
+      message: appliedToTarget
+        ? `${player.displayName} releases ${spell?.name ?? cast.spellId} upon you.`
+        : resolution.blocked
+          ? `A pocket working glances off your wards.`
+          : `${player.displayName}'s pocket working falters before it takes hold.`,
+    });
+    if (resolution.detected) {
+      resolved.client.send('notification', {
+        type: 'notification',
+        message: 'You sense a pocket working directed at you…',
+        level: 'warn',
+      });
+    }
+  }
+
+  client.send('pocket_spell_result', {
+    type: 'pocket_spell_result',
+    success: appliedToTarget,
+    blocked: resolution.blocked,
+    partial: resolution.partial,
+    backlash: resolution.backlashTriggered,
+    detected: resolution.detected,
+    potency: Math.round(resolution.effectivePotency),
+    spellId: cast.spellId,
+    message: resolution.message,
+    detail: resolution.detailMessage,
+  });
+
+  if (appliedToTarget) {
+    const skill = grantSkillXp(player.stats, data.progression, 'ritualSkill', 4);
+    player.stats = skill.stats;
+    data.progression = skill.progression;
+    ctx.sendProgression(client, data.progression);
+    ctx.sendPlayerSync(client, player);
+  }
+  // HUD shows “Working Complete” from pocket_spell_result — avoid a duplicate Notice toast.
+}
+
+export function handleExperiment(ctx: HandlerCtx, itemIds: string[]): void {
+  const { player, data, client } = ctx;
+  const result = craftingSystem.experiment(itemIds, player.inventory, data.progression);
+  if (!result.ok) {
+    client.send('notification', { type: 'notification', message: result.error ?? 'Experiment failed.', level: 'error' });
+    return;
+  }
+  data.progression = result.progression!;
+  ctx.sendProgression(client, data.progression);
+  client.send('notification', {
+    type: 'notification',
+    message: result.message ?? 'You note new correspondences in your journal.',
+    level: 'success',
+  });
+}
+
+export function handleInteractCrafting(
+  ctx: HandlerCtx,
+  stationType: string,
+  interactableId: string
+): void {
+  if (stationType === 'enchanting_table') {
+    handleInteractHexagram(ctx, interactableId);
+    return;
+  }
+  const { client } = ctx;
+  const recipes = craftingSystem.listKnownRecipes(ctx.data.progression, stationType);
+  client.send('open_ui', {
+    ui: 'crafting',
+    stationType,
+    interactableId,
+    recipes: recipes.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      inputs: r.inputs,
+      output: r.output,
+      effect: r.effect ?? 'item',
+      meCost: r.meCost,
+    })),
+  });
+}
+
+export function handleInteractHexagram(ctx: HandlerCtx, interactableId: string): void {
+  const { client } = ctx;
+  const recipes = hexagramEnchantSystem.listKnown(ctx.data.progression);
+  client.send('open_ui', {
+    ui: 'hexagram',
+    interactableId,
+    recipes: recipes.map((r) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      description: r.description,
+      declarationTemplates: r.declarationTemplates,
+      difficulty: r.difficulty,
+      meCost: r.meCost,
+      powerTier: r.powerTier,
+      preparedUses: r.preparedUses,
+      activationMethod: r.activationMethod,
+      durationLabel: r.durationLabel,
+      requiredSkill: r.requiredSkill,
+      sockets: r.sockets,
+      augmentations: r.augmentations ?? [],
+      effect: r.effect,
+      spellId: r.spellId,
+      visualTheme: r.visualTheme,
+    })),
+  });
+}
+
+export function handleHexagramEnchant(
+  ctx: HandlerCtx,
+  payload: {
+    recipeId: string;
+    sockets: Partial<Record<string, string>>;
+    augmentations: string[];
+    declaration: string;
+  }
+): void {
+  const { client, player, data } = ctx;
+  const result = hexagramEnchantSystem.enchant(
+    {
+      recipeId: payload.recipeId,
+      sockets: payload.sockets as HexagramEnchantPayload['sockets'],
+      augmentations: payload.augmentations,
+      declaration: payload.declaration,
+    },
+    player.inventory,
+    data.progression,
+    player.stats,
+    player.aura as AuraState
+  );
+  if (!result.ok) {
+    if (result.inventory) player.inventory = result.inventory;
+    if (result.progression) data.progression = result.progression;
+    if (result.stats) player.stats = result.stats;
+    ctx.sendProgression(client, data.progression);
+    ctx.sendPlayerSync(client, player);
+    const failMessage = result.message ?? result.error ?? 'The working fails.';
+    client.send('hexagram_result', {
+      success: false,
+      unstable: result.unstable ?? false,
+      message: failMessage,
+    });
+    client.send('chat', {
+      from: 'System',
+      message: failMessage,
+      channel: 'system',
+      timestamp: Date.now(),
+    });
+    return;
+  }
+  player.inventory = result.inventory!;
+  data.progression = result.progression!;
+  if (result.stats) player.stats = result.stats;
+  ctx.sendProgression(client, data.progression);
+  ctx.sendPlayerSync(client, player);
+  const successMessage = result.message ?? 'Enchantment complete.';
+  client.send('hexagram_result', {
+    success: true,
+    unstable: result.unstable ?? false,
+    message: successMessage,
+    preview: result.preview,
+  });
+  client.send('chat', {
+    from: 'System',
+    message: successMessage,
+    channel: 'system',
+    timestamp: Date.now(),
+  });
+}
+
+export function handleInteractCleanser(ctx: HandlerCtx): void {
+  const { client, player, data } = ctx;
+  const { aura: stripped, removed, totalRemoved } = applyCleanserToAura(player.aura);
+
+  player.aura = auraSystem.applyMoralityDelta(stripped, -CLEANSER_MORALITY_COST);
+  player.stats = {
+    ...player.stats,
+    morality: Math.max(-100, Math.min(100, player.stats.morality - CLEANSER_MORALITY_COST)),
+  };
+  data.aura = player.aura;
+
+  ctx.refreshWardWeb?.(client.sessionId);
+  ctx.sendPlayerSync(client, player);
+
+  client.send('chat', {
+    from: 'System',
+    message: formatCleanserMessage(removed, totalRemoved),
+    channel: 'system',
+    timestamp: Date.now(),
+  });
+}
+
+export function checkInteractAvailable(
+  interactableType: string,
+  data: Record<string, unknown> | undefined,
+  interactableId: string
+): { available: boolean; message?: string } {
+  return isInteractableNpcAvailable(interactableType, data, interactableId);
+}
+
+export async function tickStudyCircleEvents(clients: Client[]): Promise<void> {
+  const hour = getWorldHour();
+  if (hour !== 18) return;
+  let active = false;
+  try {
+    const event = await prisma.contentEvent.findFirst({
+      where: { active: true, slug: { contains: 'study' } },
+    });
+    active = !!event;
+  } catch {
+    active = hour === 18;
+  }
+  if (!active) return;
+  for (const client of clients) {
+    client.send('notification', {
+      type: 'notification',
+      message: 'The study circle gathers at the park — Rowan awaits practitioners.',
+      level: 'info',
+    });
+  }
+}
+
+export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
+  const quest = questSystem.quests.get(questId);
+  if (!quest?.rewards) return;
+  const { player, data } = ctx;
+  if (quest.rewards.items) {
+    let inv = player.inventory;
+    for (const item of quest.rewards.items) {
+      inv = addItemToInventory(inv, item.itemId, item.quantity);
+    }
+    player.inventory = inv;
+  }
+  if (quest.rewards.stats) {
+    let stats = player.stats;
+    for (const [k, v] of Object.entries(quest.rewards.stats)) {
+      const key = k as keyof PlayerStats;
+      if (typeof stats[key] === 'number') {
+        stats = { ...stats, [key]: clampPlayerStatValue(key, (stats[key] as number) + v, stats.experience) };
+      }
+    }
+    player.stats = stats;
+  }
+  if (quest.rewards.reputation) {
+    player.stats = applyReputation(player.stats, quest.rewards.reputation);
+  }
+  ctx.sendPlayerSync(ctx.client, player);
+}

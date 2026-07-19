@@ -1,0 +1,338 @@
+#altar-panel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(8, 6, 10, 0.88);
+  backdrop-filter: blur(2px);
+  font-family: var(--hud-font-body, 'EB Garamond', Georgia, serif);
+  color: var(--parchment, #e8dcc8);
+  overflow: hidden;
+}
+
+#altar-panel .altar-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+#altar-panel .altar-sidebar {
+  width: 200px;
+  background: linear-gradient(180deg, #2a2018, #1a1410);
+  border-right: 2px solid var(--brass-dim, #7a6238);
+  padding: 10px;
+  overflow-y: auto;
+  box-shadow: inset -4px 0 12px rgba(0, 0, 0, 0.25);
+}
+
+#altar-panel .altar-sidebar-label {
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass-bright, #e8c878);
+  margin-bottom: 10px;
+}
+
+#altar-panel .altar-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  overflow-y: auto;
+  background: rgba(10, 8, 14, 0.5);
+}
+
+#altar-panel .altar-main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(184, 146, 74, 0.2);
+  margin-bottom: 10px;
+}
+
+#altar-panel .altar-main-header h2 {
+  margin: 0;
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 1.05rem;
+  color: var(--brass-bright, #e8c878);
+  letter-spacing: 0.05em;
+}
+
+#altar-panel .inv-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  margin: 3px 0;
+  background: rgba(26, 20, 16, 0.85);
+  border: 1px solid rgba(122, 98, 56, 0.35);
+  font-size: 0.72rem;
+  cursor: grab;
+}
+
+#altar-panel .inv-row:hover {
+  border-color: var(--brass-dim, #7a6238);
+}
+
+#altar-panel #pentacle-canvas {
+  background: radial-gradient(ellipse at center, #1a1428 0%, #0e0818 70%) !important;
+  border: 2px solid var(--brass-dim, #7a6238) !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.5);
+}
+
+#altar-panel .altar-canvas-hint {
+  font-size: 0.65rem;
+  color: #887868;
+  text-align: center;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+#altar-panel .altar-work-area {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+#altar-panel .altar-controls {
+  flex: 1;
+  min-width: 200px;
+  font-size: 0.75rem;
+}
+
+#altar-panel .altar-section-label {
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #988868;
+  margin: 12px 0 6px;
+}
+
+#altar-panel .altar-section-label:first-child {
+  margin-top: 0;
+}
+
+#altar-panel .time-btn,
+#altar-panel .target-btn,
+#altar-panel #target-self,
+#altar-panel #fam-assist {
+  margin: 2px;
+  padding: 4px 8px;
+  background: #1a1410;
+  border: 1px solid var(--brass-dim, #7a6238);
+  color: var(--parchment, #e8dcc8);
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
+#altar-panel .time-btn:hover,
+#altar-panel .target-btn:hover,
+#altar-panel #target-self:hover {
+  border-color: var(--brass-bright, #e8c878);
+}
+
+#altar-panel .time-btn.is-active,
+#altar-panel .target-btn.is-active,
+#altar-panel #target-self.is-active {
+  border-color: var(--brass-bright, #e8c878);
+  color: var(--brass-bright, #e8c878);
+  background: #443018;
+}
+
+#altar-panel #taglock-add {
+  width: 100%;
+  padding: 6px 8px;
+  background: #1a1410;
+  border: 1px solid var(--brass-dim, #7a6238);
+  color: var(--parchment, #e8dcc8);
+  font-family: var(--hud-font-body, 'EB Garamond', Georgia, serif);
+}
+
+#altar-panel #cast-sigil {
+  padding: 10px 22px;
+  background: linear-gradient(180deg, #4a3018, #2a1808);
+  border: 2px solid var(--brass-bright, #e8c878);
+  color: var(--brass-bright, #e8c878);
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(200, 168, 96, 0.15);
+}
+
+#altar-panel #cast-sigil:hover {
+  box-shadow: 0 0 20px rgba(200, 168, 96, 0.35);
+}
+
+#altar-panel #altar-msg {
+  color: #88c888 !important;
+  font-style: italic;
+}
+
+#altar-panel #ambiance-row {
+  font-size: 0.68rem;
+  color: #988868;
+}
+
+#altar-panel .altar-spell-picker {
+  position: relative;
+  max-width: 420px;
+}
+
+#altar-panel .altar-spell-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #2a2018, #141018);
+  border: 1px solid var(--brass-dim, #7a6238);
+  border-radius: 2px;
+  color: var(--parchment, #e8dcc8);
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(232, 200, 120, 0.1);
+}
+
+#altar-panel .altar-spell-trigger:hover {
+  border-color: var(--brass-bright, #e8c878);
+}
+
+#altar-panel .altar-spell-trigger .altar-spell-caret {
+  color: var(--brass-bright, #e8c878);
+  font-size: 0.65rem;
+  margin-left: 8px;
+}
+
+#altar-panel .altar-spell-menu {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 220px;
+  overflow-y: auto;
+  background: #141018;
+  border: 1px solid var(--brass-dim, #7a6238);
+  border-radius: 2px;
+  z-index: 20;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+}
+
+#altar-panel .altar-spell-menu.open {
+  display: block;
+}
+
+#altar-panel .altar-spell-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(122, 98, 56, 0.25);
+  color: #c8b8a8;
+  font-family: var(--hud-font-body, 'EB Garamond', Georgia, serif);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+#altar-panel .altar-spell-option:last-child {
+  border-bottom: none;
+}
+
+#altar-panel .altar-spell-option:hover,
+#altar-panel .altar-spell-option.selected {
+  background: rgba(74, 40, 104, 0.35);
+  color: var(--brass-bright, #e8c878);
+}
+
+#altar-panel .altar-spell-option .altar-spell-me {
+  display: block;
+  color: #8898c8;
+  font-size: 0.65rem;
+  margin-top: 2px;
+}
+
+#altar-spell-tooltip {
+  position: fixed;
+  z-index: 9600;
+  pointer-events: none;
+  max-width: 300px;
+  padding: 10px 12px;
+  background: linear-gradient(165deg, #2a2018, #141018);
+  border: 1px solid var(--brass-dim, #7a6238);
+  border-radius: 2px;
+  font-family: var(--hud-font-body, 'EB Garamond', Georgia, serif);
+  font-size: 0.72rem;
+  color: var(--parchment, #e8dcc8);
+  line-height: 1.45;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+}
+
+#altar-spell-tooltip .altar-tip-title {
+  color: var(--brass-bright, #e8c878);
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+#altar-spell-tooltip .altar-tip-desc {
+  color: #d8ccb8;
+  margin-bottom: 8px;
+}
+
+#altar-spell-tooltip .altar-tip-row {
+  margin: 3px 0;
+  color: #a89888;
+}
+
+#altar-spell-tooltip .altar-tip-row span {
+  color: #988868;
+}
+
+#altar-spell-tooltip .altar-tip-boosters {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(184, 146, 74, 0.3);
+  color: #98b898;
+}
+
+#altar-spell-tooltip .altar-tip-boosters ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+
+#altar-spell-tooltip .altar-tip-muted {
+  margin-top: 8px;
+  color: #786858;
+  font-style: italic;
+}
+
+#altar-panel .altar-cast-row {
+  text-align: center;
+  margin-top: 8px;
+}
+
+#altar-panel .altar-cast-options {
+  font-size: 0.72rem;
+  color: #a89888;
+  margin-left: 12px;
+}
+
+#altar-panel .altar-working-block {
+  margin-top: 12px;
+}
+
+#altar-panel #spell-me-info {
+  font-size: 0.75rem;
+  color: #8898c8 !important;
+  margin-top: 6px;
+}

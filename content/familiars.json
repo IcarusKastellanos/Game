@@ -1,0 +1,42 @@
+[
+  {
+    "id": "cat_familiar",
+    "species": "cat",
+    "defaultPublicName": "Morgana",
+    "description": "A black cat familiar. Boosts magical potency and protection.",
+    "statBonuses": { "magicalEnergy": 5, "protection": 3 },
+    "vulnerabilities": []
+  },
+  {
+    "id": "owl_familiar",
+    "species": "owl",
+    "defaultPublicName": "Hecate",
+    "description": "A silent owl. Extends spell duration and spirit communication.",
+    "statBonuses": { "divinationSkill": 4, "spiritualAwareness": 3 },
+    "vulnerabilities": []
+  },
+  {
+    "id": "frog_familiar",
+    "species": "frog",
+    "defaultPublicName": "Puddle",
+    "description": "A pond frog. Improves herbalism and cleansing work.",
+    "statBonuses": { "herbalism": 5, "healing": 3 },
+    "vulnerabilities": []
+  },
+  {
+    "id": "rat_familiar",
+    "species": "rat",
+    "defaultPublicName": "Whiskers",
+    "description": "A clever rat. Improves scavenging and hunger resistance.",
+    "statBonuses": { "health": 5, "hunger": 10 },
+    "vulnerabilities": []
+  },
+  {
+    "id": "snake_familiar",
+    "species": "snake",
+    "defaultPublicName": "Asp",
+    "description": "A serpent familiar. Strengthens baneful magic but attracts hostile spirits.",
+    "statBonuses": { "cursecraft": 6, "protection": 2 },
+    "vulnerabilities": ["demons", "ghosts", "hostile_spirits"]
+  }
+]

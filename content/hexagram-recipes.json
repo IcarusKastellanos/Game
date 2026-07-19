@@ -1,0 +1,495 @@
+[
+  {
+    "id": "recipe_pocket_healing_charm",
+    "name": "Pocket: Healing Charm",
+    "category": "pocket_spell",
+    "description": "Condense restorative intent into a touch-range charm carried into the world.",
+    "declarationTemplates": [
+      "I prepare this charm so healing may answer when flesh fails.",
+      "I bind gentle mending into this vessel for the one who carries it."
+    ],
+    "difficulty": 12,
+    "meCost": 5,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "healing", "min": 5 },
+    "effect": "pocket_spell",
+    "spellId": "healing_charm",
+    "visualTheme": "healing",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "soundTheme": "soft_bell",
+    "animationSet": "golden_pulse",
+    "sockets": [
+      { "socket": "core", "itemIds": ["white_candle"], "label": "Flame of mending" },
+      { "socket": "power", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
+      { "socket": "offering", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+    ],
+    "augmentations": [
+      { "itemId": "rosemary", "stability": 5, "potency": 2, "visualHint": "healing" },
+      { "itemId": "frankincense", "stability": 8, "visualHint": "spirit" },
+      { "itemId": "myrrh", "stability": 6, "backlash": -3 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_evil_eye_removal",
+    "name": "Pocket: Evil Eye Removal",
+    "category": "pocket_spell",
+    "description": "Bottle a cleansing working against the evil eye for immediate release.",
+    "declarationTemplates": [
+      "I prepare this working to break what was sent with jealous eyes.",
+      "No hostile gaze shall cling to the bearer of this charm."
+    ],
+    "difficulty": 18,
+    "meCost": 10,
+    "powerTier": 3,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "ritualSkill", "min": 8 },
+    "effect": "pocket_spell",
+    "spellId": "evil_eye_removal",
+    "visualTheme": "protection",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["evil_eye_bead"] },
+      { "socket": "protection", "itemIds": ["salt"], "categories": ["minerals"] },
+      { "socket": "binding", "itemIds": ["sage"], "categories": ["herbs"] },
+      { "socket": "power", "itemIds": ["sage"], "categories": ["herbs"] }
+    ],
+    "augmentations": [
+      { "itemId": "salt", "stability": 6, "power": 3, "visualHint": "protection" },
+      { "itemId": "frankincense", "stability": 5, "visualHint": "spirit" }
+    ]
+  },
+  {
+    "id": "recipe_pocket_protection_candle",
+    "name": "Pocket: Protection Candle",
+    "category": "pocket_spell",
+    "description": "Seal protective flame-intent for quick casting away from the altar.",
+    "declarationTemplates": [
+      "I prepare this flame to stand between harm and the one who carries it.",
+      "Let no working pass unchallenged while this charm is held."
+    ],
+    "difficulty": 15,
+    "meCost": 8,
+    "powerTier": 3,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "effect": "pocket_spell",
+    "spellId": "protection_candle",
+    "visualTheme": "protection",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
+      { "socket": "protection", "itemIds": ["salt"], "categories": ["minerals"] },
+      { "socket": "power", "itemIds": ["rosemary"], "categories": ["herbs"] }
+    ],
+    "augmentations": [
+      { "itemId": "rosemary", "power": 2, "stability": 4 },
+      { "itemId": "myrrh", "stability": 8, "backlash": -2 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_weakening_hex",
+    "name": "Pocket: Weakening Hex",
+    "category": "pocket_spell",
+    "description": "Condense a hex that saps magical vigor and outer defenses on touch.",
+    "declarationTemplates": [
+      "I prepare this hex to drain the strength of hostile workings.",
+      "Let power leak from the one this charm finds."
+    ],
+    "difficulty": 22,
+    "meCost": 8,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "cursecraft", "min": 8 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_weakening_hex",
+    "visualTheme": "baneful",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["poppet_cloth"], "categories": ["poppets"] },
+      { "socket": "power", "itemIds": ["black_candle"], "categories": ["candles"] },
+      { "socket": "influence", "itemIds": ["iron_nail"], "categories": ["minerals"] }
+    ],
+    "augmentations": [
+      { "itemId": "myrrh", "stability": 5, "potency": 2 },
+      { "itemId": "salt", "stability": 4, "visualHint": "protection" }
+    ]
+  },
+  {
+    "id": "recipe_pocket_sleep_charm",
+    "name": "Pocket: Sleep Charm",
+    "category": "pocket_spell",
+    "description": "Bind drowsy intent into a touch-range sleeping charm.",
+    "declarationTemplates": [
+      "I prepare this charm to still the waking mind.",
+      "Let heavy slumber answer when this working is released."
+    ],
+    "difficulty": 20,
+    "meCost": 7,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "ritualSkill", "min": 7 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_sleep_charm",
+    "visualTheme": "dream",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
+      { "socket": "binding", "itemIds": ["white_candle"], "categories": ["candles"] },
+      { "socket": "offering", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+    ],
+    "augmentations": [
+      { "itemId": "frankincense", "stability": 6, "visualHint": "spirit" },
+      { "itemId": "myrrh", "stability": 5, "duration": 4 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_fear_working",
+    "name": "Pocket: Fear Working",
+    "category": "pocket_spell",
+    "description": "Bottle dread and unease for immediate release upon a foe.",
+    "declarationTemplates": [
+      "I prepare this working to unmake courage at the touch.",
+      "Let fear take root where this charm is laid."
+    ],
+    "difficulty": 24,
+    "meCost": 9,
+    "powerTier": 3,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "cursecraft", "min": 10 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_fear_working",
+    "visualTheme": "baneful",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
+      { "socket": "power", "itemIds": ["iron_nail"], "categories": ["minerals"] },
+      { "socket": "influence", "itemIds": ["poppet_cloth"], "categories": ["poppets"] }
+    ],
+    "augmentations": [
+      { "itemId": "salt", "stability": 4, "backlash": -2 },
+      { "itemId": "myrrh", "potency": 3, "stability": 4 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_pain_touch",
+    "name": "Pocket: Pain Charm",
+    "category": "pocket_spell",
+    "description": "Pin sympathetic pain into a charm for a single cruel release.",
+    "declarationTemplates": [
+      "I prepare this charm that pain may answer my touch.",
+      "Let suffering find the flesh this working seeks."
+    ],
+    "difficulty": 26,
+    "meCost": 10,
+    "powerTier": 3,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "cursecraft", "min": 12 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_pain_touch",
+    "visualTheme": "baneful",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["poppet_cloth"], "categories": ["poppets"] },
+      { "socket": "binding", "itemIds": ["iron_nail"], "categories": ["minerals"] },
+      { "socket": "power", "itemIds": ["black_candle"], "categories": ["candles"] }
+    ],
+    "augmentations": [
+      { "itemId": "myrrh", "stability": 4, "potency": 4, "backlash": 3 },
+      { "itemId": "salt", "stability": 5, "backlash": -2 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_binding_touch",
+    "name": "Pocket: Binding Touch",
+    "category": "pocket_spell",
+    "description": "Weave a short binding into a carried charm for touch release.",
+    "declarationTemplates": [
+      "I prepare this binding to hinder harmful action.",
+      "Let will and motion be checked where this charm alights."
+    ],
+    "difficulty": 28,
+    "meCost": 10,
+    "powerTier": 3,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "ritualSkill", "min": 10 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_binding_touch",
+    "visualTheme": "binding",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["written_petition"], "categories": ["written_petitions"] },
+      { "socket": "binding", "itemIds": ["iron_nail"], "categories": ["minerals"] },
+      { "socket": "offering", "itemIds": ["black_candle"], "categories": ["candles"] }
+    ],
+    "augmentations": [
+      { "itemId": "salt", "power": 3, "stability": 5, "visualHint": "binding" },
+      { "itemId": "frankincense", "stability": 4 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_misfortune_hex",
+    "name": "Pocket: Misfortune Hex",
+    "category": "pocket_spell",
+    "description": "Seal ill luck into a charm that turns fortune against its target.",
+    "declarationTemplates": [
+      "I prepare this hex that chance may turn against my enemy.",
+      "Let misfortune cling where this working lands."
+    ],
+    "difficulty": 18,
+    "meCost": 7,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "cursecraft", "min": 6 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_misfortune_hex",
+    "visualTheme": "baneful",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
+      { "socket": "influence", "itemIds": ["salt"], "categories": ["minerals"] },
+      { "socket": "offering", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+    ],
+    "augmentations": [
+      { "itemId": "rosemary", "potency": 2, "stability": 3 },
+      { "itemId": "myrrh", "stability": 6 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_divination_lens",
+    "name": "Pocket: Seer's Lens",
+    "category": "pocket_spell",
+    "description": "Condense second sight into a charm — release on touch to sharpen divination.",
+    "declarationTemplates": [
+      "I prepare this lens so hidden signs may be read.",
+      "Let the inner eye open when this charm is invoked."
+    ],
+    "difficulty": 16,
+    "meCost": 6,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Touch self or ally — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "divinationSkill", "min": 6 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_divination_lens",
+    "visualTheme": "spirit",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": true,
+    "sockets": [
+      { "socket": "core", "itemIds": ["white_candle"], "categories": ["candles"] },
+      { "socket": "communication", "itemIds": ["frankincense"], "categories": ["incense"] },
+      { "socket": "power", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+    ],
+    "augmentations": [
+      { "itemId": "frankincense", "potency": 3, "stability": 5, "visualHint": "spirit" },
+      { "itemId": "rosemary", "stability": 4 }
+    ]
+  },
+  {
+    "id": "recipe_pocket_divination_veil",
+    "name": "Pocket: Divination Veil",
+    "category": "pocket_spell",
+    "description": "Blind another's inner sight with a touch-released veil.",
+    "declarationTemplates": [
+      "I prepare this veil to cloud what the target would see.",
+      "Let omens turn to smoke before their inner eye."
+    ],
+    "difficulty": 22,
+    "meCost": 8,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "cursecraft", "min": 8 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_divination_veil",
+    "visualTheme": "dream",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
+      { "socket": "communication", "itemIds": ["myrrh"], "categories": ["incense"] },
+      { "socket": "influence", "itemIds": ["salt"], "categories": ["minerals"] }
+    ],
+    "augmentations": [
+      { "itemId": "myrrh", "potency": 3, "stability": 5 },
+      { "itemId": "frankincense", "stability": 4, "visualHint": "spirit" }
+    ]
+  },
+  {
+    "id": "recipe_pocket_silencing_touch",
+    "name": "Pocket: Silencing Touch",
+    "category": "pocket_spell",
+    "description": "Bind speech and spell alike into a single-use silencing charm.",
+    "declarationTemplates": [
+      "I prepare this charm that harmful words may fail.",
+      "Let tongue and working be stilled where this is laid."
+    ],
+    "difficulty": 19,
+    "meCost": 7,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Touch target — instant release",
+    "durationLabel": "Single use",
+    "requiredSkill": { "stat": "ritualSkill", "min": 7 },
+    "effect": "pocket_spell",
+    "spellId": "pocket_silencing_touch",
+    "visualTheme": "binding",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["written_petition"], "categories": ["written_petitions"] },
+      { "socket": "binding", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
+      { "socket": "communication", "itemIds": ["frankincense"], "categories": ["incense"] }
+    ],
+    "augmentations": [
+      { "itemId": "salt", "stability": 5, "visualHint": "binding" },
+      { "itemId": "myrrh", "stability": 4, "backlash": -2 }
+    ]
+  },
+  {
+    "id": "recipe_enchant_knot_protection",
+    "name": "Enchant Knot — Strong Protection",
+    "category": "familiar_knot",
+    "description": "Weave a familiar knot ward with heightened strength and duration.",
+    "declarationTemplates": [
+      "I prepare this knot so that no hostile working may find my familiar.",
+      "This binding shall guard my companion against curse and claw."
+    ],
+    "difficulty": 16,
+    "meCost": 8,
+    "powerTier": 3,
+    "preparedUses": 1,
+    "activationMethod": "Equip on familiar",
+    "durationLabel": "Hours — scales with stability",
+    "effect": "enchant_knot",
+    "enchantIntent": "familiar_protection",
+    "visualTheme": "binding",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["familiar_knot"] },
+      { "socket": "protection", "itemIds": ["salt"], "categories": ["minerals"] },
+      { "socket": "binding", "itemIds": ["rosemary"], "categories": ["herbs"] }
+    ],
+    "augmentations": [
+      { "itemId": "salt", "power": 4, "stability": 6, "visualHint": "protection" },
+      { "itemId": "frankincense", "stability": 5, "visualHint": "spirit" }
+    ]
+  },
+  {
+    "id": "recipe_enchant_knot_longevity",
+    "name": "Enchant Knot — Long Duration",
+    "category": "familiar_knot",
+    "description": "Extend how long the knot ward holds against unraveling.",
+    "declarationTemplates": [
+      "I bind time itself into this knot that it may endure.",
+      "Let this ward persist beyond the turning of the moon."
+    ],
+    "difficulty": 14,
+    "meCost": 8,
+    "powerTier": 2,
+    "preparedUses": 1,
+    "activationMethod": "Equip on familiar",
+    "durationLabel": "Extended hours",
+    "effect": "enchant_knot",
+    "enchantIntent": "longevity",
+    "visualTheme": "spirit",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["familiar_knot"] },
+      { "socket": "influence", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
+      { "socket": "offering", "itemIds": ["white_candle"], "categories": ["candles"] }
+    ],
+    "augmentations": [
+      { "itemId": "myrrh", "duration": 12, "stability": 8 },
+      { "itemId": "frankincense", "stability": 6, "visualHint": "spirit" }
+    ]
+  },
+  {
+    "id": "recipe_enchant_knot_ward",
+    "name": "Enchant Knot — Ward Strength",
+    "category": "familiar_knot",
+    "description": "Focus the knot's warding power against magical intrusion.",
+    "declarationTemplates": [
+      "I strengthen the ward woven into this knot.",
+      "No spirit nor spell shall pass this binding lightly."
+    ],
+    "difficulty": 15,
+    "meCost": 8,
+    "powerTier": 3,
+    "preparedUses": 1,
+    "activationMethod": "Equip on familiar",
+    "effect": "enchant_knot",
+    "enchantIntent": "ward_strength",
+    "visualTheme": "protection",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": false,
+    "sockets": [
+      { "socket": "core", "itemIds": ["familiar_knot"] },
+      { "socket": "power", "itemIds": ["rosemary"], "categories": ["herbs"] },
+      { "socket": "communication", "itemIds": ["frankincense"], "categories": ["incense"] }
+    ],
+    "augmentations": [
+      { "itemId": "frankincense", "potency": 4, "stability": 5 },
+      { "itemId": "salt", "power": 3, "visualHint": "protection" }
+    ]
+  },
+  {
+    "id": "hex_charm_good_fortune",
+    "name": "Charm of Good Fortune",
+    "category": "charm",
+    "description": "A passive charm that whispers luck to its bearer.",
+    "declarationTemplates": [
+      "I prepare this charm to turn fortune toward the one who carries it.",
+      "May chance favor the bearer when the path grows narrow."
+    ],
+    "difficulty": 10,
+    "meCost": 6,
+    "powerTier": 2,
+    "preparedUses": 3,
+    "activationMethod": "Carried — passive",
+    "durationLabel": "Until uses exhausted",
+    "effect": "item",
+    "output": { "itemId": "evil_eye_bead", "quantity": 1 },
+    "visualTheme": "healing",
+    "stationType": "enchanting_table",
+    "discoverOnCraft": true,
+    "sockets": [
+      { "socket": "core", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
+      { "socket": "influence", "itemIds": ["rosemary"], "categories": ["herbs"] },
+      { "socket": "offering", "itemIds": ["white_candle"], "categories": ["candles"] }
+    ],
+    "augmentations": [
+      { "itemId": "rosemary", "potency": 3, "stability": 4 }
+    ]
+  }
+]

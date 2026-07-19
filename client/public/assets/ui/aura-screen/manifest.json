@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "baseUrl": "/assets/ui/aura-screen/",
+  "source": "recreated",
+  "note": "Pixel-art assets programmatically recreated from the Aura & Wards reference palette and layout (not cropped/extracted). Regenerate via npm run assets:aura.",
+  "generatedAt": "2026-07-14T04:45:46.803Z",
+  "layers": [
+    "aura-screen-frame",
+    "panel backgrounds",
+    "decorative borders",
+    "occult-circle-background",
+    "perimeter-ring",
+    "ward-ring",
+    "aura-ring",
+    "player-aura-silhouette",
+    "protection-node / familiar nodes",
+    "effects (damage, blessing, hex)",
+    "icons",
+    "pip tiles",
+    "live HTML text (not baked)"
+  ],
+  "stateVariants": {
+    "wardRing": [
+      "inactive",
+      "active",
+      "damaged",
+      "breached"
+    ],
+    "familiarNode": [
+      "unlinked",
+      "linked",
+      "weakened",
+      "blocked"
+    ],
+    "pipTiles": [
+      "off",
+      "health-on",
+      "hunger-on",
+      "stamina-on",
+      "magical-energy-on",
+      "critical-on"
+    ]
+  }
+}

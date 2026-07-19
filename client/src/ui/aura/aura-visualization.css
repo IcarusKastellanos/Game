@@ -1,0 +1,268 @@
+/* Centered aura composition — sizes derived from auraSize, not viewport % */
+
+.aura-visualization-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  contain: layout paint;
+  isolation: isolate;
+}
+
+.aura-visualization {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aura-composition {
+  position: absolute;
+  left: 50%;
+  /* Bias is a small % of the visualization region height (e.g. -2%). */
+  top: calc(50% + var(--aura-center-y-bias, 0%));
+  transform: translate(-50%, -50%);
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.aura-sprite {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  max-width: none;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  image-rendering: auto;
+}
+
+.aura-sprite[data-tip],
+.aura-sprite[tabindex] {
+  pointer-events: auto;
+  cursor: help;
+}
+
+.aura-sprite.silhouette {
+  top: 48%;
+}
+
+.aura-sprite.soul-glow {
+  top: 42%;
+}
+
+.aura-sprite.familiar-node {
+  /* size set inline from auraSize * 0.105 */
+}
+
+/* Animations — only opacity / rotate / tiny scale; never re-size parents */
+@keyframes aura-spin-perimeter {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes aura-spin-ward {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+@keyframes aura-spin-slow {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes aura-spin-vortex {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes aura-haze-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.98); }
+  50% { transform: translate(-50%, -50%) scale(1.02); }
+}
+@keyframes aura-pulse-opacity {
+  0%, 100% { opacity: var(--pulse-min, 0.45); }
+  50% { opacity: var(--pulse-max, 0.95); }
+}
+@keyframes aura-pulse-ring {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.985); opacity: var(--pulse-min, 0.45); }
+  50% { transform: translate(-50%, -50%) scale(1.015); opacity: var(--pulse-max, 0.95); }
+}
+@keyframes aura-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.995); }
+  50% { transform: translate(-50%, -50%) scale(1.01); }
+}
+@keyframes aura-soul {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.45; }
+  50% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.95; }
+}
+@keyframes aura-soul-slow {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.22; }
+  50% { transform: translate(-50%, -50%) scale(0.98); opacity: 0.4; }
+}
+@keyframes aura-soul-uneven {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.35; }
+  40% { transform: translate(-50%, -50%) scale(1.02); opacity: 0.7; }
+  70% { transform: translate(-50%, -50%) scale(0.94); opacity: 0.42; }
+}
+@keyframes aura-silhouette-flicker {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.992); }
+  50% { transform: translate(-50%, -50%) scale(1.008); }
+}
+@keyframes aura-impact {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  35% { transform: translate(-50%, -50%) scale(0.97); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes aura-heal-mote {
+  0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.45; }
+  100% { transform: translate(-50%, -50%) translate(0, 6px) scale(0.55); opacity: 0; }
+}
+@keyframes aura-leak-mote {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0); opacity: 0.15; }
+  50% { transform: translate(-50%, -50%) translateY(-6px); opacity: 0.35; }
+}
+@keyframes aura-crack-fade {
+  from { opacity: 0.55; }
+  to { opacity: var(--crack-opacity, 0.35); }
+}
+@keyframes aura-float {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+  50% { transform: translate(-50%, -50%) translateY(-3px); }
+}
+@keyframes aura-float-up {
+  0%, 100% { transform: translate(-50%, -50%) translateY(4px); opacity: 0.25; }
+  50% { transform: translate(-50%, -50%) translateY(-4px); opacity: 0.5; }
+}
+@keyframes aura-drift {
+  0%, 100% { transform: translate(-50%, -50%) translate(0, 0); }
+  50% { transform: translate(-50%, -50%) translate(2px, -2px); }
+}
+@keyframes aura-glint {
+  0%, 88%, 100% { opacity: 0.1; transform: translate(-50%, -50%) scale(0.9); }
+  92% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); }
+}
+@keyframes aura-mote {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0); opacity: 0.2; }
+  50% { transform: translate(-50%, -50%) translateY(-4px); opacity: 0.45; }
+}
+
+.aura-visualization:not(.reduce-motion):not(.is-paused) .spin-slow {
+  animation: aura-spin-slow 120s linear infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .spin-perimeter {
+  animation: aura-spin-perimeter 95s linear infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .spin-ward {
+  animation: aura-spin-ward 75s linear infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .spin-vortex {
+  animation: aura-spin-vortex 18s linear infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .haze-pulse {
+  animation: aura-haze-pulse 5s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .pulse-aura {
+  --pulse-min: 0.45;
+  --pulse-max: 0.95;
+  animation: aura-pulse-ring 3.5s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .pulse-soul {
+  animation: aura-soul var(--soul-pulse-duration, 2.8s) ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .pulse-soul-slow {
+  animation: aura-soul-slow var(--soul-pulse-duration, 5.2s) ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .pulse-soul-uneven {
+  animation: aura-soul-uneven var(--soul-pulse-duration, 4.4s) ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .silhouette-flicker {
+  animation: aura-silhouette-flicker 3.6s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused).is-impact .aura-composition {
+  animation: aura-impact 0.42s ease-out 1;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .heal-mote {
+  animation: aura-heal-mote 0.9s ease-in forwards;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .leak-mote {
+  animation: aura-leak-mote 5.5s ease-in-out infinite;
+  animation-delay: var(--mote-delay, 0s);
+}
+.aura-visualization .soul-glow.is-ember {
+  filter: saturate(0.7) brightness(0.75);
+}
+.aura-visualization .ring-gap {
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.aura-visualization .health-tint {
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+.aura-visualization .damage-crack {
+  transition: opacity 0.55s ease;
+}
+.aura-visualization.health-full .damage-crack.health-crack {
+  opacity: 0 !important;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .pulse-mid {
+  animation: aura-pulse-opacity 4.2s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .pulse-warn {
+  animation: aura-pulse-opacity 3.8s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .breathe {
+  animation: aura-breathe 4.5s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .float {
+  animation: aura-float 6s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .float-up {
+  animation: aura-float-up 7s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .drift,
+.aura-visualization:not(.reduce-motion):not(.is-paused) .drift-slow {
+  animation: aura-drift 8s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .glint {
+  animation: aura-glint 11s ease-in-out infinite;
+}
+.aura-visualization:not(.reduce-motion):not(.is-paused) .mote {
+  animation: aura-mote var(--mote-duration, 4.8s) ease-in-out infinite;
+  animation-delay: var(--mote-delay, 0s);
+}
+
+.aura-visualization .perimeter.is-inactive,
+.aura-visualization .ward-ring.is-inactive {
+  filter: grayscale(0.45);
+}
+.aura-visualization .familiar-node.is-linked {
+  filter: drop-shadow(0 0 3px rgba(100, 220, 140, 0.35));
+}
+.aura-visualization.health-critical .inner-ring,
+.aura-visualization.health-zero .inner-ring {
+  filter: saturate(0.75) brightness(0.85);
+}
+.aura-visualization.health-wounded .inner-ring {
+  filter: saturate(0.88) brightness(0.92);
+}
+
+/* Reduced motion: keep health state visible (opacity / cracks / gaps), drop flicker & leakage. */
+.aura-visualization.reduce-motion .aura-sprite {
+  animation: none !important;
+}
+.aura-visualization.reduce-motion .leak-mote,
+.aura-visualization.reduce-motion .heal-mote {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-visualization .aura-sprite {
+    animation: none !important;
+  }
+  .aura-visualization .leak-mote,
+  .aura-visualization .heal-mote {
+    display: none;
+  }
+}

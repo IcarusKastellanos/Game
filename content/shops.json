@@ -1,0 +1,50 @@
+[
+  {
+    "id": "metaphysical_shop",
+    "name": "Veiled Moon Metaphysical",
+    "locationId": "metaphysical_shop",
+    "npcId": "npc_mara",
+    "inventory": [
+      { "itemId": "black_candle", "price": 5, "stock": 20 },
+      { "itemId": "white_candle", "price": 4, "stock": 20 },
+      { "itemId": "red_candle", "price": 4, "stock": 15 },
+      { "itemId": "frankincense", "price": 12, "stock": 10 },
+      { "itemId": "myrrh", "price": 10, "stock": 10 },
+      { "itemId": "sage", "price": 6, "stock": 15 },
+      { "itemId": "rosemary", "price": 4, "stock": 20 },
+      { "itemId": "bay_leaf", "price": 3, "stock": 25 },
+      { "itemId": "salt", "price": 2, "stock": 30 },
+      { "itemId": "iron_nail", "price": 8, "stock": 12 },
+      { "itemId": "poppet_cloth", "price": 15, "stock": 8 },
+      { "itemId": "evil_eye_bead", "price": 10, "stock": 10 },
+      { "itemId": "horseshoe", "price": 12, "stock": 6 },
+      { "itemId": "written_petition", "price": 2, "stock": 50 },
+      { "itemId": "book_folk_magic", "price": 45, "stock": 3 },
+      { "itemId": "everweed", "price": 85, "stock": 4 }
+    ],
+    "openHours": { "start": 9, "end": 20 }
+  },
+  {
+    "id": "grocery_store",
+    "name": "Corner Grocery",
+    "locationId": "grocery",
+    "npcId": "npc_tom",
+    "inventory": [
+      { "itemId": "bread", "price": 3, "stock": 30 },
+      { "itemId": "herbal_tea", "price": 5, "stock": 15 },
+      { "itemId": "salt", "price": 2, "stock": 20 }
+    ],
+    "openHours": { "start": 7, "end": 22 }
+  },
+  {
+    "id": "pharmacy",
+    "name": "Town Pharmacy",
+    "locationId": "pharmacy",
+    "npcId": "npc_elena",
+    "inventory": [
+      { "itemId": "herbal_tea", "price": 6, "stock": 20 },
+      { "itemId": "salt", "price": 3, "stock": 15 }
+    ],
+    "openHours": { "start": 8, "end": 18 }
+  }
+]

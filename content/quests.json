@@ -1,0 +1,26 @@
+[
+  {
+    "id": "quest_first_steps",
+    "name": "First Steps on the Path",
+    "description": "Learn the basics of folk magic from Mara and complete your first working.",
+    "npcId": "npc_mara",
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "Mara suggests you gather rosemary and perform a simple healing charm at your altar.",
+        "objective": "Cast healing_charm at your apartment altar."
+      },
+      {
+        "id": "complete",
+        "text": "Mara acknowledges your first successful working.",
+        "complete": true
+      }
+    ],
+    "rewards": {
+      "items": [{ "itemId": "frankincense", "quantity": 2 }],
+      "stats": { "ritualSkill": 2 },
+      "reputation": 5
+    }
+  }
+]

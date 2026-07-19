@@ -1,0 +1,130 @@
+{
+  "copied": 31,
+  "missing": [],
+  "files": [
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_arcane_starburst-c0920ac5-5daf-460d-b39e-6c9ecf0899fc.png",
+      "to": "arcane_starburst.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_aura_breach_ring-0253dbd3-6d70-45be-b13f-7824359094df.png",
+      "to": "aura_breach_ring.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_authority_crown_node-93b01fb7-93ae-4c76-9ec1-3872639f5d03.png",
+      "to": "authority_crown_node.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_blessing_starburst-0a90f2ea-2687-420a-a22b-0c1c5406a0dd.png",
+      "to": "blessing_starburst.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_blue_aura_burst-51796e51-a5e4-4120-aafa-8095c0cc16f8.png",
+      "to": "blue_aura_burst.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_blue_magical_motes-9e3a0990-37be-4f3f-a283-2214ae8b81ca.png",
+      "to": "blue_magical_motes.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_chest_soul_glow-2485e90f-f106-41d3-83a7-b51d8ff39cfd.png",
+      "to": "chest_soul_glow.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_circular_rune_fragments-9fe7477b-feca-4682-a0c9-f11ab8e70e07.png",
+      "to": "circular_rune_fragments.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_dark_corruption_cloud-ccef2580-e99f-4bb4-82d9-8fea87759af0.png",
+      "to": "dark_corruption_cloud.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_empty_protection_node-4aaba439-833f-4c9c-b09c-a0c9c4f721c6.png",
+      "to": "empty_protection_node.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_energetic_damage_crack-7f4e0856-7f76-418b-8c49-b30fe774fcbd.png",
+      "to": "energetic_damage_crack.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_familiar_link_node-cb9173e7-514d-449a-a195-187c30545615.png",
+      "to": "familiar_link_node.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_floating_rune_crystal-f3bf4c7d-3686-4b8f-b4c2-844be5f52c2c.png",
+      "to": "floating_rune_crystal.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_gold_node_divider-85b4d4a4-459e-4769-b6a0-dfece9f3d56d.png",
+      "to": "gold_node_divider.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_hex_pattern_cloud-3b03a44d-a20c-46bc-a85e-fb4e924a4089.png",
+      "to": "hex_pattern_cloud.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_inner_aura_ring-4dddf8de-5337-4bde-a616-05fd32bf54d6.png",
+      "to": "inner_aura_ring.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_occult_circle_base-3c65cf39-8eae-4bfe-8e28-96f5772ae2f2.png",
+      "to": "occult_circle_base.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_ornate_gold_divider-841d71f9-622a-4183-b64a-cab899a6cf78.png",
+      "to": "ornate_gold_divider.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_outer_perimeter_ring-bf93f4b3-90cc-4abf-86c9-01c5c3237cbb.png",
+      "to": "outer_perimeter_ring.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_player_aura_silhouette-e963b1d3-1954-4192-9264-078aa23566e8.png",
+      "to": "player_aura_silhouette.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_protection_shield_node-b14cb76a-a8c5-491d-b278-23a830eb8476.png",
+      "to": "protection_shield_node.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_purple_aura_burst-2537749d-78e3-4c55-a785-6088613c28e7.png",
+      "to": "purple_aura_burst.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_small_golden_glint-65e28689-fbe0-4990-8e66-fe7d6e4b94b8.png",
+      "to": "small_golden_glint.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_spirit_binding_sigil-1e4b224e-dd8c-4333-924b-481c40540748.png",
+      "to": "spirit_binding_sigil.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_spiritual_vortex-214d29be-8216-4b97-9fdf-bb4c0ee07e3a.png",
+      "to": "spiritual_vortex.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_vertical_rune_fragment-a08698bd-4e5f-4ac5-ae25-873cbc34f86d.png",
+      "to": "vertical_rune_fragment.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_ward_ring_with_sigil_nodes-475c7b38-c2c7-49c1-9790-97396feb126e.png",
+      "to": "ward_ring_with_sigil_nodes.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_ward_ritual_seal_node-b9c7c847-ba6b-4603-a0c2-4242577f21c4.png",
+      "to": "ward_ritual_seal_node.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_ward_sigil_a-2d64e1a0-fdfd-423a-bc2e-26bdcd0ead53.png",
+      "to": "ward_sigil_a.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_ward_sigil_b-28b2a0fb-86eb-4454-b58d-1471abcaf83f.png",
+      "to": "ward_sigil_b.png"
+    },
+    {
+      "from": "c__Users_gjern_AppData_Roaming_Cursor_User_workspaceStorage_empty-window_images_ward_sigil_c-185d24c0-3b1d-4b43-9852-5ce268785969.png",
+      "to": "ward_sigil_c.png"
+    }
+  ]
+}

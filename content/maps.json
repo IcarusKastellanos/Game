@@ -1,0 +1,111 @@
+[
+  {
+    "id": "apartment_main",
+    "name": "Player Apartment",
+    "sceneId": "apartment",
+    "width": 16,
+    "height": 12,
+    "tileSize": 16,
+    "layers": {
+      "floor": [],
+      "walls": [],
+      "objects": []
+    },
+    "spawnPoints": [
+      { "id": "default", "x": 8, "y": 10 },
+      { "id": "door", "x": 8, "y": 11 }
+    ],
+    "interactables": [
+      {
+        "id": "apartment_bed",
+        "type": "bed",
+        "x": 3,
+        "y": 5
+      },
+      {
+        "id": "apartment_exit",
+        "type": "door",
+        "x": 8,
+        "y": 11,
+        "targetScene": "town",
+        "targetSpawn": "apartment_building"
+      }
+    ]
+  },
+  {
+    "id": "town_main",
+    "name": "Hollow Creek Town",
+    "sceneId": "town",
+    "width": 32,
+    "height": 24,
+    "tileSize": 16,
+    "layers": {
+      "floor": [],
+      "walls": [],
+      "objects": []
+    },
+    "spawnPoints": [
+      { "id": "default", "x": 16, "y": 20 },
+      { "id": "apartment_building", "x": 16, "y": 8 }
+    ],
+    "interactables": [
+      {
+        "id": "town_apartment_door",
+        "type": "door",
+        "x": 16,
+        "y": 8,
+        "targetScene": "apartment",
+        "targetSpawn": "door"
+      },
+      {
+        "id": "shop_metaphysical",
+        "type": "shop",
+        "x": 6,
+        "y": 10,
+        "data": { "shopId": "metaphysical_shop" }
+      },
+      {
+        "id": "shop_grocery",
+        "type": "shop",
+        "x": 22,
+        "y": 10,
+        "data": { "shopId": "grocery_store" }
+      },
+      {
+        "id": "shop_pharmacy",
+        "type": "shop",
+        "x": 28,
+        "y": 14,
+        "data": { "shopId": "pharmacy" }
+      },
+      {
+        "id": "npc_library",
+        "type": "npc",
+        "x": 10,
+        "y": 18,
+        "data": { "npcId": "npc_librarian" }
+      },
+      {
+        "id": "npc_cafe",
+        "type": "npc",
+        "x": 20,
+        "y": 18,
+        "data": { "npcId": "npc_cafe_owner" }
+      },
+      {
+        "id": "npc_circle",
+        "type": "npc",
+        "x": 4,
+        "y": 20,
+        "data": { "npcId": "npc_circle_leader" }
+      },
+      {
+        "id": "park_entrance",
+        "type": "door",
+        "x": 2,
+        "y": 22,
+        "data": { "label": "Park / Woods" }
+      }
+    ]
+  }
+]

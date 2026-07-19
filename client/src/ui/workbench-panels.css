@@ -1,0 +1,193 @@
+/**
+ * Shared practitioner workbench styling — walnut, brass, parchment.
+ */
+
+.wb-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 6, 10, 0.82);
+  backdrop-filter: blur(2px);
+  font-family: var(--hud-font-body, 'EB Garamond', Georgia, serif);
+  color: var(--parchment, #e8dcc8);
+  z-index: 9500;
+}
+
+.wb-overlay--full {
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.wb-frame {
+  width: min(540px, 96vw);
+  max-height: 92vh;
+  background: linear-gradient(165deg, #2a2018 0%, #1a1410 45%, #121018 100%);
+  border: 2px solid var(--brass-dim, #7a6238);
+  box-shadow:
+    inset 0 1px 0 rgba(232, 200, 120, 0.12),
+    0 16px 48px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wb-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #3a2818, #2a1810);
+  border-bottom: 1px solid var(--brass-dim, #7a6238);
+}
+
+.wb-title {
+  margin: 0;
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--brass-bright, #e8c878);
+  letter-spacing: 0.06em;
+  flex: 1;
+}
+
+.wb-hint {
+  font-size: 0.72rem;
+  color: #a89878;
+  font-style: italic;
+}
+
+.wb-close {
+  background: var(--iron, #1a1412);
+  border: 1px solid var(--brass-dim, #7a6238);
+  color: var(--parchment, #e8dcc8);
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.wb-close:hover {
+  border-color: var(--brass-bright, #e8c878);
+  color: var(--brass-bright, #e8c878);
+}
+
+.wb-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+.wb-footer {
+  padding: 10px 16px;
+  border-top: 1px solid rgba(184, 146, 74, 0.25);
+  background: linear-gradient(180deg, #1a1410, #121018);
+  font-size: 0.85rem;
+  color: var(--gold-muted, #c9a962);
+}
+
+.wb-btn {
+  padding: 6px 12px;
+  background: var(--purple-deep, #2a1438);
+  border: 1px solid var(--brass-dim, #7a6238);
+  color: var(--parchment, #e8dcc8);
+  font-family: var(--hud-font-display, 'Cinzel', serif);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.wb-btn:hover {
+  border-color: var(--brass-bright, #e8c878);
+}
+
+.wb-btn--primary {
+  border-color: var(--brass-bright, #e8c878);
+  color: var(--brass-bright, #e8c878);
+  background: linear-gradient(180deg, #4a3018, #2a1808);
+}
+
+.wb-btn--danger {
+  border-color: #884444;
+  color: #e8a8a8;
+}
+
+.wb-btn--sm {
+  padding: 3px 8px;
+  font-size: 0.65rem;
+}
+
+.wb-btn.is-active {
+  border-color: var(--brass-bright, #e8c878);
+  color: var(--brass-bright, #e8c878);
+  background: #443018;
+}
+
+.wb-input,
+.wb-select {
+  padding: 8px 10px;
+  background: #1a1410;
+  border: 1px solid var(--brass-dim, #7a6238);
+  color: var(--parchment, #e8dcc8);
+  font-family: var(--hud-font-body, 'EB Garamond', Georgia, serif);
+}
+
+.wb-section-label {
+  font-family: var(--hud-font-display, 'Cinzel', serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #988868;
+  margin: 14px 0 6px;
+}
+
+.wb-card {
+  padding: 10px 12px;
+  margin: 8px 0;
+  background: rgba(20, 14, 24, 0.65);
+  border: 1px solid rgba(184, 146, 74, 0.22);
+}
+
+.wb-card__title {
+  font-family: var(--hud-font-display, 'Cinzel', serif);
+  color: #c8b8e8;
+}
+
+.wb-card__meta {
+  font-size: 0.75rem;
+  color: #887868;
+  margin-top: 4px;
+}
+
+.wb-card__actions {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wb-muted {
+  color: #887868;
+  font-style: italic;
+  font-size: 0.78rem;
+}
+
+.wb-status--online { color: #78b878; }
+.wb-status--offline { color: #686868; }
+
+.wb-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wb-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wb-row--spread {
+  justify-content: space-between;
+}

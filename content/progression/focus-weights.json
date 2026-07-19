@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "categories": {
+    "warding": {
+      "technical": { "protection": 0.5, "ritualSkill": 0.2 },
+      "mental": { "willpower": 0.2, "awareness": 0.1 }
+    },
+    "protection": {
+      "technical": { "protection": 0.5, "ritualSkill": 0.2 },
+      "mental": { "willpower": 0.2, "awareness": 0.1 }
+    },
+    "healing": {
+      "technical": { "healing": 0.5, "ritualSkill": 0.2 },
+      "mental": { "willpower": 0.15, "memory": 0.15 }
+    },
+    "baneful": {
+      "technical": { "hexWork": 0.5, "ritualSkill": 0.2 },
+      "mental": { "willpower": 0.15, "authority": 0.15 }
+    },
+    "binding": {
+      "technical": { "hexWork": 0.5, "ritualSkill": 0.2 },
+      "mental": { "willpower": 0.15, "authority": 0.15 }
+    },
+    "divination": {
+      "technical": { "divination": 0.45, "ritualSkill": 0.15 },
+      "mental": { "intuition": 0.2, "awareness": 0.2 }
+    },
+    "cleansing": {
+      "technical": { "healing": 0.35, "ritualSkill": 0.15 },
+      "mental": { "awareness": 0.25, "willpower": 0.25 }
+    },
+    "reversal": {
+      "technical": { "healing": 0.35, "ritualSkill": 0.15 },
+      "mental": { "awareness": 0.25, "willpower": 0.25 }
+    },
+    "luck": {
+      "technical": { "ritualSkill": 0.25 },
+      "mental": { "intuition": 0.5, "presence": 0.25 }
+    },
+    "default": {
+      "technical": { "ritualSkill": 0.5 },
+      "mental": { "intuition": 0.25, "willpower": 0.25 }
+    }
+  }
+}

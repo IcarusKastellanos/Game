@@ -1,0 +1,590 @@
+// Witchcraft Sim — PostgreSQL schema
+// Modular content tables mirror JSON registries for admin editing
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  displayName String
+  passwordHash String?
+  metPlayers      Json      @default("[]")
+  friends         Json      @default("[]")
+  friendRequests  Json      @default("[]")
+  progression Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  stats        PlayerStats?
+  inventory    InventoryItem[]
+  apartment    Apartment?
+  familiar     Familiar?
+  aura         Aura?
+  wards        Ward[]             @relation("WardCreator")
+  spellHistory SpellCast[]
+}
+
+model PlayerStats {
+  id       String @id @default(cuid())
+  playerId String @unique
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  health             Float @default(100)
+  hunger             Float @default(80)
+  magicalEnergy      Float @default(50)
+  protection         Float @default(10)
+  intuition          Float @default(5)
+  spiritualAwareness Float @default(5)
+  divinationSkill    Float @default(3)
+  herbalism          Float @default(3)
+  cursecraft         Float @default(2)
+  warding            Float @default(3)
+  healing            Float @default(3)
+  ritualSkill        Float @default(5)
+  experience         Int   @default(0)
+  reputation         Int   @default(0)
+  morality           Float @default(0)
+  specialty          String?
+
+  // Extended attributes (stamina + new mental/technical skills) stored as JSON so
+  // the attribute set can grow without further column migrations. Older rows read
+  // as {} and are backfilled with safe defaults by normalizePlayerStats() on load.
+  extendedStats      Json @default("{}")
+
+  scene         String @default("apartment")
+  posX          Float  @default(8)
+  posY          Float  @default(10)
+  spawnId       String @default("default")
+  visitingHostId String?
+
+  affinities Json @default("{}")
+}
+
+model InventoryItem {
+  id       String @id @default(cuid())
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  itemId   String
+  quantity Int    @default(1)
+  metadata Json?
+
+  @@index([playerId])
+}
+
+model Apartment {
+  id         String @id @default(cuid())
+  playerId   String @unique
+  player     Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  name       String @default("My Apartment")
+  altarState Json   @default("{}")
+  layout     Json   @default("{}")
+  wardPoints Json   @default("[]")
+}
+
+model Familiar {
+  id                 String @id @default(cuid())
+  playerId           String @unique
+  player             Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  species            String
+  publicName         String
+  trueName           String
+  hunger             Float  @default(80)
+  affection          Float  @default(50)
+  energy             Float  @default(70)
+  spiritualStability Float  @default(60)
+  loyalty            Float  @default(50)
+  experience         Int    @default(0)
+  level              Int    @default(1)
+  mainFunction       String @default("general")
+  chosen             Boolean @default(false)
+  templateId         String
+  lastBondAt         DateTime?
+  protections        Json   @default("[]")
+}
+
+model Aura {
+  id            String @id @default(cuid())
+  playerId      String @unique
+  player        Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  alignment     String @default("neutral")
+  moralityScore Float  @default(0)
+  effects       Json   @default("[]")
+}
+
+model Ward {
+  id                  String    @id @default(cuid())
+  creatorId           String
+  creator             Player    @relation("WardCreator", fields: [creatorId], references: [id])
+  targetType          String
+  targetId            String
+  spellId             String?
+  strength            Float
+  duration            Int
+  maintenanceCost     Float
+  feedingRequirement  String?
+  ingredientIds       Json      @default("[]")
+  vulnerabilities     Json      @default("[]")
+  detectionDifficulty Float     @default(50)
+  expiresAt           DateTime?
+  permanent           Boolean   @default(false)
+  active              Boolean   @default(true)
+
+  @@index([targetId])
+}
+
+model SpellCast {
+  id        String   @id @default(cuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  spellId   String
+  targetId  String?
+  success   Boolean
+  potency   Float
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
+}
+
+// --- Content registry tables (admin-editable, synced from JSON) ---
+
+model ContentIngredient {
+  id              String   @id
+  name            String
+  category        String
+  correspondences Json
+  description     String
+  rarity          String
+  basePotency     Float
+  traditions      Json
+  data            Json     @default("{}")
+  updatedAt       DateTime @updatedAt
+}
+
+model ContentSpell {
+  id                   String   @id
+  name                 String
+  tradition            String
+  category             String
+  targetType           String
+  ingredients          Json
+  requiredTools        Json
+  optionalBoosters     Json?
+  taglockRequirement   Json?
+  altarRequirements    Json?
+  castingTime          Int
+  duration             Int
+  difficulty           Float
+  basePotency          Float
+  maintenanceCost      Float
+  counterspellTags     Json
+  moralEffect          Float
+  familiarInteractions Json?
+  visualEffect         String?
+  audioEffect          String?
+  gameplayEffect       Json
+  description          String
+  data                 Json     @default("{}")
+  updatedAt            DateTime @updatedAt
+}
+
+model ContentShop {
+  id         String   @id
+  name       String
+  locationId String
+  npcId      String?
+  inventory  Json
+  openHours  Json?
+  data       Json     @default("{}")
+  updatedAt  DateTime @updatedAt
+}
+
+model ContentNpc {
+  id                String   @id
+  name              String
+  role              String
+  locationId        String
+  schedule          Json
+  relationshipLevel Int      @default(0)
+  magicalKnowledge  Int      @default(0)
+  dialogueTreeId    String
+  shopId            String?
+  faction           String?
+  secrets           Json?
+  data              Json     @default("{}")
+  updatedAt         DateTime @updatedAt
+}
+
+model ContentFamiliar {
+  id                String   @id
+  species           String
+  defaultPublicName String
+  description       String
+  statBonuses       Json
+  vulnerabilities   Json?
+  data              Json     @default("{}")
+  updatedAt         DateTime @updatedAt
+}
+
+model ContentDecoration {
+  id             String   @id
+  name           String
+  category       String
+  width          Int
+  height         Int
+  altarBuffs     Json?
+  placementRules Json?
+  data           Json     @default("{}")
+  updatedAt      DateTime @updatedAt
+}
+
+model ContentTile {
+  id        String   @id
+  name      String
+  walkable  Boolean
+  spriteKey String
+  layer     String
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+}
+
+model ContentMap {
+  id            String   @id
+  name          String
+  sceneId       String
+  width         Int
+  height        Int
+  tileSize      Int
+  layers        Json
+  spawnPoints   Json
+  interactables Json
+  data          Json     @default("{}")
+  updatedAt     DateTime @updatedAt
+}
+
+model ContentRitual {
+  id           String   @id
+  name         String
+  tradition    String
+  participants Int
+  description  String
+  data         Json     @default("{}")
+  updatedAt    DateTime @updatedAt
+}
+
+// =============================================================================
+// ADMIN FRAMEWORK — RBAC, audit, extensible content
+// =============================================================================
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  gameUsername String?   @unique
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  roles     AdminUserRole[]
+  auditLogs AdminAuditLog[]
+}
+
+model AdminRole {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  system      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  permissions AdminRolePermission[]
+  users       AdminUserRole[]
+}
+
+model AdminPermission {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  category    String
+  description String?
+
+  roles AdminRolePermission[]
+}
+
+model AdminRolePermission {
+  roleId       String
+  permissionId String
+  role         AdminRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   AdminPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model AdminUserRole {
+  userId String
+  roleId String
+  user   AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   AdminRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model AdminAuditLog {
+  id            String    @id @default(cuid())
+  adminUserId   String
+  adminUser     AdminUser @relation(fields: [adminUserId], references: [id])
+  action        String
+  objectType    String
+  objectId      String?
+  previousValue Json?
+  newValue      Json?
+  reason        String?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+
+  @@index([adminUserId])
+  @@index([objectType, objectId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model PlayerModeration {
+  id        String    @id @default(cuid())
+  playerId  String
+  type      String
+  reason    String
+  expiresAt DateTime?
+  adminId   String
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  @@index([playerId])
+}
+
+model ContentSpirit {
+  id          String   @id
+  name        String
+  type        String
+  temperament String
+  alignment   String
+  rarity      String
+  lore        String
+  appearance  Json     @default("{}")
+  behavior    Json     @default("{}")
+  offerings   Json     @default("[]")
+  data        Json     @default("{}")
+  published   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+}
+
+model ContentQuest {
+  id          String   @id
+  name        String
+  description String
+  npcId       String?
+  nodes       Json
+  rewards     Json     @default("{}")
+  published   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+}
+
+model ContentEvent {
+  id          String    @id
+  name        String
+  slug        String    @unique
+  description String
+  startAt     DateTime?
+  endAt       DateTime?
+  modifiers   Json      @default("{}")
+  active      Boolean   @default(false)
+  updatedAt   DateTime  @updatedAt
+}
+
+model WardTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  strength    Float
+  duration    Int
+  data        Json     @default("{}")
+  createdById String?
+  createdAt   DateTime @default(now())
+}
+
+// =============================================================================
+// MAP BUILDER — database-driven worldbuilding
+// =============================================================================
+
+model MapProject {
+  id                   String    @id
+  internalName         String
+  displayName          String
+  description          String    @default("")
+  mapType              String    @default("custom")
+  biome                String    @default("temperate")
+  theme                String    @default("default")
+  sceneId              String
+  width                Int
+  height               Int
+  tileSize             Int       @default(16)
+  defaultLighting      String    @default("normal")
+  defaultWeather       String    @default("clear")
+  defaultMusic         String    @default("")
+  defaultAmbientSound  String    @default("")
+  allowedPlayerCount   Int       @default(50)
+  isInstanced          Boolean   @default(false)
+  isWardable           Boolean   @default(true)
+  allowUnbreakableWards Boolean  @default(false)
+  allowSpirits         Boolean   @default(true)
+  allowFamiliars       Boolean   @default(true)
+  allowNpcSchedules    Boolean   @default(true)
+  accessLevel          String    @default("public")
+  status               String    @default("draft")
+  version              Int       @default(1)
+  createdBy            String?
+  updatedBy            String?
+  publishedAt          DateTime?
+  archivedAt           DateTime?
+  currentVersionId     String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  currentVersion MapVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions       MapVersion[] @relation("ProjectVersions")
+  publishLogs    MapPublishLog[]
+  previewInvites MapPreviewInvite[]
+}
+
+model MapVersion {
+  id            String   @id @default(cuid())
+  mapProjectId  String
+  version       Int
+  document      Json
+  changelog     String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  mapProject       MapProject  @relation("ProjectVersions", fields: [mapProjectId], references: [id], onDelete: Cascade)
+  currentForProject MapProject? @relation("CurrentVersion")
+  previewInvites   MapPreviewInvite[]
+}
+
+model HudLayout {
+  id               String    @id
+  name             String
+  status           String    @default("draft")
+  version          Int       @default(1)
+  isActive         Boolean   @default(false)
+  document         Json
+  createdBy        String?
+  updatedBy        String?
+  publishedAt      DateTime?
+  archivedAt       DateTime?
+  currentVersionId String?   @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  currentVersion HudLayoutVersion?  @relation("HudCurrentVersion", fields: [currentVersionId], references: [id])
+  versions       HudLayoutVersion[] @relation("HudLayoutVersions")
+}
+
+model HudLayoutVersion {
+  id          String   @id @default(cuid())
+  hudLayoutId String
+  version     Int
+  document    Json
+  changelog   String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  hudLayout        HudLayout  @relation("HudLayoutVersions", fields: [hudLayoutId], references: [id], onDelete: Cascade)
+  currentForLayout HudLayout? @relation("HudCurrentVersion")
+}
+
+model MapTileset {
+  id        String   @id
+  name      String
+  imageUrl  String?
+  tileWidth Int      @default(16)
+  tileHeight Int     @default(16)
+  columns   Int      @default(16)
+  rows      Int      @default(16)
+  tags      Json     @default("[]")
+  archived  Boolean  @default(false)
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+}
+
+model MapTileDefinition {
+  id        String   @id
+  name      String
+  tilesetId String
+  category  String   @default("floor")
+  tags      Json     @default("[]")
+  spriteRef String
+  walkable  Boolean  @default(true)
+  properties Json    @default("{}")
+  archived  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+model MapFurnitureDefinition {
+  id          String   @id
+  name        String
+  category    String
+  spriteRef   String
+  width       Int      @default(1)
+  height      Int      @default(1)
+  properties  Json     @default("{}")
+  archived    Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+}
+
+model MapDecorationDefinition {
+  id          String   @id
+  name        String
+  spriteRef   String
+  wallMounted Boolean  @default(false)
+  properties  Json     @default("{}")
+  archived    Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+}
+
+model MapPublishLog {
+  id           String   @id @default(cuid())
+  mapProjectId String
+  version      Int
+  action       String
+  changelog    String?
+  publishedBy  String
+  createdAt    DateTime @default(now())
+
+  mapProject MapProject @relation(fields: [mapProjectId], references: [id], onDelete: Cascade)
+}
+
+model MapPreviewInvite {
+  id             String   @id @default(cuid())
+  mapProjectId   String
+  mapVersionId   String
+  targetUsername String
+  invitedBy      String
+  persona        String   @default("player")
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  endedAt        DateTime?
+
+  mapProject MapProject @relation(fields: [mapProjectId], references: [id], onDelete: Cascade)
+  mapVersion MapVersion @relation(fields: [mapVersionId], references: [id], onDelete: Cascade)
+}

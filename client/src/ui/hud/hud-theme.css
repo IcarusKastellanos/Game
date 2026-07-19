@@ -1,0 +1,1108 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=EB+Garamond:ital@0;1&display=swap');
+
+:root.practitioner-hud-theme {
+  --hud-user-scale: 1;
+  --hud-fit-scale: 1;
+  --hud-scale: 1;
+  --walnut: #2a1810;
+  --walnut-light: #3d2618;
+  --iron: #1a1412;
+  --brass: #b8924a;
+  --brass-dim: #7a6238;
+  --brass-bright: #e8c878;
+  --purple-deep: #2a1438;
+  --purple-velvet: #4a2868;
+  --parchment: #e8dcc8;
+  --parchment-dark: #c4b498;
+  --gold-muted: #c9a962;
+  --charcoal: #121018;
+  --moon-blue: #7a9ec8;
+  --forest: #4a7a52;
+  --crimson: #8a2838;
+  --hud-font-display: 'Cinzel', 'Palatino Linotype', Georgia, serif;
+  --hud-font-body: 'EB Garamond', 'Book Antiqua', Georgia, serif;
+  --hud-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
+}
+
+@keyframes hud-particle-drift {
+  to { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+}
+
+.hud-particle { opacity: 0.9; }
+
+/* Hide HUD chrome until player session is loaded */
+body:not(.hud-ready) #hud-player-panel,
+body:not(.hud-ready) #hud-compass,
+body:not(.hud-ready) #hud-moon-panel,
+body:not(.hud-ready) #hud-nav,
+body:not(.hud-ready) #hud-notifications,
+body:not(.hud-ready) #hud-resources,
+body:not(.hud-ready) .hud-window,
+body:not(.hud-ready) #hud-toggle-btn,
+body:not(.hud-ready) .hud-visit-banner {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Collapsed: hide expandable HUD — player status panel stays visible */
+body.hud-ready:not(.hud-expanded) #hud-moon-panel,
+body.hud-ready:not(.hud-expanded) #hud-nav,
+body.hud-ready:not(.hud-expanded) #hud-resources,
+body.hud-ready:not(.hud-expanded) .hud-visit-banner {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none !important;
+  transform: scale(0.97);
+  transition: opacity 0.28s ease, transform 0.32s ease, visibility 0.28s;
+}
+
+/* Intuition meter lives inside the player nameplate — no separate positioning rules. */
+/* Notifications: width/position synced to chat box (outside hud-root). */
+
+/* ─── HUD toggle (pentagram) — below chat ─── */
+#hud-toggle-btn,
+.hud-toggle-btn {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1410;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid var(--brass-dim);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #2a1838, #100818 75%);
+  box-shadow:
+    0 0 10px rgba(120, 80, 160, 0.35),
+    inset 0 0 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.hud-toggle-btn img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.hud-toggle-btn:hover {
+  transform: scale(1.06);
+  border-color: var(--brass-bright);
+  box-shadow:
+    0 0 16px rgba(200, 168, 96, 0.35),
+    0 0 20px rgba(140, 100, 200, 0.25);
+}
+
+.hud-toggle-btn--active {
+  border-color: var(--brass-bright);
+  box-shadow:
+    0 0 18px rgba(200, 168, 96, 0.45),
+    inset 0 0 6px rgba(232, 200, 120, 0.15);
+}
+
+/* Expanded HUD backdrop */
+body.hud-expanded .practitioner-hud::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 4, 10, 0.42);
+  pointer-events: none;
+  animation: hud-backdrop-in 0.35s ease;
+}
+
+@keyframes hud-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+body.hud-expanded #hud-compass,
+body.hud-expanded #hud-moon-panel,
+body.hud-expanded #hud-nav,
+body.hud-expanded #hud-resources {
+  animation: hud-unfold-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes hud-unfold-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+body.hud-expanded #hud-resources {
+  bottom: 58px;
+}
+
+.hud-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  pointer-events: none;
+  font-family: var(--hud-font-body);
+  color: var(--parchment);
+  transform: scale(var(--hud-scale));
+  transform-origin: top left;
+  width: calc(100% / var(--hud-scale));
+  height: calc(100% / var(--hud-scale));
+}
+
+/* ─── Shell ─── */
+.practitioner-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.practitioner-hud * {
+  box-sizing: border-box;
+}
+
+.hud-root * {
+  box-sizing: border-box;
+}
+
+.practitioner-hud button,
+.hud-root button {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: var(--hud-font-display);
+}
+
+.hud-visit-banner {
+  display: none;
+  pointer-events: auto;
+  position: fixed;
+  top: calc(82px * var(--hud-scale));
+  left: 12px;
+  max-width: 280px;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, #1a2818, #0e180e);
+  border: 1px solid #486848;
+  font-size: 11px;
+  color: #afc;
+  box-shadow: var(--hud-shadow);
+}
+
+.hud-visit-banner--visible {
+  display: block;
+}
+
+.hud-visit-banner button {
+  display: block;
+  margin-top: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--purple-deep);
+  border: 1px solid var(--brass-dim);
+  color: var(--parchment);
+  font-size: 10px;
+}
+
+/* ─── Player panel (top left, always visible) ─── */
+.hud-player-panel {
+  pointer-events: auto;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 573px;
+  height: 318px;
+  z-index: 1415;
+}
+
+.hud-player-panel__chrome {
+  display: block;
+  width: 573px;
+  height: 318px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* Name / rank / rep — upper info panel, right of portrait */
+.hud-player-panel__header {
+  position: absolute;
+  left: 200px;
+  top: 30px;
+  width: 355px;
+  height: auto;
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+  padding-left: 20px;
+  text-align: center;
+}
+
+.hud-player-panel__name {
+  font-family: var(--hud-font-display);
+  font-size: 24px;
+  line-height: 1.15;
+  color: var(--brass-bright);
+  text-shadow: 0 1px 3px #000;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-player-panel__rank,
+.hud-player-panel__rep {
+  font-family: var(--hud-font-body);
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--gold-muted);
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Morality gauge (replaces the alignment word beneath the rank) ─── */
+.hud-player-panel__morality-slot {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hud-morality {
+  width: 268px;
+  max-width: 100%;
+  margin: 0 auto;
+  pointer-events: none;
+}
+
+.hud-morality__stage {
+  position: relative;
+  width: 100%;
+  line-height: 0;
+  transform: translateY(3px);
+}
+
+.hud-morality__base {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+/* Fallback when pixel processing is unavailable: drop the black backdrop. */
+.hud-morality__base--raw {
+  mix-blend-mode: screen;
+}
+
+.hud-morality__slider {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10%;
+  transform: translate(-50%, -50%);
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  will-change: left;
+}
+
+.hud-morality__marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(160deg, #ffe9a8 0%, #d4a82a 45%, #8a6318 100%);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  display: none;
+  will-change: left;
+  z-index: 2;
+}
+
+.hud-morality--css-fallback .hud-morality__stage::before {
+  content: '';
+  display: block;
+  width: 100%;
+  aspect-ratio: 5.5 / 1;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b1020 0%, #c45a18 18%, #e8c040 50%, #4a9a38 82%, #1a5c20 100%);
+  border: 2px solid #8a6a28;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.hud-morality--css-fallback .hud-morality__base {
+  display: none;
+}
+
+.hud-morality__glow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46%;
+  height: 200%;
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  transition: opacity 0.2s ease;
+}
+
+.hud-morality__glow--gold {
+  right: 4%;
+  background: radial-gradient(ellipse at center, rgba(255, 220, 130, 0.9), rgba(255, 200, 90, 0) 70%);
+}
+
+.hud-morality__glow--purple {
+  left: 4%;
+  background: radial-gradient(ellipse at center, rgba(158, 66, 198, 0.9), rgba(120, 40, 160, 0) 70%);
+}
+
+.hud-morality__fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Dynamic fills aligned to baked bar slots in portrait_frame.png */
+.hud-player-panel__bars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-player-panel__bar {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 1px;
+}
+
+.hud-player-panel__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 1px;
+  pointer-events: none;
+  transition: width 0.25s ease;
+  z-index: 1;
+}
+
+/* Boxes match the empty gold track interiors in portrait_frame.png */
+.hud-player-panel__bar--hp {
+  left: 308px;
+  top: 143px;
+  width: 237.5px;
+  height: 18px;
+}
+
+.hud-player-panel__bar--me {
+  left: 306px;
+  top: 177px;
+  width: 241px;
+  height: 23px;
+}
+
+.hud-player-panel__bar--xp {
+  left: 303px;
+  top: 213px;
+  width: 261px;
+  height: 18px;
+}
+
+.hud-player-panel__bar--hp .hud-player-panel__fill {
+  background: linear-gradient(180deg, #d85050 0%, #a02830 100%);
+}
+
+.hud-player-panel__bar--me .hud-player-panel__fill {
+  background: linear-gradient(180deg, #5090e0 0%, #3060b0 100%);
+}
+
+.hud-player-panel__bar--xp .hud-player-panel__fill {
+  background: linear-gradient(180deg, #60b060 0%, #308838 100%);
+}
+
+.hud-player-panel__bar-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Cinzel', 'Trajan Pro', 'Palatino Linotype', Georgia, serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  font-variant-numeric: tabular-nums;
+  color: #f6edda;
+  text-shadow: 0 1px 2px #000, 0 0 4px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Intuition eye — nested on the nameplate bookmark tab (scales with the panel). */
+.hud-player-panel__intuition-slot {
+  position: absolute;
+  left: 31%;
+  top: 86%;
+  width: 67%;
+  transform: translateY(-10%);
+  z-index: 8;
+  pointer-events: none;
+  line-height: 0;
+}
+
+/* ─── Intuition meter — magical eye ─── */
+.hud-intuition {
+  --glow-opacity: 0;
+  --glow-radius: 0px;
+  --iris-bright: 0.35;
+  --rune-bright: 0;
+  --aura-opacity: 0;
+  --pulse-depth: 0.06;
+  --lid-opacity: 0.85;
+  pointer-events: none;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+.hud-player-panel__intuition-slot .hud-intuition__frame {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 1;
+}
+
+.hud-intuition__frame {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  pointer-events: auto;
+}
+
+.hud-intuition__eye {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  /* Iris brightness lightly modulates the whole plate; localized glow does the rest. */
+  filter: brightness(calc(0.55 + var(--iris-bright) * 0.32)) saturate(calc(0.7 + var(--iris-bright) * 0.5));
+  transition: filter 0.3s ease;
+}
+
+/* Localized radial glow centred on the eye's iris (~50.5% / 46%). */
+.hud-intuition__iris {
+  position: absolute;
+  left: 50.5%;
+  top: 46%;
+  width: calc(90px + var(--glow-radius) * 2.6);
+  height: calc(90px + var(--glow-radius) * 2.6);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: var(--glow-opacity);
+  background: radial-gradient(
+    circle,
+    rgba(210, 180, 255, 0.95) 0%,
+    rgba(150, 90, 235, 0.65) 30%,
+    rgba(96, 48, 190, 0.32) 55%,
+    rgba(60, 20, 120, 0) 72%
+  );
+}
+
+/* Horizontal rune glow spreading along the bar. */
+.hud-intuition__runes {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 46%;
+  height: 26px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: calc(var(--rune-bright) * 0.8);
+  background: linear-gradient(
+    90deg,
+    rgba(120, 70, 210, 0) 0%,
+    rgba(150, 95, 235, 0.45) 24%,
+    rgba(190, 150, 255, 0.15) 50%,
+    rgba(150, 95, 235, 0.45) 76%,
+    rgba(120, 70, 210, 0) 100%
+  );
+  filter: blur(2px);
+}
+
+/* Restrained aura hugging the frame at strong+ activity. */
+.hud-intuition__aura {
+  position: absolute;
+  inset: -6% -3%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: var(--aura-opacity);
+  background: radial-gradient(
+    ellipse at 50% 46%,
+    rgba(150, 95, 235, 0.5) 0%,
+    rgba(110, 60, 200, 0.22) 45%,
+    rgba(70, 30, 140, 0) 70%
+  );
+  filter: blur(6px);
+}
+
+/* Dark "sleep" lid that recedes as the eye awakens (drives open/blink). */
+.hud-intuition__lid {
+  position: absolute;
+  left: 50.5%;
+  top: 46%;
+  width: 120px;
+  height: 90px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: var(--lid-opacity);
+  background: radial-gradient(
+    ellipse,
+    rgba(4, 3, 8, 0.92) 0%,
+    rgba(6, 4, 10, 0.6) 45%,
+    rgba(8, 5, 12, 0) 70%
+  );
+}
+
+.hud-intuition__particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Slow, deep breathing pulse — duration set inline per detection strength. */
+@keyframes hud-eye-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(calc(1 + var(--pulse-depth)));
+    filter: brightness(calc(1 + var(--pulse-depth)));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-intuition__iris {
+    animation: none !important;
+  }
+  .hud-intuition__eye {
+    transition: none;
+  }
+}
+
+/* ─── Moon panel (top right) ─── */
+.hud-moon-panel {
+  pointer-events: auto;
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 340px;
+}
+
+.hud-moon-panel__parchment {
+  display: flex;
+  gap: 14px;
+  padding: 16px 20px;
+  background:
+    linear-gradient(135deg, #f0e4cc 0%, #d8c8a8 40%, #c8b898 100%);
+  color: #2a2018;
+  border: 2px solid var(--brass-dim);
+  box-shadow: var(--hud-shadow);
+  position: relative;
+}
+
+.hud-moon-panel__parchment::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.hud-moon-panel__moon {
+  width: 66px;
+  height: 66px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f8f0d8, #c8b888 60%, transparent 61%);
+  box-shadow: inset -6px -2px 8px rgba(0, 0, 0, 0.15);
+  animation: hud-moon-glow 4s ease-in-out infinite;
+}
+
+.hud-moon-phase--4 {
+  background: radial-gradient(circle, #f0e8c8, #d0c090);
+  box-shadow: 0 0 12px rgba(240, 220, 160, 0.4);
+}
+
+.hud-moon-phase--0 { box-shadow: inset 0 0 10px rgba(0,0,0,0.4); background: #2a2838; }
+
+@keyframes hud-moon-glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.08); }
+}
+
+.hud-moon-panel--full .hud-moon-panel__parchment {
+  box-shadow: 0 0 20px rgba(200, 180, 100, 0.25), var(--hud-shadow);
+}
+
+.hud-moon-phase {
+  font-family: var(--hud-font-display);
+  font-size: 16px;
+  color: #4a3828;
+}
+
+.hud-moon-time {
+  font-family: var(--hud-font-display);
+  font-size: 30px;
+  color: #2a1810;
+  letter-spacing: 0.08em;
+}
+
+.hud-moon-region {
+  font-size: 16px;
+  color: var(--purple-velvet);
+  font-style: italic;
+}
+
+.hud-moon-meta {
+  font-size: 12px;
+  color: #6a5848;
+  margin-top: 3px;
+}
+
+.hud-moon-panel__ribbon {
+  position: absolute;
+  bottom: -8px;
+  right: 12px;
+  width: 20px;
+  height: 24px;
+  background: var(--purple-velvet);
+  clip-path: polygon(0 0, 100% 0, 100% 80%, 50% 100%, 0 80%);
+}
+
+/* ─── Navigation cards (center) ─── */
+.hud-nav {
+  pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 1450;
+}
+
+.hud-nav__cards {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  align-items: flex-end;
+}
+
+.hud-nav--collapsed .hud-nav__cards {
+  transform: scale(0.55);
+  opacity: 0.85;
+}
+
+.hud-nav-card {
+  position: relative;
+  padding: 0;
+  border: none;
+  background: transparent;
+  transition: transform 0.25s ease, filter 0.25s ease;
+  line-height: 0;
+}
+
+.hud-nav-card:hover {
+  transform: translateY(-6px);
+  filter: brightness(1.12);
+}
+
+.hud-nav-card:active {
+  transform: translateY(-2px);
+}
+
+.hud-nav-card__sprite {
+  display: block;
+  height: 140px;
+  width: auto;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* ─── Notifications (above chat, same width — outside hud-root so HUD scale
+     cannot shrink them relative to the chat box) ─── */
+.hud-notifications {
+  pointer-events: auto;
+  position: fixed;
+  left: 8px;
+  bottom: 200px;
+  width: min(420px, calc(100vw - 16px));
+  z-index: 1460;
+  transform: none;
+}
+
+.hud-notification {
+  display: flex;
+  gap: clamp(10px, 1vw, 16px);
+  padding: clamp(12px, 1.2vw, 18px) clamp(14px, 1.4vw, 20px);
+  background: linear-gradient(135deg, #2a2018, #1a1410);
+  border: 2px solid var(--brass-dim);
+  box-shadow: var(--hud-shadow);
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hud-notification--enter {
+  animation: hud-notif-in 0.45s ease;
+}
+
+.hud-notification--exit {
+  animation: hud-notif-out 0.38s ease forwards;
+}
+
+@keyframes hud-notif-in {
+  from { opacity: 0; transform: translateY(12px); filter: blur(2px); }
+  to { opacity: 1; transform: translateY(0); filter: none; }
+}
+
+@keyframes hud-notif-out {
+  to { opacity: 0; transform: translateY(-8px); filter: blur(3px); }
+}
+
+.hud-notification__sigil {
+  width: clamp(40px, 3.2vw, 52px);
+  height: clamp(40px, 3.2vw, 52px);
+  flex-shrink: 0;
+  background:
+    radial-gradient(circle, #c8a040 20%, transparent 21%),
+    linear-gradient(135deg, transparent 45%, #c8a040 46%, #c8a040 54%, transparent 55%);
+  border: 1px solid var(--brass);
+  border-radius: 4px;
+}
+
+.hud-notification__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.hud-notification__title {
+  font-family: var(--hud-font-display);
+  color: #c8a8e8;
+  font-size: clamp(15px, 1.25vw, 20px);
+  line-height: 1.25;
+}
+
+.hud-notification__text {
+  font-style: italic;
+  color: var(--gold-muted);
+  font-size: clamp(13px, 1.05vw, 17px);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.hud-notification__action {
+  font-size: clamp(11px, 0.9vw, 14px);
+  color: #888;
+  margin-top: 6px;
+}
+
+.hud-notification--error .hud-notification__sigil {
+  background: linear-gradient(135deg, #401818, #201010);
+  border-color: var(--crimson);
+}
+
+/* ─── Resources (bottom right) ─── */
+.hud-resources {
+  pointer-events: auto;
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 1410;
+}
+
+.hud-resources__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.hud-resources__row {
+  position: relative;
+  line-height: 0;
+}
+
+.hud-resources__sprite {
+  display: block;
+  height: 58px;
+  width: auto;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.hud-resources__row--coin .hud-resources__sprite,
+.hud-resources__row--essence .hud-resources__sprite,
+.hud-resources__row--favor .hud-resources__sprite {
+  height: 52px;
+}
+
+.hud-resources__val {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--hud-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #f3e6bd;
+  text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  min-width: 56px;
+  text-align: right;
+}
+
+/* ─── Tooltip ─── */
+.hud-tooltip {
+  position: fixed;
+  z-index: 16000;
+  max-width: 260px;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, #f0e4cc, #d8c8a8);
+  color: #2a2018;
+  border: 1px solid var(--brass);
+  font-size: 11px;
+  line-height: 1.45;
+  box-shadow: var(--hud-shadow);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.hud-tooltip--visible { opacity: 1; }
+
+.hud-tooltip kbd {
+  padding: 0 4px;
+  background: #2a2018;
+  color: var(--parchment);
+  border-radius: 2px;
+  font-size: 9px;
+}
+
+/* ─── HUD Windows ─── */
+.hud-window {
+  pointer-events: auto;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.92);
+  width: min(520px, 92vw);
+  max-height: 78vh;
+  z-index: 8500;
+  opacity: 0;
+}
+
+.hud-window--open {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hud-window--opening,
+.hud-window--closing {
+  animation: hud-window-unfold 0.42s ease;
+}
+
+@keyframes hud-window-unfold {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.88) rotateX(8deg); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.hud-window__chrome {
+  background: linear-gradient(160deg, #2a2018, #141018);
+  border: 2px solid var(--brass);
+  box-shadow: var(--hud-shadow);
+  display: flex;
+  flex-direction: column;
+  max-height: 78vh;
+}
+
+.hud-window__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #3a2818, #2a1810);
+  border-bottom: 1px solid var(--brass-dim);
+  cursor: move;
+}
+
+.hud-window__title {
+  margin: 0;
+  font-family: var(--hud-font-display);
+  font-size: 16px;
+  color: var(--brass-bright);
+}
+
+.hud-window__subtitle {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #a89888;
+  font-style: italic;
+}
+
+.hud-window__close {
+  background: var(--iron);
+  border: 1px solid var(--brass-dim);
+  color: var(--parchment);
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.hud-window__body {
+  padding: 12px 14px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--parchment);
+}
+
+.hud-window--dragging {
+  transition: none;
+}
+
+@keyframes hud-unfold {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 200px; }
+}
+
+.hud-pulse-success { animation: hud-success 0.6s ease; }
+.hud-pulse-error { animation: hud-error 0.5s ease; }
+
+@keyframes hud-success {
+  0%, 100% { box-shadow: var(--hud-shadow); }
+  50% { box-shadow: 0 0 24px rgba(200, 168, 96, 0.45), var(--hud-shadow); }
+}
+
+@keyframes hud-error {
+  0%, 100% { filter: none; }
+  50% { filter: sepia(0.3) hue-rotate(-20deg); }
+}
+
+/* Window content helpers */
+.hud-muted { color: #988878; font-style: italic; }
+.hud-list { list-style: none; padding: 0; margin: 8px 0; }
+.hud-list li { padding: 4px 0; border-bottom: 1px solid rgba(184, 146, 74, 0.12); }
+.hud-list--scroll { max-height: 180px; overflow-y: auto; }
+.hud-btn {
+  padding: 6px 12px;
+  margin: 4px 4px 4px 0;
+  background: var(--purple-deep);
+  border: 1px solid var(--brass-dim);
+  color: var(--parchment);
+  font-size: 11px;
+}
+.hud-btn--primary {
+  border-color: var(--brass-bright);
+  color: var(--brass-bright);
+}
+
+.hud-grimoire__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.hud-grimoire__tab {
+  padding: 3px 8px;
+  font-size: 9px;
+  background: var(--iron);
+  border: 1px solid var(--brass-dim);
+  color: #a89888;
+}
+
+.hud-grimoire__tab.is-active {
+  color: var(--brass-bright);
+  border-color: var(--brass);
+}
+
+.hud-grimoire__page {
+  padding: 10px;
+  background: rgba(232, 220, 200, 0.06);
+  border: 1px solid rgba(184, 146, 74, 0.2);
+  min-height: 200px;
+}
+
+.hud-grimoire__list {
+  columns: 2;
+  font-size: 11px;
+}
+
+.hud-teleport__door {
+  height: 100px;
+  margin-bottom: 12px;
+  background: linear-gradient(180deg, #1a1418, #0a0810);
+  border: 2px solid var(--brass-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-teleport__portal {
+  width: 64px;
+  height: 80px;
+  background: radial-gradient(ellipse, #8868c8, #2a1848 60%, transparent 70%);
+  animation: hud-portal 3s ease-in-out infinite;
+  border-radius: 50% 50% 10% 10%;
+}
+
+@keyframes hud-portal {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.hud-map__canvas {
+  height: 140px;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 15px, rgba(184,146,74,0.08) 15px, rgba(184,146,74,0.08) 16px),
+    repeating-linear-gradient(90deg, transparent, transparent 15px, rgba(184,146,74,0.08) 15px, rgba(184,146,74,0.08) 16px),
+    #1a1810;
+  border: 1px solid var(--brass-dim);
+  margin-bottom: 10px;
+}
+
+.hud-settings__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* Panel theme overrides when practitioner HUD active */
+.practitioner-hud-theme #inventory-panel .inventory-panel-inner {
+  border-color: var(--brass-dim);
+}
+
+@media (max-width: 900px) {
+  .hud-nav__cards { gap: 6px; }
+}

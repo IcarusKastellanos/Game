@@ -1,0 +1,14 @@
+[
+  { "id": "floor_wood", "name": "Wooden Floor", "walkable": true, "spriteKey": "tile_floor_wood", "layer": "floor" },
+  { "id": "floor_tile", "name": "Stone Tile", "walkable": true, "spriteKey": "tile_floor_stone", "layer": "floor" },
+  { "id": "floor_grass", "name": "Grass", "walkable": true, "spriteKey": "tile_grass", "layer": "floor" },
+  { "id": "floor_path", "name": "Dirt Path", "walkable": true, "spriteKey": "tile_path", "layer": "floor" },
+  { "id": "wall_brick", "name": "Brick Wall", "walkable": false, "spriteKey": "tile_wall_brick", "layer": "wall" },
+  { "id": "wall_fence", "name": "Fence", "walkable": false, "spriteKey": "tile_fence", "layer": "wall" },
+  { "id": "obj_altar", "name": "Altar", "walkable": false, "spriteKey": "obj_altar", "layer": "object" },
+  { "id": "obj_door", "name": "Door", "walkable": true, "spriteKey": "obj_door", "layer": "object" },
+  { "id": "obj_bed", "name": "Bed", "walkable": false, "spriteKey": "obj_bed", "layer": "object" },
+  { "id": "obj_shelf", "name": "Shelf", "walkable": false, "spriteKey": "obj_shelf", "layer": "object" },
+  { "id": "obj_tree", "name": "Tree", "walkable": false, "spriteKey": "obj_tree", "layer": "object" },
+  { "id": "obj_shop", "name": "Shop Front", "walkable": false, "spriteKey": "obj_shop", "layer": "object" }
+]

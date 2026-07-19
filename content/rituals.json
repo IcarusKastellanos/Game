@@ -1,0 +1,30 @@
+[
+  {
+    "id": "coven_warding_ritual",
+    "name": "Coven Warding Ritual",
+    "tradition": "traditional_european",
+    "participants": 3,
+    "description": "Multi-person grove ward stronger than individual wards. NOT YET IMPLEMENTED."
+  },
+  {
+    "id": "coven_cursing_ritual",
+    "name": "Coven Cursing Ritual",
+    "tradition": "traditional_european",
+    "participants": 4,
+    "description": "Collective curse far exceeding individual potency. NOT YET IMPLEMENTED."
+  },
+  {
+    "id": "healing_circle",
+    "name": "Healing Circle",
+    "tradition": "traditional_european",
+    "participants": 2,
+    "description": "Shared healing rite for coven members. NOT YET IMPLEMENTED."
+  },
+  {
+    "id": "tree_empowerment",
+    "name": "Magical Tree Empowerment",
+    "tradition": "traditional_european",
+    "participants": 3,
+    "description": "Feed energy to the coven grove tree. NOT YET IMPLEMENTED."
+  }
+]

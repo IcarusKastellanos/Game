@@ -1,0 +1,123 @@
+[
+  {
+    "id": "bed_simple",
+    "name": "Simple Bed",
+    "category": "furniture",
+    "width": 2,
+    "height": 1,
+    "placementRules": ["floor"]
+  },
+  {
+    "id": "bookshelf",
+    "name": "Bookcase",
+    "category": "furniture",
+    "width": 1,
+    "height": 2,
+    "placementRules": ["floor", "wall_adjacent"]
+  },
+  {
+    "id": "potion_shelf",
+    "name": "Potion Shelf",
+    "category": "furniture",
+    "width": 1,
+    "height": 1,
+    "placementRules": ["floor"]
+  },
+  {
+    "id": "rug_herbal",
+    "name": "Herbal Rug",
+    "category": "floor",
+    "width": 2,
+    "height": 2,
+    "placementRules": ["floor"]
+  },
+  {
+    "id": "poster_moon",
+    "name": "Moon Phase Poster",
+    "category": "wall",
+    "width": 1,
+    "height": 1,
+    "placementRules": ["wall"]
+  },
+  {
+    "id": "altar_table",
+    "name": "Altar Table",
+    "category": "furniture",
+    "width": 2,
+    "height": 1,
+    "placementRules": ["floor"],
+    "altarBuffs": { "protection": 2, "spirit_work": 2 }
+  },
+  {
+    "id": "black_candle_holder",
+    "name": "Black Candle Holder",
+    "category": "altar_object",
+    "width": 1,
+    "height": 1,
+    "altarBuffs": { "protection": 5, "baneful": 3 }
+  },
+  {
+    "id": "brass_bell",
+    "name": "Brass Bell",
+    "category": "altar_object",
+    "width": 1,
+    "height": 1,
+    "altarBuffs": { "cleansing": 5, "spirit_work": 4 }
+  },
+  {
+    "id": "ancestor_frame",
+    "name": "Ancestor Photo Frame",
+    "category": "altar_object",
+    "width": 1,
+    "height": 1,
+    "altarBuffs": { "spirit_work": 6 }
+  },
+  {
+    "id": "herb_bowl",
+    "name": "Herb Bowl",
+    "category": "altar_object",
+    "width": 1,
+    "height": 1,
+    "altarBuffs": { "healing": 4, "protection": 2 }
+  },
+  {
+    "id": "iron_nail_altar",
+    "name": "Iron Nail (Altar)",
+    "category": "altar_object",
+    "width": 1,
+    "height": 1,
+    "altarBuffs": { "warding": 6, "binding": 3 }
+  },
+  {
+    "id": "scrying_mirror",
+    "name": "Scrying Mirror",
+    "category": "altar_object",
+    "width": 1,
+    "height": 1,
+    "altarBuffs": { "divination": 6, "reversal": 3 }
+  },
+  {
+    "id": "offering_dish",
+    "name": "Offering Dish",
+    "category": "altar_object",
+    "width": 1,
+    "height": 1,
+    "altarBuffs": { "spirit_work": 5, "prosperity": 2 }
+  },
+  {
+    "id": "familiar_bed",
+    "name": "Familiar Bed",
+    "category": "furniture",
+    "width": 1,
+    "height": 1,
+    "placementRules": ["floor"]
+  },
+  {
+    "id": "familiar_bowl",
+    "name": "Familiar Food Bowl",
+    "category": "furniture",
+    "width": 1,
+    "height": 1,
+    "placementRules": ["floor"]
+  }
+]

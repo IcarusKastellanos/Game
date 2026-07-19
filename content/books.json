@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "books": [
+    {
+      "id": "book_folk_magic",
+      "title": "Foundations of Folk Magic",
+      "pages": [
+        "Chapter I — The Cunning Path\n\nEuropean folk magic weaves intention, timing, and humble tools. Salt circles, candle dressing, and spoken charms form the practitioner's daily craft.",
+        "Chapter II — Correspondences\n\nRosemary guards thresholds. Bay leaf carries wishes to the wind. White candles invite clarity; black candles absorb what must not follow you home.",
+        "Chapter III — First Workings\n\nA healing charm needs little more than focus and rosemary. Protection begins at the threshold — salt, flame, and a clear name for what you ward against."
+      ],
+      "grants": {
+        "statXp": {
+          "herbalism": 2,
+          "ritualSkill": 1
+        },
+        "discoverItems": ["rosemary", "bay_leaf", "white_candle", "salt"],
+        "affinity": "traditional_european"
+      }
+    }
+  ]
+}
