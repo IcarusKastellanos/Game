@@ -26,6 +26,7 @@
     "db:env": "node scripts/ensure-env.mjs",
     "db:wait": "node scripts/wait-for-db.mjs",
     "db:setup": "node scripts/ensure-env.mjs && npm run db:up && npm run db:wait && npm run db:push && npm run db:seed:admin",
+    "db:restore": "bash scripts/db-restore.sh",
     "content:sync": "npm run content:sync -w server",
     "assets:aura": "node scripts/generate-aura-ui-assets.mjs",
     "setup": "npm install && npm run db:setup"

@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # PG 18 — matches dumps from recent Homebrew / local Postgres installs
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres

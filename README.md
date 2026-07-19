@@ -39,6 +39,28 @@ Useful DB commands:
 | `npm run db:down` | Stop Docker Postgres |
 | `npm run db:env` | Reset `.env` `DATABASE_URL` to the universal value |
 | `npm run db:setup` | Env + up + push schema + seed admin |
+| `npm run db:restore -- ~/Downloads/file.dump` | Replace DB from a `.dump` / `.sql` backup |
+
+If the server says tables like `ContentIngredient` do not exist, the database is empty — restore a backup or run `npm run db:setup`.
+
+**Restore from another computer’s dump (Mac):**
+
+```bash
+# Stop npm run dev (Ctrl+C). Stop Homebrew Postgres if it owns 5432:
+brew services stop postgresql@16
+
+# Recreate Docker DB on Postgres 18 (needed for .dump files from modern Postgres)
+docker compose down -v
+npm run db:up
+npm run db:restore -- ~/Downloads/witchcraft_sim_local_full.dump
+
+# Optional: refresh map-builder tables from the wrapped SQL
+sed -E -e '/^\\restrict /d' -e '/^SET transaction_timeout/d' \
+  ~/Downloads/map-builder-restore-wrapped.sql \
+  | docker compose exec -T postgres psql -U postgres -d witchcraft_sim
+
+npm run dev
+```
 
 The game can still run without Postgres (in-memory fallback). Persistence needs Docker running (`npm run db:up`).
 
