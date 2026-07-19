@@ -50,7 +50,9 @@ If the server says tables like `ContentIngredient` do not exist, the database is
 brew services stop postgresql@16
 
 # Recreate Docker DB on Postgres 18 (needed for .dump files from modern Postgres)
+# down -v wipes the old volume — required after the PG18 mount-path change
 docker compose down -v
+git pull   # ensure docker-compose.yml mounts /var/lib/postgresql
 npm run db:up
 npm run db:restore -- ~/Downloads/witchcraft_sim_local_full.dump
 
