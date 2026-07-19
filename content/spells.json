@@ -301,7 +301,8 @@
     "maintenanceCost": 4,
     "counterspellTags": ["uncrossing", "cleansing"],
     "moralEffect": -4,
-    "gameplayEffect": { "addHex": true, "hexType": "weakening", "weakenMagicalEnergy": 10, "weakenProtection": 4 }
+    "gameplayEffect": { "addHex": true, "hexType": "weakening", "weakenMagicalEnergy": 10, "weakenProtection": 4 },
+    "description": "A prepared pocket hex that saps the target's magical energy and thins their protections."
   },
   {
     "id": "pocket_sleep_charm",
@@ -321,7 +322,8 @@
     "maintenanceCost": 3,
     "counterspellTags": ["uncrossing"],
     "moralEffect": -3,
-    "gameplayEffect": { "addHex": true, "hexType": "sleep", "bindAction": "drowsiness", "weakenMagicalEnergy": 6 }
+    "gameplayEffect": { "addHex": true, "hexType": "sleep", "bindAction": "drowsiness", "weakenMagicalEnergy": 6 },
+    "description": "A quick charm that settles heavy drowsiness on the target and dulls their focus."
   },
   {
     "id": "pocket_fear_working",
@@ -341,7 +343,8 @@
     "maintenanceCost": 5,
     "counterspellTags": ["uncrossing", "reversal"],
     "moralEffect": -5,
-    "gameplayEffect": { "addHex": true, "hexType": "fear", "weakenProtection": 6, "harmHealth": 4 }
+    "gameplayEffect": { "addHex": true, "hexType": "fear", "weakenProtection": 6, "harmHealth": 4 },
+    "description": "A baneful pocket working that seeds dread, fraying wards and wearing on the body."
   },
   {
     "id": "pocket_pain_touch",
@@ -361,7 +364,8 @@
     "maintenanceCost": 5,
     "counterspellTags": ["healing", "uncrossing"],
     "moralEffect": -6,
-    "gameplayEffect": { "addHex": true, "hexType": "pain", "harmHealth": 12, "curseResidue": 8 }
+    "gameplayEffect": { "addHex": true, "hexType": "pain", "harmHealth": 12, "curseResidue": 8 },
+    "description": "A cruel sympathetic charm that delivers sharp pain and leaves curse residue behind."
   },
   {
     "id": "pocket_binding_touch",
@@ -382,7 +386,8 @@
     "maintenanceCost": 6,
     "counterspellTags": ["reversal", "uncrossing"],
     "moralEffect": -5,
-    "gameplayEffect": { "addHex": true, "hexType": "binding", "bindAction": "movement_slow", "weakenProtection": 5 }
+    "gameplayEffect": { "addHex": true, "hexType": "binding", "bindAction": "movement_slow", "weakenProtection": 5 },
+    "description": "A pocket binding that pins intent to slow the target's movement and blunt their defenses."
   },
   {
     "id": "pocket_misfortune_hex",
@@ -402,7 +407,8 @@
     "maintenanceCost": 3,
     "counterspellTags": ["cleansing", "luck"],
     "moralEffect": -4,
-    "gameplayEffect": { "addHex": true, "hexType": "misfortune", "luckPenalty": 10, "curseResidue": 6 }
+    "gameplayEffect": { "addHex": true, "hexType": "misfortune", "luckPenalty": 10, "curseResidue": 6 },
+    "description": "A compact hex that sours luck and leaves a smear of curse residue."
   },
   {
     "id": "pocket_divination_lens",
@@ -423,7 +429,8 @@
     "maintenanceCost": 3,
     "counterspellTags": [],
     "moralEffect": 0,
-    "gameplayEffect": { "divinationBoost": 12, "blessing": "second_sight", "revealIncomingMagic": true }
+    "gameplayEffect": { "divinationBoost": 12, "blessing": "second_sight", "revealIncomingMagic": true },
+    "description": "A self-cast pocket rite that sharpens second sight and reveals incoming magic."
   },
   {
     "id": "pocket_divination_veil",
@@ -443,7 +450,8 @@
     "maintenanceCost": 4,
     "counterspellTags": ["cleansing"],
     "moralEffect": -3,
-    "gameplayEffect": { "addHex": true, "hexType": "blindness", "weakenDivination": 15, "weakenIntuition": 8 }
+    "gameplayEffect": { "addHex": true, "hexType": "blindness", "weakenDivination": 15, "weakenIntuition": 8 },
+    "description": "A veiling hex that clouds the target's divination and dulls their intuition."
   },
   {
     "id": "pocket_silencing_touch",
@@ -463,6 +471,7 @@
     "maintenanceCost": 3,
     "counterspellTags": ["uncrossing"],
     "moralEffect": -3,
-    "gameplayEffect": { "addHex": true, "hexType": "silencing", "bindAction": "speech_bind", "weakenMagicalEnergy": 4 }
+    "gameplayEffect": { "addHex": true, "hexType": "silencing", "bindAction": "speech_bind", "weakenMagicalEnergy": 4 },
+    "description": "A brief speech-binding charm that ties the tongue and saps a little magical energy."
   }
 ]

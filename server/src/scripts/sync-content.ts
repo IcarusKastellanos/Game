@@ -38,6 +38,10 @@ async function syncContent() {
   }
 
   for (const spell of load<Record<string, unknown>>('spells.json')) {
+    const description =
+      typeof spell.description === 'string' && spell.description.trim()
+        ? spell.description
+        : `${String(spell.name ?? spell.id)} — prepared pocket working.`;
     await prisma.contentSpell.upsert({
       where: { id: spell.id as string },
       create: {
@@ -62,9 +66,9 @@ async function syncContent() {
         visualEffect: (spell.visualEffect as string) ?? undefined,
         audioEffect: (spell.audioEffect as string) ?? undefined,
         gameplayEffect: spell.gameplayEffect as object,
-        description: spell.description as string,
+        description,
       },
-      update: { name: spell.name as string, description: spell.description as string },
+      update: { name: spell.name as string, description },
     });
   }
 

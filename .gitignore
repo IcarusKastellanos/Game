@@ -9,3 +9,6 @@ Thumbs.db
 .vite/
 coverage/
 .prisma/
+backups/
+_recover_*
+*.dump

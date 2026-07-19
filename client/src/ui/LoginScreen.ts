@@ -27,11 +27,22 @@ export function initLogin(onComplete: (username: string, displayName: string) =>
   const savedToken = localStorage.getItem(STORAGE_TOKEN)?.trim();
 
   if (savedUser && savedToken) {
-    clearIconVerifySession();
-    gameState.username = savedUser;
-    gameState.displayName = savedDisplay || savedUser;
-    gameState.authToken = savedToken;
-    onComplete(savedUser, gameState.displayName);
+    void (async () => {
+      try {
+        const res = await fetch(`${API}/api/auth/session`, {
+          headers: { Authorization: `Bearer ${savedToken}` },
+        });
+        if (!res.ok) throw new Error('session invalid');
+        clearIconVerifySession();
+        gameState.username = savedUser;
+        gameState.displayName = savedDisplay || savedUser;
+        gameState.authToken = savedToken;
+        onComplete(savedUser, gameState.displayName);
+      } catch {
+        clearSavedLogin();
+        showLoginScreen(onComplete);
+      }
+    })();
     return;
   }
 

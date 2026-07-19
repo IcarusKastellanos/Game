@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { prisma } from '../services/db.js';
 import { hashPassword } from '../admin/auth.js';
 import { syncAdminRbacFromCatalog } from '../admin/rbac-sync.js';
@@ -34,6 +36,12 @@ export async function seedAdminFramework(): Promise<void> {
   console.log('[seed-admin] Default admin: username=admin password=' + defaultPassword);
 }
 
-seedAdminFramework()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+const isDirectRun =
+  process.argv[1] != null &&
+  path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1]);
+
+if (isDirectRun) {
+  seedAdminFramework()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());
+}

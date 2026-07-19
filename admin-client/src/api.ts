@@ -38,10 +38,14 @@ export async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 export async function login(username: string, password: string) {
-  return api<{ token: string; session: unknown }>('/auth/login', {
+  const res = await fetch(`${API}/auth/login`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
+  const data = await res.json().catch(() => ({ error: res.statusText }));
+  if (!res.ok) throw new Error(data.error ?? 'Invalid username or password');
+  return data as { token: string; session: unknown };
 }
 
 export async function getMe() {
