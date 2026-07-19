@@ -21,9 +21,14 @@
     "db:push": "prisma db push --schema prisma/schema.prisma",
     "db:seed": "npm run db:seed -w server",
     "db:seed:admin": "npm run db:seed:admin -w server",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:env": "node scripts/ensure-env.mjs",
+    "db:wait": "node scripts/wait-for-db.mjs",
+    "db:setup": "node scripts/ensure-env.mjs && npm run db:up && npm run db:wait && npm run db:push && npm run db:seed:admin",
     "content:sync": "npm run content:sync -w server",
     "assets:aura": "node scripts/generate-aura-ui-assets.mjs",
-    "setup": "npm install && npm run build -w shared && npm run db:generate && echo Edit .env with your PostgreSQL credentials, create DB witchcraft_sim, then: npm run db:push && npm run content:sync && npm run db:seed"
+    "setup": "npm install && npm run db:setup"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -4,48 +4,43 @@ A 16-bit multiplayer browser life-sim/RPG grounded in historical folk magic prac
 
 ## Quick Start
 
-**Requires Node.js 20+**
+**Requires:** Node.js 20+ and [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for PostgreSQL).
+
+The database uses **one shared `DATABASE_URL` on every machine** via Docker — do not change it to your OS username.
 
 ```bash
-# Install dependencies (builds shared package automatically)
+# Install deps + start universal Postgres + push schema + seed admin
+npm run setup
+
+# Or step by step:
 npm install
-
-# Copy environment config (Windows)
-copy .env.example .env
-
-# Generate Prisma client
-npm run db:generate
+npm run db:setup   # writes .env, starts Docker Postgres, db:push, seed admin
 ```
 
-### Optional: PostgreSQL persistence (local install — no Docker)
-
-The game runs without a database (in-memory fallback). For save/load across sessions, use your **local PostgreSQL** install.
-
-**1. Edit `.env`** with your PostgreSQL username and password:
+`npm run db:setup` always sets:
 
 ```
-DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/witchcraft_sim?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/witchcraft_sim?schema=public"
 ```
 
-Common defaults: user `postgres`, port `5432`. Special characters in passwords must be URL-encoded.
+That matches `docker-compose.yml` everywhere (Mac, Windows, Linux).
 
-**2. Create the database** (once) — pick one method:
-
-- **pgAdmin:** connect to your server → right-click **Databases** → **Create** → name: `witchcraft_sim`
-- **SQL:** run `scripts/create-database.sql` in the Query Tool
-
-**3. Push schema and seed content:**
+**Mac tip:** if Homebrew Postgres is already on port 5432, stop it first:
 
 ```bash
-npm run db:generate
-npm run db:push
-npm run content:sync
-npm run db:seed
+brew services stop postgresql@16
 ```
 
-**4. Restart** `npm run dev` if the server was already running.
+Useful DB commands:
 
-> Docker is optional. If you prefer it later, `docker compose up -d` uses the same database name and credentials as `.env.example`.
+| Command | What it does |
+|---------|----------------|
+| `npm run db:up` | Start Docker Postgres |
+| `npm run db:down` | Stop Docker Postgres |
+| `npm run db:env` | Reset `.env` `DATABASE_URL` to the universal value |
+| `npm run db:setup` | Env + up + push schema + seed admin |
+
+The game can still run without Postgres (in-memory fallback). Persistence needs Docker running (`npm run db:up`).
 
 ### Run the game
 
@@ -99,7 +94,7 @@ If it still fails and the project lives under **OneDrive** (`Desktop\Game`), pau
 /shared                 Shared TypeScript types & constants
 /prisma                 PostgreSQL schema
 /content                JSON registries (spells, NPCs, dialogues, maps, etc.)
-docker-compose.yml      PostgreSQL for local persistence
+docker-compose.yml      Universal PostgreSQL (same credentials every machine)
 ```
 
 ## v0.2 Features
