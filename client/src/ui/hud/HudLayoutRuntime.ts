@@ -1,7 +1,11 @@
 import {
   resolveElementForState,
+  resolveHudElementRect,
+  type HudElement,
   type HudLayoutDocument,
+  type HudResolution,
 } from '@witchcraft/shared';
+import { themeManager } from './ThemeManager.js';
 
 /** Public HUD layout endpoint — no auth cookies required. */
 function hudApiUrl(): string {
@@ -16,22 +20,30 @@ const POLL_MS = 3000;
 const LAYOUT_CLASS = 'hud-layout-driven';
 const LIVE_CACHE_KEY = 'wc-hud-live';
 
-/** Roots that must keep theme CSS placement (not absolute layout JSON coords). */
-const CSS_PLACED_IDS = [
-  'hud-player-panel',
+/** Roots that can receive layout overrides (cleared back to CSS when collapsed / no doc). */
+const LAYOUT_ROOT_IDS = [
   'hud-nav',
   'hud-moon-panel',
   'hud-resources',
-  'hud-compass',
 ] as const;
 
+/** Resource counters are separate catalog types but one live DOM stack. */
+const RESOURCE_TYPES = [
+  'currency-coins',
+  'currency-essence',
+  'currency-favor',
+  'reputation-counter',
+] as const;
+
+type Rect = { x: number; y: number; w: number; h: number };
+
 /**
- * Fetches published HUD layouts for live editor sync / intuition offset metadata.
+ * Fetches published HUD layouts and drives live placement.
  *
- * Nav, resources, moon, and the nameplate stay on CSS theme placement. Mapping
- * 1920×1080 layout JSON into the scaled hud-root broke expand/collapse and
- * hid the nav icons — do not reintroduce absolute overrides here until the
- * coordinate spaces are reconciled.
+ * - Intuition meter: always parent-relative to the nameplate (collapsed + expanded).
+ * - Nav / moon / resources: layout JSON applied only while the HUD is expanded,
+ *   in hud-root logical space (viewport ÷ --hud-scale) so expand/collapse and
+ *   auto-fit scaling stay intact.
  */
 class HudLayoutRuntime {
   private doc: HudLayoutDocument | null = null;
@@ -45,6 +57,7 @@ class HudLayoutRuntime {
     try {
       const res = await fetch(`${hudApiUrl()}?_${Date.now()}`, { cache: 'no-store' });
       if (res.status === 204) {
+        this.doc = null;
         this.apply();
         return;
       }
@@ -65,19 +78,14 @@ class HudLayoutRuntime {
   private tryLocalCache(): void {
     try {
       const raw = localStorage.getItem(LIVE_CACHE_KEY);
-      if (!raw) {
-        this.doc = null;
-        this.apply();
-        return;
-      }
+      if (!raw) return;
       const parsed = JSON.parse(raw) as { doc?: HudLayoutDocument };
       if (parsed.doc) {
         this.doc = parsed.doc;
         this.apply();
       }
     } catch {
-      this.doc = null;
-      this.apply();
+      /* ignore corrupt cache */
     }
   }
 
@@ -123,21 +131,142 @@ class HudLayoutRuntime {
       'transform',
       'opacity',
       'z-index',
+      'visibility',
+      'pointer-events',
     ]) {
       el.style.removeProperty(prop);
     }
   }
 
   private stripForcedPlacement(): void {
-    for (const id of CSS_PLACED_IDS) {
+    for (const id of LAYOUT_ROOT_IDS) {
       const el = document.getElementById(id);
       if (el) this.clearLayoutStyles(el);
     }
-    const compass = document.getElementById('hud-compass');
-    const frame = compass?.querySelector('.hud-intuition__frame') as HTMLElement | null;
-    if (frame) {
-      frame.style.removeProperty('width');
-      frame.style.removeProperty('height');
+  }
+
+  private hudRootViewport(): HudResolution {
+    const scale = Math.max(0.01, themeManager.getCombinedScale());
+    return {
+      width: window.innerWidth / scale,
+      height: window.innerHeight / scale,
+    };
+  }
+
+  private elementRect(el: HudElement, doc: HudLayoutDocument, viewport: HudResolution): Rect {
+    return resolveHudElementRect(el, doc.baseResolution, viewport);
+  }
+
+  private resolveType(doc: HudLayoutDocument, type: string): HudElement | null {
+    const base = doc.elements.find((e) => e.type === type);
+    if (!base) return null;
+    return resolveElementForState(base, doc, 'default');
+  }
+
+  private unionRects(rects: Rect[]): Rect | null {
+    if (rects.length === 0) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const r of rects) {
+      minX = Math.min(minX, r.x);
+      minY = Math.min(minY, r.y);
+      maxX = Math.max(maxX, r.x + r.w);
+      maxY = Math.max(maxY, r.y + r.h);
+    }
+    return { x: minX, y: minY, w: Math.max(0, maxX - minX), h: Math.max(0, maxY - minY) };
+  }
+
+  private placeRoot(
+    domId: string,
+    rect: Rect,
+    opts: { zIndex?: number; opacity?: number; size?: boolean } = {},
+  ): void {
+    const el = document.getElementById(domId);
+    if (!el) return;
+    el.classList.add(LAYOUT_CLASS);
+    el.style.position = 'absolute';
+    el.style.left = `${Math.round(rect.x)}px`;
+    el.style.top = `${Math.round(rect.y)}px`;
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.margin = '0';
+    el.style.transform = 'none';
+    el.style.visibility = 'visible';
+    el.style.pointerEvents = 'auto';
+    if (opts.size) {
+      if (rect.w > 0) el.style.width = `${Math.round(rect.w)}px`;
+      if (rect.h > 0) el.style.height = `${Math.round(rect.h)}px`;
+    }
+    if (typeof opts.zIndex === 'number') el.style.zIndex = String(opts.zIndex);
+    if (typeof opts.opacity === 'number') el.style.opacity = String(opts.opacity);
+  }
+
+  private hideRoot(domId: string): void {
+    const el = document.getElementById(domId);
+    if (!el) return;
+    el.classList.add(LAYOUT_CLASS);
+    el.style.visibility = 'hidden';
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0';
+  }
+
+  private applyExpandedChrome(doc: HudLayoutDocument): void {
+    const viewport = this.hudRootViewport();
+
+    // Navigation row
+    const nav = this.resolveType(doc, 'nav-buttons');
+    if (!nav || !nav.enabled) {
+      this.hideRoot('hud-nav');
+    } else {
+      this.placeRoot('hud-nav', this.elementRect(nav, doc, viewport), {
+        zIndex: nav.zIndex,
+        opacity: nav.opacity,
+      });
+    }
+
+    // Moon / time / location panel
+    const moon = this.resolveType(doc, 'world-panel');
+    if (!moon || !moon.enabled) {
+      this.hideRoot('hud-moon-panel');
+    } else {
+      this.placeRoot('hud-moon-panel', this.elementRect(moon, doc, viewport), {
+        zIndex: moon.zIndex,
+        opacity: moon.opacity,
+        size: true,
+      });
+    }
+
+    // Resource stack — union of currency / reputation catalog entries
+    const resourceRects: Rect[] = [];
+    let resourceZ = 12;
+    let resourceOpacity = 1;
+    let anyResource = false;
+    let anyEnabled = false;
+    for (const type of RESOURCE_TYPES) {
+      const entry = this.resolveType(doc, type);
+      if (!entry) continue;
+      anyResource = true;
+      if (!entry.enabled) continue;
+      anyEnabled = true;
+      resourceRects.push(this.elementRect(entry, doc, viewport));
+      resourceZ = Math.max(resourceZ, entry.zIndex);
+      resourceOpacity = Math.min(resourceOpacity, entry.opacity);
+    }
+
+    if (!anyResource) {
+      // No catalog entries — CSS theme placement remains after strip.
+    } else if (!anyEnabled) {
+      this.hideRoot('hud-resources');
+    } else {
+      const union = this.unionRects(resourceRects);
+      if (union) {
+        this.placeRoot('hud-resources', union, {
+          zIndex: resourceZ,
+          opacity: resourceOpacity,
+        });
+      }
     }
   }
 
@@ -191,6 +320,11 @@ class HudLayoutRuntime {
   private applyNow(): void {
     this.stripForcedPlacement();
     this.applyIntuitionRelative(this.doc);
+
+    const expanded = document.body.classList.contains('hud-expanded');
+    if (expanded && this.doc) {
+      this.applyExpandedChrome(this.doc);
+    }
   }
 }
 
