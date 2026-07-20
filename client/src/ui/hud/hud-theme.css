@@ -140,33 +140,6 @@ body.hud-expanded #hud-resources {
   bottom: 58px;
 }
 
-/* Admin layout JSON placement (expanded HUD only — see HudLayoutRuntime) */
-#hud-nav.hud-layout-driven,
-#hud-moon-panel.hud-layout-driven,
-#hud-resources.hud-layout-driven {
-  position: absolute;
-  /* Theme left:50%/bottom/right anchors cleared; inline left|right|top|bottom win. */
-  transform: none;
-}
-
-body.hud-expanded #hud-nav.hud-layout-driven,
-body.hud-expanded #hud-moon-panel.hud-layout-driven,
-body.hud-expanded #hud-resources.hud-layout-driven {
-  /* Keep unfold animation without fighting layout translateX(-50%). */
-  animation: hud-unfold-in-layout 0.38s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes hud-unfold-in-layout {
-  from {
-    opacity: 0;
-    transform: scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 .hud-root {
   position: fixed;
   inset: 0;
