@@ -145,9 +145,7 @@ body.hud-expanded #hud-resources {
 #hud-moon-panel.hud-layout-driven,
 #hud-resources.hud-layout-driven {
   position: absolute;
-  right: auto;
-  bottom: auto;
-  /* Cancel theme centering / bottom-right anchors; inline left/top win. */
+  /* Theme left:50%/bottom/right anchors cleared; inline left|right|top|bottom win. */
   transform: none;
 }
 

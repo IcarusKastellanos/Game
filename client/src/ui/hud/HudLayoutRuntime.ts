@@ -181,26 +181,47 @@ class HudLayoutRuntime {
   private placeRoot(
     domId: string,
     rect: Rect,
-    opts: { zIndex?: number; opacity?: number; size?: boolean } = {},
+    viewport: HudResolution,
+    opts: {
+      zIndex?: number;
+      opacity?: number;
+      size?: boolean;
+      /** Align using bottom edge (nav/resources live taller than catalog boxes). */
+      pinBottom?: boolean;
+      pinRight?: boolean;
+    } = {},
   ): void {
     const el = document.getElementById(domId);
     if (!el) return;
     el.classList.add(LAYOUT_CLASS);
     el.style.position = 'absolute';
-    el.style.left = `${Math.round(rect.x)}px`;
-    el.style.top = `${Math.round(rect.y)}px`;
-    el.style.right = 'auto';
-    el.style.bottom = 'auto';
     el.style.margin = '0';
     el.style.transform = 'none';
     el.style.visibility = 'visible';
     el.style.pointerEvents = 'auto';
+    el.style.opacity = String(typeof opts.opacity === 'number' ? opts.opacity : 1);
+
+    if (opts.pinBottom) {
+      el.style.top = 'auto';
+      el.style.bottom = `${Math.max(0, Math.round(viewport.height - (rect.y + rect.h)))}px`;
+    } else {
+      el.style.bottom = 'auto';
+      el.style.top = `${Math.round(rect.y)}px`;
+    }
+
+    if (opts.pinRight) {
+      el.style.left = 'auto';
+      el.style.right = `${Math.max(0, Math.round(viewport.width - (rect.x + rect.w)))}px`;
+    } else {
+      el.style.right = 'auto';
+      el.style.left = `${Math.round(rect.x)}px`;
+    }
+
     if (opts.size) {
       if (rect.w > 0) el.style.width = `${Math.round(rect.w)}px`;
       if (rect.h > 0) el.style.height = `${Math.round(rect.h)}px`;
     }
     if (typeof opts.zIndex === 'number') el.style.zIndex = String(opts.zIndex);
-    if (typeof opts.opacity === 'number') el.style.opacity = String(opts.opacity);
   }
 
   private hideRoot(domId: string): void {
@@ -215,23 +236,25 @@ class HudLayoutRuntime {
   private applyExpandedChrome(doc: HudLayoutDocument): void {
     const viewport = this.hudRootViewport();
 
-    // Navigation row
+    // Navigation row — missing from layout ⇒ keep CSS; disabled ⇒ hide.
+    // Pin to layout bottom so tall live sprites stay on-screen (catalog box is short).
     const nav = this.resolveType(doc, 'nav-buttons');
-    if (!nav || !nav.enabled) {
+    if (nav && !nav.enabled) {
       this.hideRoot('hud-nav');
-    } else {
-      this.placeRoot('hud-nav', this.elementRect(nav, doc, viewport), {
-        zIndex: nav.zIndex,
+    } else if (nav) {
+      this.placeRoot('hud-nav', this.elementRect(nav, doc, viewport), viewport, {
+        zIndex: nav.zIndex || 1450,
         opacity: nav.opacity,
+        pinBottom: true,
       });
     }
 
     // Moon / time / location panel
     const moon = this.resolveType(doc, 'world-panel');
-    if (!moon || !moon.enabled) {
+    if (moon && !moon.enabled) {
       this.hideRoot('hud-moon-panel');
-    } else {
-      this.placeRoot('hud-moon-panel', this.elementRect(moon, doc, viewport), {
+    } else if (moon) {
+      this.placeRoot('hud-moon-panel', this.elementRect(moon, doc, viewport), viewport, {
         zIndex: moon.zIndex,
         opacity: moon.opacity,
         size: true,
@@ -240,7 +263,7 @@ class HudLayoutRuntime {
 
     // Resource stack — union of currency / reputation catalog entries
     const resourceRects: Rect[] = [];
-    let resourceZ = 12;
+    let resourceZ = 1410;
     let resourceOpacity = 1;
     let anyResource = false;
     let anyEnabled = false;
@@ -255,16 +278,16 @@ class HudLayoutRuntime {
       resourceOpacity = Math.min(resourceOpacity, entry.opacity);
     }
 
-    if (!anyResource) {
-      // No catalog entries — CSS theme placement remains after strip.
-    } else if (!anyEnabled) {
+    if (anyResource && !anyEnabled) {
       this.hideRoot('hud-resources');
-    } else {
+    } else if (anyEnabled) {
       const union = this.unionRects(resourceRects);
       if (union) {
-        this.placeRoot('hud-resources', union, {
+        this.placeRoot('hud-resources', union, viewport, {
           zIndex: resourceZ,
           opacity: resourceOpacity,
+          pinBottom: true,
+          pinRight: true,
         });
       }
     }
