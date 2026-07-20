@@ -13,25 +13,15 @@ function hudApiUrl(): string {
 }
 
 const POLL_MS = 3000;
-const LAYOUT_CLASS = 'hud-layout-driven';
 const LIVE_CACHE_KEY = 'wc-hud-live';
 
-/** Roots that must keep theme CSS placement (not absolute layout JSON coords). */
-const CSS_PLACED_IDS = [
-  'hud-player-panel',
-  'hud-nav',
-  'hud-moon-panel',
-  'hud-resources',
-  'hud-compass',
-] as const;
-
 /**
- * Fetches published HUD layouts for live editor sync / intuition offset metadata.
+ * Fetches published HUD layouts for intuition offset metadata.
  *
- * Nav, resources, moon, and the nameplate stay on CSS theme placement. Mapping
- * 1920×1080 layout JSON into the scaled hud-root broke expand/collapse and
- * hid the nav icons — do not reintroduce absolute overrides here until the
- * coordinate spaces are reconciled.
+ * Nav, resources, moon, and the nameplate use CSS theme placement. Absolute
+ * layout-JSON overrides for those roots were reverted — catalog boxes do not
+ * match live sprite sizes and pushed nav off-screen / stacked resources on the
+ * moon panel. Intuition stays nameplate-relative via metadata.
  */
 class HudLayoutRuntime {
   private doc: HudLayoutDocument | null = null;
@@ -45,6 +35,7 @@ class HudLayoutRuntime {
     try {
       const res = await fetch(`${hudApiUrl()}?_${Date.now()}`, { cache: 'no-store' });
       if (res.status === 204) {
+        this.doc = null;
         this.apply();
         return;
       }
@@ -65,19 +56,14 @@ class HudLayoutRuntime {
   private tryLocalCache(): void {
     try {
       const raw = localStorage.getItem(LIVE_CACHE_KEY);
-      if (!raw) {
-        this.doc = null;
-        this.apply();
-        return;
-      }
+      if (!raw) return;
       const parsed = JSON.parse(raw) as { doc?: HudLayoutDocument };
       if (parsed.doc) {
         this.doc = parsed.doc;
         this.apply();
       }
     } catch {
-      this.doc = null;
-      this.apply();
+      /* ignore corrupt cache */
     }
   }
 
@@ -108,36 +94,30 @@ class HudLayoutRuntime {
     });
   }
 
-  private clearLayoutStyles(el: HTMLElement): void {
-    el.classList.remove(LAYOUT_CLASS);
-    for (const prop of [
-      'display',
-      'position',
-      'left',
-      'top',
-      'right',
-      'bottom',
-      'width',
-      'height',
-      'margin',
-      'transform',
-      'opacity',
-      'z-index',
-    ]) {
-      el.style.removeProperty(prop);
-    }
-  }
-
-  private stripForcedPlacement(): void {
-    for (const id of CSS_PLACED_IDS) {
+  /** Clear any leftover inline overrides from earlier layout experiments. */
+  private clearChromeInlineStyles(): void {
+    for (const id of ['hud-nav', 'hud-moon-panel', 'hud-resources'] as const) {
       const el = document.getElementById(id);
-      if (el) this.clearLayoutStyles(el);
-    }
-    const compass = document.getElementById('hud-compass');
-    const frame = compass?.querySelector('.hud-intuition__frame') as HTMLElement | null;
-    if (frame) {
-      frame.style.removeProperty('width');
-      frame.style.removeProperty('height');
+      if (!el) continue;
+      el.classList.remove('hud-layout-driven');
+      for (const prop of [
+        'display',
+        'position',
+        'left',
+        'top',
+        'right',
+        'bottom',
+        'width',
+        'height',
+        'margin',
+        'transform',
+        'opacity',
+        'z-index',
+        'visibility',
+        'pointer-events',
+      ]) {
+        el.style.removeProperty(prop);
+      }
     }
   }
 
@@ -189,7 +169,7 @@ class HudLayoutRuntime {
   }
 
   private applyNow(): void {
-    this.stripForcedPlacement();
+    this.clearChromeInlineStyles();
     this.applyIntuitionRelative(this.doc);
   }
 }

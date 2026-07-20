@@ -13,7 +13,7 @@
 
 ### HUD follow-ups (optional)
 
-- [ ] Wire remaining HUD elements from admin layout JSON (nav, resources, moon panel) — intuition meter is nameplate-anchored
+- [ ] Wire remaining HUD elements from admin layout JSON (nav, resources, moon panel) — deferred; CSS theme placement restored (catalog boxes ≠ live sprite sizes)
 - [x] Store intuition meter offset relative to player-status in layout editor (not absolute canvas coords)
 - [x] Pocket spell completion → "Working Complete" toast (spells only today; hexagram/craft use "Notice")
 
