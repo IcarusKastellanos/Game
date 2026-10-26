@@ -10,7 +10,7 @@
     "admin-client"
   ],
   "scripts": {
-    "dev": "npm run build -w shared && concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:admin\"",
+    "dev": "npm run build -w shared && concurrently \"npm run dev -w server\" \"npm run dev -w client\" \"npm run dev -w admin-client\"",
     "dev:admin": "npm run build -w shared && npm run dev -w admin-client",
     "dev:client": "npm run build -w shared && npm run dev -w client",
     "dev:server": "npm run build -w shared && npm run dev -w server",
