@@ -166,6 +166,21 @@ class GameState {
   getSpells(): ContentSpell[] {
     return this.content?.spells.filter((s) => s.tradition === 'traditional_european') ?? [];
   }
+
+  /** Apply live NPC shop shelf counts from the server. */
+  applyShopStock(shopId: string, stock: { itemId: string; stock: number }[]): void {
+    const shop = this.content?.shops.find((s) => s.id === shopId);
+    if (!shop) return;
+    const next = new Map(stock.map((row) => [row.itemId, row.stock]));
+    for (const listing of shop.inventory) {
+      const value = next.get(listing.itemId);
+      if (value != null) listing.stock = value;
+    }
+  }
 }
 
 export const gameState = new GameState();
+
+export function applyShopStock(shopId: string, stock: { itemId: string; stock: number }[]): void {
+  gameState.applyShopStock(shopId, stock);
+}

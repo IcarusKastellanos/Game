@@ -31,6 +31,9 @@ export class ShopPanel {
       const target = event.target as HTMLElement | null;
       if (target?.closest('[data-ledger-close]')) this.hide();
     });
+    window.addEventListener('game:shop-stock', () => {
+      if (this.visible) this.renderShop();
+    });
   }
 
   show(shopId: string): void {

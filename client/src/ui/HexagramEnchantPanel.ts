@@ -246,10 +246,9 @@ export class HexagramEnchantPanel {
 
   private onResult(e: CustomEvent<{ success: boolean; unstable?: boolean; message: string }>): void {
     if (!this.visible) return;
-    this.ritualActive = false;
-    if (e.detail.success) {
-      this.clearHexagram(false);
-    }
+    void e.detail;
+    // Ingredients are always spent on the server once the working fires — clear the hexagon either way.
+    this.resetHexagramBoard();
     this.render();
   }
 
@@ -595,9 +594,20 @@ export class HexagramEnchantPanel {
   }
 
   private clearHexagram(rerender = true): void {
+    this.resetHexagramBoard();
+    if (rerender) this.render();
+  }
+
+  /** Remove placed ingredients/augments and return the board to a blank working. */
+  private resetHexagramBoard(): void {
     this.sockets = {};
     this.augmentations = [];
-    if (rerender) this.render();
+    this.undoStack = [];
+    this.particles = [];
+    this.ritualActive = false;
+    this.ritualPhase = 0;
+    const recipe = this.selectedRecipe();
+    this.declaration = recipe?.declarationTemplates[0] ?? '';
   }
 
   private undoStack: { sockets: Partial<Record<HexagramSocketId, string>>; augmentations: string[] }[] = [];

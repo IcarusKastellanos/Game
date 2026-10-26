@@ -1,6 +1,6 @@
 import * as Colyseus from 'colyseus.js';
 
-import { gameState, type NearbyPlayer } from '../data/game-state';
+import { applyShopStock, gameState, type NearbyPlayer } from '../data/game-state';
 import { triggerScreenDistortion } from '../ui/screen-distortion';
 import type { ContentMapDefinition, WardState, PlayerProgression } from '@witchcraft/shared';
 import { migrateInventoryToGrid } from '@witchcraft/shared';
@@ -771,11 +771,35 @@ class NetworkManager {
 
 
 
-    this.room.onMessage('shop_result', () => {
+    this.room.onMessage(
+      'shop_result',
+      (data: {
+        success?: boolean;
+        message?: string;
+        shopId?: string;
+        stock?: { itemId: string; stock: number }[];
+      }) => {
+        if (data.shopId && data.stock) {
+          applyShopStock(data.shopId, data.stock);
+          window.dispatchEvent(new CustomEvent('game:shop-stock', { detail: { shopId: data.shopId } }));
+        }
+      }
+    );
 
-      /* player_sync follows from server */
-
-    });
+    this.room.onMessage(
+      'shop_stock',
+      (data: {
+        reason?: string;
+        shops?: { shopId: string; inventory: { itemId: string; stock: number }[] }[];
+      }) => {
+        for (const shop of data.shops ?? []) {
+          applyShopStock(shop.shopId, shop.inventory);
+        }
+        window.dispatchEvent(
+          new CustomEvent('game:shop-stock', { detail: { reason: data.reason ?? 'sync' } })
+        );
+      }
+    );
 
 
 

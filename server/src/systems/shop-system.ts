@@ -1,4 +1,4 @@
-import type { InventorySlot, PlayerStats } from '@witchcraft/shared';
+import type { ContentShop, InventorySlot, PlayerStats } from '@witchcraft/shared';
 import {
   canTradePublicly,
   getPublicReputation,
@@ -20,8 +20,60 @@ export interface PurchaseResult {
   cost?: number;
 }
 
+export type ShopStockSnapshot = {
+  shopId: string;
+  inventory: { itemId: string; stock: number }[];
+}[];
+
 /** Shop transactions — inventory driven from content registry */
 export class ShopSystem {
+  /** Baseline shelf counts from content (restored at noon each day). */
+  private baseStock = new Map<string, Map<string, number>>();
+
+  /** Snapshot listing stock from current registry contents as the daily baseline. */
+  captureBaselines(shops: Iterable<ContentShop> = contentRegistry.shops.values()): void {
+    this.baseStock.clear();
+    for (const shop of shops) {
+      const items = new Map<string, number>();
+      for (const listing of shop.inventory) {
+        items.set(listing.itemId, listing.stock);
+      }
+      this.baseStock.set(shop.id, items);
+    }
+  }
+
+  /** Restore every shop listing to its content baseline. Returns true if anything changed. */
+  resetDailyStock(): boolean {
+    if (this.baseStock.size === 0) {
+      this.captureBaselines();
+    }
+    let changed = false;
+    for (const shop of contentRegistry.shops.values()) {
+      const baseline = this.baseStock.get(shop.id);
+      if (!baseline) continue;
+      for (const listing of shop.inventory) {
+        const next = baseline.get(listing.itemId);
+        if (next == null) continue;
+        if (listing.stock !== next) {
+          listing.stock = next;
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  /** Current stock for clients after a restock or purchase. */
+  stockSnapshot(): ShopStockSnapshot {
+    return [...contentRegistry.shops.values()].map((shop) => ({
+      shopId: shop.id,
+      inventory: shop.inventory.map((listing) => ({
+        itemId: listing.itemId,
+        stock: listing.stock,
+      })),
+    }));
+  }
+
   buy(
     shopId: string,
     itemId: string,

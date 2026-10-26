@@ -45,7 +45,19 @@ export type ClientMessage =
 /** Server → Client message types */
 export type ServerMessage =
   | { type: 'spell_result'; success: boolean; spellId: string; message: string; effects?: Record<string, unknown> }
-  | { type: 'shop_result'; success: boolean; message: string; inventory?: InventorySlot[] }
+  | {
+      type: 'shop_result';
+      success: boolean;
+      message: string;
+      inventory?: InventorySlot[];
+      shopId?: string;
+      stock?: { itemId: string; stock: number }[];
+    }
+  | {
+      type: 'shop_stock';
+      reason: 'noon_restock' | 'sync';
+      shops: { shopId: string; inventory: { itemId: string; stock: number }[] }[];
+    }
   | { type: 'aura_inspection'; targetId: string; aura: unknown; depth: 'surface' | 'deep' }
   | { type: 'notification'; message: string; level: 'info' | 'warn' | 'success' | 'error' }
   | { type: 'familiar_update'; familiar: unknown }

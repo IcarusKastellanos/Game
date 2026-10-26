@@ -20,6 +20,7 @@ import { dialogueSystem, type DialogueTree } from '../systems/dialogue-system.js
 import { craftingSystem } from '../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
 import { questSystem } from '../systems/quest-system.js';
+import { shopSystem } from '../systems/shop-system.js';
 import { applyCanonicalWorldMapsToRegistry, resolveMapForScene } from './canonical-maps.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -79,6 +80,7 @@ export class ContentRegistry {
     for (const shop of loadJson<ContentShop>('shops.json')) {
       this.shops.set(shop.id, shop);
     }
+    shopSystem.captureBaselines(this.shops.values());
     for (const npc of loadJson<ContentNpc>('npcs.json')) {
       this.npcs.set(npc.id, npc);
     }

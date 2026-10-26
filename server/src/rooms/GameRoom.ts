@@ -160,6 +160,8 @@ export class GameRoom extends Room<GameRoomState> {
   );
 
   private studyCircleNotifiedHour = -1;
+  /** Local calendar day key for the last noon shop restock (`YYYY-M-D`). */
+  private lastShopRestockDate = '';
 
   onCreate(options: { scene?: string; shard?: string }) {
     this.autoDispose = false;
@@ -205,6 +207,7 @@ export class GameRoom extends Room<GameRoomState> {
           hiddenNpcIds: getUnavailableNpcInteractableIds(),
         });
       }
+      this.maybeRestockShopsAtNoon(hour);
     }, 30000);
 
     this.clock.setInterval(() => this.tickMeRegen(), 5000);
@@ -1744,8 +1747,34 @@ export class GameRoom extends Room<GameRoomState> {
       player.inventory = result.inventory;
       player.coins -= result.cost;
     }
-    client.send('shop_result', { type: 'shop_result', success: result.success, message: result.message });
+    const shop = contentRegistry.shops.get(shopId);
+    client.send('shop_result', {
+      type: 'shop_result',
+      success: result.success,
+      message: result.message,
+      shopId,
+      stock: shop?.inventory.map((listing) => ({ itemId: listing.itemId, stock: listing.stock })),
+    });
     if (result.success) this.sendPlayerSync(client, player);
+  }
+
+  /** NPC shop shelves refill once per local day at noon (hour ≥ 12). */
+  private maybeRestockShopsAtNoon(hour: number): void {
+    if (hour < 12) return;
+    const now = new Date();
+    const dayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+    if (this.lastShopRestockDate === dayKey) return;
+    this.lastShopRestockDate = dayKey;
+    shopSystem.resetDailyStock();
+    this.broadcast('shop_stock', {
+      reason: 'noon_restock',
+      shops: shopSystem.stockSnapshot(),
+    });
+    this.broadcast('notification', {
+      type: 'notification',
+      message: 'Shopkeepers restock their shelves for the day.',
+      level: 'info',
+    });
   }
 
   private handleUseItem(client: Client, player: PlayerSchema, itemId: string, quantity: number) {
