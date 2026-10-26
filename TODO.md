@@ -533,6 +533,7 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 - [x] `content/progression/xp-sources.json`
 - [x] `content/progression/level-curve.json` (max Level 10)
 - [x] `content/progression/recognition-tiers.json`
+- [ ] `content/progression/licenses.json` (exams, vows, Licensure Marks, credential unlocks — §1.3b)
 - [x] `content/progression/reputation-public.json` (+ `reputation-spiritual.json`)
 - [x] `content/progression/reputation-spiritual.json`
 - [ ] `content/progression/reputation-coven.json` (stub)
