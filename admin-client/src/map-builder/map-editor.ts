@@ -334,7 +334,7 @@ export async function renderMapEditor(
       if (state.dirty) await mapBuilderApi.saveDraft(mapId, state.metadata, state.document, 'Pre-publish save');
       const result = await mapBuilderApi.publish(mapId, notes);
       if (!result.ok) {
-        renderValidation(result.validation ?? { valid: false, issues: [{ severity: 'error', code: 'publish', message: result.error ?? 'Publish failed' }] });
+        renderValidation(result.validation ?? { valid: false, issues: [{ severity: 'error', message: result.error ?? 'Publish failed' }] });
         showToast(result.error ?? 'Publish failed', 'error');
         return;
       }
