@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "note": "Occult-community reputation (−100…100). Gates advanced rituals, mentors, and practitioner vendors. Independent of publicReputation.",
+  "track": "spiritual",
+  "range": { "min": -100, "max": 100 },
+  "decay": {
+    "perGameDay": 0.05,
+    "toward": 0,
+    "note": "Applied on world join from lastLoginAt (24h wall-clock = 1 game day)."
+  },
+  "gates": {
+    "mentorAccessAbove": 15,
+    "rareVendorAbove": 25,
+    "advancedRitualAbove": 40,
+    "templeEntryAbove": 50
+  },
+  "dialogue": {
+    "coldShoulderBelow": -25,
+    "innerCircleAbove": 40
+  },
+  "npcFactionWeights": {
+    "npc_circle_leader": 1.4,
+    "npc_librarian": 1,
+    "npc_mara": 0.9,
+    "npc_cafe_owner": 0.15,
+    "npc_shopkeeper": 0.1
+  },
+  "sources": [
+    {
+      "id": "help_npc",
+      "label": "Favorable dialogue with an occult NPC",
+      "delta": 2,
+      "tags": ["dialogue", "favor"]
+    },
+    {
+      "id": "harm_npc",
+      "label": "Offense against an occult NPC",
+      "delta": -3,
+      "tags": ["dialogue", "offense"]
+    },
+    {
+      "id": "study_circle_attend",
+      "label": "Attend a study circle",
+      "delta": 3,
+      "tags": ["study", "coven_adjacent"]
+    },
+    {
+      "id": "teach_practitioner",
+      "label": "Teach another practitioner",
+      "delta": 4,
+      "tags": ["teaching"]
+    },
+    {
+      "id": "public_working_success",
+      "label": "Successful working witnessed by practitioners",
+      "delta": 3,
+      "tags": ["spell", "spectacle"]
+    },
+    {
+      "id": "library_donation",
+      "label": "Donate materials to the occult library",
+      "delta": 2,
+      "tags": ["donation"]
+    },
+    {
+      "id": "cleanse_other",
+      "label": "Cleanse or heal another practitioner",
+      "delta": 3,
+      "tags": ["healing", "favor"]
+    },
+    {
+      "id": "coven_contribution",
+      "label": "Contribute to a coven rite",
+      "delta": 5,
+      "tags": ["coven"]
+    },
+    {
+      "id": "quest_spiritual_success",
+      "label": "Complete a spiritual/study quest",
+      "delta": 6,
+      "tags": ["quest", "rowan"]
+    },
+    {
+      "id": "botched_public_working",
+      "label": "Botched working embarrasses the circles",
+      "delta": -4,
+      "tags": ["spell", "failure"]
+    }
+  ]
+}

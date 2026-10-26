@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_STATS, normalizePlayerStats } from '../dist/index.js';
+import { DEFAULT_STATS, extendedStatsNeedsMigration, extendedStatsRecord, normalizePlayerStats } from '../dist/index.js';
 
 test('normalizePlayerStats fills missing extended stats from defaults', () => {
   const legacy = {
@@ -55,6 +55,16 @@ test('normalizePlayerStats handles null-ish numeric fields', () => {
   const result = normalizePlayerStats(input);
   assert.equal(result.stamina, DEFAULT_STATS.stamina);
   assert.equal(result.memory, DEFAULT_STATS.memory);
+});
+
+test('extendedStatsNeedsMigration detects empty and partial blobs', () => {
+  assert.equal(extendedStatsNeedsMigration(null), true);
+  assert.equal(extendedStatsNeedsMigration({}), true);
+  assert.equal(extendedStatsNeedsMigration({ stamina: 40 }), true);
+  const full = extendedStatsRecord(DEFAULT_STATS);
+  assert.equal(extendedStatsNeedsMigration(full), false);
+  assert.equal(full.stamina, 100);
+  assert.equal(full.willpower, 1);
 });
 
 test('normalizePlayerStats does not reset experience-derived ME cap', () => {

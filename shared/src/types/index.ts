@@ -1,3 +1,5 @@
+import { playerLevelFromExperience } from '../progression/level-curve.js';
+
 /** Magic tradition identifiers — pluggable systems register here. */
 export type MagicTradition =
   | 'traditional_european'
@@ -95,11 +97,23 @@ export interface PlayerStats {
   healing: number;
   ritualSkill: number;
   experience: number;
+  /**
+   * Legacy single reputation column (−100…100). Kept in sync with
+   * {@link publicReputation} for DB persistence and older clients.
+   */
   reputation: number;
   morality: number;
   /** Affinity per magic tradition (0–100) */
   affinities: Record<MagicTradition, number>;
   specialty?: MagicTradition;
+
+  /**
+   * Mundane-world standing (−100…100). Migrated from legacy `reputation` on load.
+   * Optional so older saves still parse.
+   */
+  publicReputation?: number;
+  /** Occult-community standing (−100…100). Stored in extendedStats. */
+  spiritualReputation?: number;
 
   // ── Extended attributes (Aura & Wards screen). Optional so older saves load. ──
   /** Physical endurance — ritual stamina, travel, carrying. */
@@ -257,8 +271,13 @@ export interface MetPlayer {
   metAt: number;
 }
 
-/** Derive practitioner title from stats */
-export function getPractitionerType(stats: Pick<PlayerStats, 'specialty' | 'warding' | 'healing' | 'cursecraft' | 'divinationSkill' | 'herbalism' | 'ritualSkill'>): string {
+/** Specialty / skill-focus subtitle (no recognition tier). */
+export function getPractitionerSpecialtyLabel(
+  stats: Pick<
+    PlayerStats,
+    'specialty' | 'warding' | 'healing' | 'cursecraft' | 'divinationSkill' | 'herbalism' | 'ritualSkill'
+  >
+): string {
   if (stats.specialty) {
     const labels: Record<string, string> = {
       traditional_european: 'Folk Witch',
@@ -281,8 +300,29 @@ export function getPractitionerType(stats: Pick<PlayerStats, 'specialty' | 'ward
   return ranked[0][0];
 }
 
+/**
+ * Display label: recognition tier when known, with optional specialty subtitle.
+ * Pass `recognitionTierLabel` from progression content (keeps this module free of progression imports).
+ */
+export function getPractitionerType(
+  stats: Pick<
+    PlayerStats,
+    'specialty' | 'warding' | 'healing' | 'cursecraft' | 'divinationSkill' | 'herbalism' | 'ritualSkill'
+  >,
+  recognitionTierLabel?: string | null
+): string {
+  const specialty = getPractitionerSpecialtyLabel(stats);
+  const tier = recognitionTierLabel?.trim();
+  if (tier) {
+    if (specialty && specialty !== 'Practitioner') return `${tier} · ${specialty}`;
+    return tier;
+  }
+  return specialty;
+}
+
 export function playerLevel(experience: number): number {
-  return Math.min(100, 1 + Math.floor(experience / 100));
+  // Delegates to content-driven curve (default max Level 10).
+  return playerLevelFromExperience(experience);
 }
 
 export interface TaglockSelection {
@@ -372,6 +412,8 @@ export interface ContentSpell {
   audioEffect?: string;
   gameplayEffect: Record<string, unknown>;
   description: string;
+  /** Minimum Practitioner Level required to cast (1–maxLevel). */
+  minLevel?: number;
 }
 
 export interface ContentShop {
@@ -379,8 +421,24 @@ export interface ContentShop {
   name: string;
   locationId: MapLocationId;
   npcId?: string;
-  inventory: { itemId: string; price: number; stock: number }[];
+  inventory: {
+    itemId: string;
+    price: number;
+    stock: number;
+    /** Occult standing required to purchase this listing (spiritual reputation). */
+    minSpiritualReputation?: number;
+    /** Mundane standing required to purchase this listing (public reputation). */
+    minPublicReputation?: number;
+    /** Practitioner Level required to purchase this listing. */
+    minLevel?: number;
+  }[];
   openHours?: { start: number; end: number };
+  /** Shop-wide occult standing gate (spiritual reputation). */
+  minSpiritualReputation?: number;
+  /** Shop-wide mundane standing gate (public reputation). */
+  minPublicReputation?: number;
+  /** Shop-wide Practitioner Level gate. */
+  minLevel?: number;
 }
 
 export interface ContentNpc {

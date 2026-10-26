@@ -50,9 +50,10 @@ export const AURA_SCREEN_LAYOUT: AuraScreenLayout = {
   zones: {
     // Viz region only (ends ~11px above baked legend divider at y≈411).
     auraVisualization: { x: 52, y: 68, width: 392, height: 332 },
-    // Divider between overview values / status sits ~y=180; attributes begin ~y=302.
-    auraOverviewValues: { x: 536, y: 102, width: 432, height: 72 },
-    auraStatusMessage: { x: 536, y: 192, width: 432, height: 56 },
+    // Upper panel holds Level / Public·Spiritual / compact aura summary (~4 rows).
+    // Status panel below shows aura status + recent XP.
+    auraOverviewValues: { x: 536, y: 98, width: 432, height: 86 },
+    auraStatusMessage: { x: 536, y: 188, width: 432, height: 58 },
     closeButton: { x: 932, y: 14, width: 43, height: 43 },
     actionsDock: { x: 536, y: 252, width: 432, height: 20 },
   },

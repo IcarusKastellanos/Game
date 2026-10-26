@@ -11,9 +11,9 @@
 
 
 
-### HUD follow-ups (optional)
+### HUD follow-ups
 
-- [ ] Wire remaining HUD elements from admin layout JSON (nav, resources, moon panel) — intuition meter is nameplate-anchored
+- ~~Wire remaining HUD elements from admin layout JSON (nav, resources, moon panel)~~ — discarded
 - [x] Store intuition meter offset relative to player-status in layout editor (not absolute canvas coords)
 - [x] Pocket spell completion → "Working Complete" toast (spells only today; hexagram/craft use "Notice")
 
@@ -21,9 +21,17 @@
 
 ### Phase 1 — Milestone A (foundation)
 
-1. Stats expansion + migration (`stamina`, mental stats)
-2. Reputation split (`publicReputation` / `spiritualReputation`) + content files
-3. XP source registry + central `grantExperience()` in `progression-handlers.ts`
+1. ~~Stats expansion + migration (`stamina`, mental stats)~~ — done (`extendedStats` + load-time backfill)
+2. ~~Reputation split (`publicReputation` / `spiritualReputation`) + content files~~ — done
+3. ~~XP source registry + central `grantExperience()`~~ — done (`content/progression/xp-sources.json` + shared `grantExperience`)
+4. ~~Practitioner Level curve (max 10) + `minLevel` gates~~ — done (`level-curve.json`)
+
+### Phase 1 — Milestone B (next)
+
+5. ~~Recognition tiers + licenses + dialogue/vendor gates~~ — done (`recognition-tiers.json` + `evaluateRecognition`)
+6. **Licensure Marks & credentialed practice** — see §1.3b (spell/spirit/NPC/place gates, examiner NPC, vows, council discipline)
+7. Character sheet UI (full sheet)
+8. Then Milestone C — Grimoire
 
 See **Phase 1** below for the full practitioner framework roadmap.
 
@@ -249,19 +257,19 @@ Each track has: **current value**, **tier/level label**, **history log** (option
 
 ### 1.1 Experience (technical skill)
 
-- [ ] Define `content/progression/xp-sources.json` — actions that grant XP (read book, successful cast, craft, experiment, quest, teach NPC, coven rite, dream journal entry, etc.) with `{ actionId, baseXp, skillTags[], tradition?, cooldown? }`
-- [ ] Server `progression-handlers.ts`: central `grantExperience(player, sourceId, context)` — no inline XP numbers in handlers
-- [ ] XP contributes to **Practitioner Level** (`playerLevel`) and optionally to **technical skill** sub-XP pools (see §3)
-- [ ] UI: HUD shows level + XP bar to next level; character sheet shows recent XP sources
+- [x] Define `content/progression/xp-sources.json` — actions that grant XP (read book, successful cast, craft, experiment, quest, teach NPC, coven rite, dream journal entry, etc.) with `{ actionId, baseXp, skillTags[], tradition?, cooldown? }`
+- [x] Server `progression-handlers.ts`: central `grantExperience(player, sourceId, context)` — no inline XP numbers in handlers
+- [x] XP contributes to **Practitioner Level** (`playerLevel`) and optionally to **technical skill** sub-XP pools (see §3)
+- [x] UI: HUD shows level + XP bar to next level; character sheet shows recent XP sources
 
 
 
 ### 1.2 Character level (Practitioner Level)
 
-- [ ] Keep formula in `shared/src/balance/index.ts` but expose curve in `content/progression/level-curve.json` for admin tuning
-- [ ] Level-up hook: fire `onLevelUp` content events (ME cap sync already via `syncLevelDerivedStats`)
-- [ ] Level gates: `{ minLevel }` on spells, recipes, vendors, quests, map zones (validate in content loader)
-- [ ] Level-up notification + optional stat point allocation if we add manual growth (otherwise keep auto-derived protection)
+- [x] Keep formula in `shared/src/balance/index.ts` but expose curve in `content/progression/level-curve.json` for admin tuning (**max Level 10**)
+- [x] Level-up hook: fire `onLevelUp` content events (ME cap sync already via `syncLevelDerivedStats`)
+- [x] Level gates: `{ minLevel }` on spells, recipes, hexagrams, vendors, quests (validated in content loader; map zones deferred). Familiars are **not** level-gated — any implemented species can be chosen at start.
+- [x] Level-up notification + auto-derived protection (no manual stat-point allocation yet)
 
 
 
@@ -269,13 +277,54 @@ Each track has: **current value**, **tier/level label**, **history log** (option
 
 Recognition is **what the magical establishment acknowledges you as** — distinct from fame (public) or spirit favor.
 
-- [ ] Add `content/progression/recognition-tiers.json`:
+- [x] Add `content/progression/recognition-tiers.json`:
   - Tiers e.g. `initiate`, `registered_practitioner`, `licensed_warder`, `certified_healer`, `recognized_seer`, `tradition_adept`, `temple_associate`, `covenant_holder`
   - Each tier: `{ id, label, requirements: { minLevel?, minSpiritualRep?, questsCompleted[], licenses[], npcRelationships{}, traditionAffinity{} }, unlocks: { vendors[], teachers[], rituals[], organizations[], storyFlags[] } }`
-- [ ] Persist `progression.recognitionTierId` + `progression.earnedLicenses[]` on player
-- [ ] Server: `evaluateRecognition(player)` on login and after quest/reputation/affinity changes
-- [ ] NPCs react to recognition tier (dialogue conditions in `dialogues.json`: `requiresRecognition`, `requiresLicense`)
-- [ ] Replace/augment `getPractitionerType()` display with tier label + optional specialty subtitle
+- [x] Persist `progression.recognitionTierId` + `progression.earnedLicenses[]` on player
+- [x] Server: `evaluateRecognition(player)` on login and after quest/reputation/affinity changes
+- [x] NPCs react to recognition tier (dialogue conditions in `dialogues.json`: `requiresRecognition`, `requiresLicense`)
+- [x] Replace/augment `getPractitionerType()` display with tier label + optional specialty subtitle
+
+
+
+### 1.3b Licensure Marks & Magical Council credentials (planned)
+
+Formal credentials (Licensed Exorcist, Certified Healer, Certified Seer, Licensed Warder, hex/cursecraft credentials, etc.) are **stronger than recognition tiers**. A license gates content that only credentialed practitioners may use, and binds the holder to a professional vow enforced by Licensure Marks and the Magical Council.
+
+#### Credential issuance (examiner NPC)
+
+- [ ] Content: examiner / Magical Council clerk NPC(s) who **scan the player holistically** (level, recognition, spiritual rep, relevant skills, morality, prior vows)
+- [ ] Exam flow: charge **money**, require a **vow** that binds the player’s reputation to that skill set (stored on progression)
+- [ ] On pass: grant license id + initialize that license’s **Licensure Marks** pool; unlock credential story flags
+- [ ] Content file e.g. `content/progression/licenses.json` — per license: `{ id, label, examNpcId, fee, vowId, requirements{}, markCapacity, warnAtMarks, revokeAtMarks, forbids[], allows[], unlocks: { spellIds[], spiritIds[], npcIds[], placeIds[] } }`
+
+#### Content gates (credential-only)
+
+- [ ] Spells: `{ requiresLicense: "certified_healer" }` (and/or `requiresAnyLicense[]`) — cast blocked without credential; altar UI treats like level-gate (visible, not selectable, tip explains license)
+- [ ] Spirits: license-specific spirit contacts / offerings only for that credential
+- [ ] NPCs: teachers, temple staff, council clerks gated by license
+- [ ] Places / map zones: healer **office or temple**, seer **psychic tent**, warder **seal yard**, etc. (`requiresLicense` on interactables / map zones)
+
+#### Professional vows & practice limits
+
+- [ ] Each license defines practice rules, e.g.:
+  - **Healers** must not harm (baneful / high malevolent moralDelta forbidden or heavily punished)
+  - **Hex / curse workers** have **weak or blocked heals**
+  - Seers / exorcists / warders: content-defined allow/forbid spell categories and effect tags
+- [ ] Server enforces vow on cast / craft / spirit work (not only UI)
+
+#### Licensure Marks & Magical Council discipline
+
+- [ ] Persist `progression.licensureMarks: Record<licenseId, { marks, markCapacity, status: 'good'|'warned'|'revoked' }>`
+- [ ] Going against your license **consumes Licensure Marks** (content-defined cost per violation)
+- [ ] At `warnAtMarks`: Magical Council **warning** (notification + dialogue / letter)
+- [ ] At `revokeAtMarks` (or marks exhausted): **license revoked** — lose credential gates until re-examination; spiritual / public reputation hit
+- [ ] Optional: marks slowly recover with clean practice or council restitution quests
+
+#### UI / admin (when built)
+
+- [ ] Character sheet: licenses held, marks remaining, vow text, council standing
+- [ ] Admin: license editor + examiner quest wiring
 
 
 
@@ -283,11 +332,11 @@ Recognition is **what the magical establishment acknowledges you as** — distin
 
 How townspeople, shopkeepers, and authorities perceive you.
 
-- [ ] Split `stats.reputation` → `stats.publicReputation` (migrate existing value on load)
-- [ ] Sources: helping/harming NPCs, visible magic in town, quest outcomes, morality extremes, gossip events
-- [ ] Content: `content/progression/reputation-public.json` — per-NPC faction weights, decay rules, rumor events
-- [ ] Effects: shop prices, NPC willingness to talk, access to mundane jobs, police/curfew hooks (future)
-- [ ] High public rep ≠ trusted in occult circles (intentional tension)
+- [x] Split `stats.reputation` → `stats.publicReputation` (migrate existing value on load)
+- [x] Sources: helping/harming NPCs, visible magic in town, quest outcomes, morality extremes, gossip events
+- [x] Content: `content/progression/reputation-public.json` — per-NPC faction weights, decay rules, rumor events
+- [x] Effects: shop prices, refuse-trade at low public rep; access to mundane jobs / police/curfew hooks (future)
+- [x] High public rep ≠ trusted in occult circles (intentional tension)
 
 
 
@@ -295,10 +344,10 @@ How townspeople, shopkeepers, and authorities perceive you.
 
 Standing among practitioners, lodges, study circles, and temple networks.
 
-- [ ] Add `stats.spiritualReputation` (−100…100 or 0…100 — pick one schema, document in shared types)
-- [ ] Sources: study circle attendance, teaching, successful public workings, coven contribution, library donations, cleansing/helping other practitioners
-- [ ] Gates: advanced rituals, temple entry, rare ingredient vendors, mentor NPCs, certification exams
-- [ ] Rowan / study circle questline becomes first spiritual-rep arc
+- [x] Add `stats.spiritualReputation` (−100…100 — documented in shared types; stored in `extendedStats`)
+- [x] Sources: study circle / occult NPC dialogue, successful public workings, quest spiritual rewards, content sources for teaching/coven/library/cleanse
+- [x] Gates: `rareVendorAbove` gates Everweed; mentor/temple/advancedRitual thresholds in content (wired via `meetsSpiritualGate`)
+- [x] Rowan / study circle questline IDs award spiritual reputation on complete (heuristic + `rewards.spiritualReputation`)
 
 
 
@@ -339,9 +388,9 @@ Extend `PlayerStats` (and Prisma `PlayerStats` columns or JSON extension) in thr
 | Magical Energy | ✅ exists             | Already level-scaled; tie max ME display to stamina for long rituals                      |
 
 
-- [ ] Add `stamina` to `PlayerStats`, `DEFAULT_STATS`, admin panel, Colyseus schema sync
-- [ ] Server tick: hunger ↓, stamina regen when idle/eating/sleeping (apartment bed interact)
-- [ ] Content debuffs: `{ belowHunger: 20, meRegenMultiplier: 0.5 }` etc.
+- [x] Add `stamina` to `PlayerStats`, `DEFAULT_STATS`, admin panel, Colyseus schema sync
+- [x] Server tick: hunger ↓, stamina regen when idle/eating/sleeping (apartment bed interact)
+- [x] Content debuffs: `{ belowHunger: 20, meRegenMultiplier: 0.5 }` etc.
 
 
 
@@ -359,9 +408,9 @@ Extend `PlayerStats` (and Prisma `PlayerStats` columns or JSON extension) in thr
 | Mediumship | ❌          | Spirit communication quality, astral perception, channeled dialogue |
 
 
-- [ ] Add missing stats to schema; migration preserves old saves via `normalizePlayerStats`
-- [ ] Spell focus formula in `spell-engine.ts`: pull weights from `content/progression/focus-weights.json` per spell category
-- [ ] Books grant mental stat XP in `BOOK_CONTENT` → move to `content/books.json`
+- [x] Add missing stats to schema; migration preserves old saves via `normalizePlayerStats`
+- [x] Spell focus formula in `spell-engine.ts`: pull weights from `content/progression/focus-weights.json` per spell category
+- [x] Books grant mental stat XP in `BOOK_CONTENT` → move to `content/books.json`
 
 
 
@@ -481,11 +530,12 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 
 ### 6.1 New content files
 
-- [ ] `content/progression/xp-sources.json`
-- [ ] `content/progression/level-curve.json`
-- [ ] `content/progression/recognition-tiers.json`
-- [ ] `content/progression/reputation-public.json`
-- [ ] `content/progression/reputation-spiritual.json`
+- [x] `content/progression/xp-sources.json`
+- [x] `content/progression/level-curve.json` (max Level 10)
+- [x] `content/progression/recognition-tiers.json`
+- [ ] `content/progression/licenses.json` (exams, vows, Licensure Marks, credential unlocks — §1.3b)
+- [x] `content/progression/reputation-public.json` (+ `reputation-spiritual.json`)
+- [x] `content/progression/reputation-spiritual.json`
 - [ ] `content/progression/reputation-coven.json` (stub)
 - [ ] `content/progression/affinity-rules.json`
 - [ ] `content/progression/stats.json`
@@ -522,29 +572,30 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 
 **Milestone A — Foundation (data model)**  
 
-1. Stats expansion + migration
-2. Reputation split (public / spiritual) + content files
-3. XP source registry + central grant function
+1. ~~Stats expansion + migration~~
+2. ~~Reputation split (public / spiritual) + content files~~
+3. ~~XP source registry + central grant function~~
 
 **Milestone B — Recognition & gates**  
-4. Recognition tiers + license flags  
-5. Wire gates into shops, spells, dialogues, quests  
-6. Character sheet UI  
+4. ~~Recognition tiers + license flags~~  
+5. ~~Wire gates into shops, dialogues, quests (vendor unlocks + dialogue requiresRecognition/requiresLicense)~~  
+6. **Licensure Marks & Magical Council** (§1.3b) — examiner NPC, vows, spell/spirit/NPC/place gates, marks → warn → revoke  
+7. Character sheet UI (full sheet still open; HUD shows recognition + specialty)  
 
 **Milestone C — Grimoire**  
-7. Grimoire state + auto-record hooks  
-8. Grimoire UI + player notes  
-9. Gameplay requirements tied to Grimoire entries  
+8. Grimoire state + auto-record hooks  
+9. Grimoire UI + player notes  
+10. Gameplay requirements tied to Grimoire entries  
 
 **Milestone D — Traditions & spirits**  
-10. Tradition pack loader  
-11. Affinity rules + cross-tradition costs  
-12. Spirit registry + per-spirit reputation  
+11. Tradition pack loader  
+12. Affinity rules + cross-tradition costs  
+13. Spirit registry + per-spirit reputation (+ license-specific spirits from §1.3b)  
 
 **Milestone E — Living world loops**  
-13. Hunger / stamina ticks  
-14. Dream + observation entry sources  
-15. Teacher NPCs + certification questlines  
+14. Hunger / stamina ticks  
+15. Dream + observation entry sources  
+16. Teacher NPCs + certification / re-examination questlines  
 
 ---
 

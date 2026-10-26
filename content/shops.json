@@ -15,12 +15,12 @@
       { "itemId": "bay_leaf", "price": 3, "stock": 25 },
       { "itemId": "salt", "price": 2, "stock": 30 },
       { "itemId": "iron_nail", "price": 8, "stock": 12 },
-      { "itemId": "poppet_cloth", "price": 15, "stock": 8 },
+      { "itemId": "poppet_cloth", "price": 15, "stock": 8, "minLevel": 6 },
       { "itemId": "evil_eye_bead", "price": 10, "stock": 10 },
       { "itemId": "horseshoe", "price": 12, "stock": 6 },
       { "itemId": "written_petition", "price": 2, "stock": 50 },
-      { "itemId": "book_folk_magic", "price": 45, "stock": 3 },
-      { "itemId": "everweed", "price": 85, "stock": 4 }
+      { "itemId": "book_folk_magic", "price": 45, "stock": 3, "minLevel": 2 },
+      { "itemId": "everweed", "price": 85, "stock": 4, "minSpiritualReputation": 25, "minLevel": 5 }
     ],
     "openHours": { "start": 9, "end": 20 }
   },

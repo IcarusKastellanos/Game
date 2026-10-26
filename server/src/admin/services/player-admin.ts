@@ -10,6 +10,7 @@ import {
   isEmptyInventorySlot,
   INVENTORY_MAX_SLOTS,
   parseProgression,
+  EXTENDED_STAT_KEYS,
   type InventorySlot,
   type PlayerProgression,
 } from '@witchcraft/shared';
@@ -84,7 +85,7 @@ export async function searchPlayers(query: {
 }
 
 export async function getPlayerDetail(playerId: string) {
-  return prisma.player.findUnique({
+  const player = await prisma.player.findUnique({
     where: { id: playerId },
     include: {
       stats: true,
@@ -96,6 +97,15 @@ export async function getPlayerDetail(playerId: string) {
       spellHistory: { orderBy: { createdAt: 'desc' }, take: 50 },
     },
   });
+  if (!player?.stats) return player;
+  const extended =
+    player.stats.extendedStats && typeof player.stats.extendedStats === 'object'
+      ? (player.stats.extendedStats as Record<string, unknown>)
+      : {};
+  return {
+    ...player,
+    stats: { ...player.stats, ...extended },
+  };
 }
 
 export async function updatePlayerStats(
@@ -107,21 +117,19 @@ export async function updatePlayerStats(
   const before = await prisma.playerStats.findUnique({ where: { playerId } });
 
   // Extended attributes live in the extendedStats JSON column, not as columns.
-  const EXTENDED_KEYS = new Set([
-    'stamina',
-    'willpower',
-    'memory',
-    'presence',
-    'authority',
-    'mediumship',
-    'potionMaking',
-    'spiritNegotiation',
-  ]);
+  const EXTENDED_KEYS = new Set<string>([...EXTENDED_STAT_KEYS, 'publicReputation', 'spiritualReputation']);
   const columnUpdates: Record<string, number> = {};
   const extendedUpdates: Record<string, number> = {};
   for (const [key, value] of Object.entries(updates)) {
     if (EXTENDED_KEYS.has(key)) extendedUpdates[key] = value;
     else columnUpdates[key] = value;
+  }
+
+  // Keep legacy reputation column synchronized with publicReputation edits.
+  if (extendedUpdates.publicReputation != null) {
+    columnUpdates.reputation = extendedUpdates.publicReputation;
+  } else if (columnUpdates.reputation != null) {
+    extendedUpdates.publicReputation = columnUpdates.reputation;
   }
 
   const data: Record<string, unknown> = { ...columnUpdates };

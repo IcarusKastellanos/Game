@@ -6,6 +6,9 @@ import {
   addItemToInventory,
   hasItemInInventory,
   removeItemFromInventory,
+  meetsMinLevel,
+  levelGateMessage,
+  playerLevel,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { getEnchantKnotMetadata } from './enchant-system.js';
@@ -55,6 +58,12 @@ export class CraftingSystem {
     if (!recipe) return { ok: false, error: 'Unknown recipe.' };
     if (!progression.discoveredRecipes.includes(recipeId)) {
       return { ok: false, error: 'Recipe not yet discovered.' };
+    }
+    if (!meetsMinLevel(stats.experience ?? 0, recipe.minLevel)) {
+      return {
+        ok: false,
+        error: levelGateMessage(recipe.name, recipe.minLevel ?? 1, playerLevel(stats.experience ?? 0)),
+      };
     }
 
     const effect = recipe.effect ?? 'item';

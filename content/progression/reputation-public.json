@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "note": "Mundane-world reputation (−100…100). High public rep helps shops and townsfolk; it does not grant occult trust.",
+  "track": "public",
+  "range": { "min": -100, "max": 100 },
+  "decay": {
+    "perGameDay": 0.15,
+    "toward": 0,
+    "note": "Slow drift toward neutrality while idle. Applied on world join from lastLoginAt (24h wall-clock = 1 game day)."
+  },
+  "shopPrice": {
+    "note": "Final price multiplier = clamp(base + publicRep * perPoint, min, max).",
+    "base": 1,
+    "perPoint": -0.003,
+    "min": 0.82,
+    "max": 1.25
+  },
+  "dialogue": {
+    "hostileBelow": -40,
+    "warmAbove": 35,
+    "refuseTradeBelow": -70
+  },
+  "npcFactionWeights": {
+    "npc_librarian": 0.6,
+    "npc_cafe_owner": 1,
+    "npc_circle_leader": 0.2,
+    "npc_mara": 0.8,
+    "npc_shopkeeper": 1.2
+  },
+  "sources": [
+    {
+      "id": "help_npc",
+      "label": "Help a townsfolk NPC",
+      "delta": 2,
+      "tags": ["dialogue", "favor"]
+    },
+    {
+      "id": "harm_npc",
+      "label": "Harm or insult a townsfolk NPC",
+      "delta": -4,
+      "tags": ["dialogue", "offense"]
+    },
+    {
+      "id": "visible_magic_town",
+      "label": "Cast blatant magic in town",
+      "delta": -3,
+      "tags": ["spell", "spectacle"]
+    },
+    {
+      "id": "quest_mundane_success",
+      "label": "Complete a mundane-leaning quest",
+      "delta": 5,
+      "tags": ["quest"]
+    },
+    {
+      "id": "morality_extreme_malevolent",
+      "label": "Public backlash from malevolent workings",
+      "delta": -2,
+      "tags": ["morality", "gossip"]
+    },
+    {
+      "id": "morality_extreme_benevolent",
+      "label": "Kindness noticed by townsfolk",
+      "delta": 1,
+      "tags": ["morality", "gossip"]
+    },
+    {
+      "id": "rumor_scandal",
+      "label": "Scandalous rumor spreads",
+      "delta": -6,
+      "tags": ["rumor", "event"]
+    },
+    {
+      "id": "rumor_good_deed",
+      "label": "Word of a good deed spreads",
+      "delta": 4,
+      "tags": ["rumor", "event"]
+    }
+  ]
+}

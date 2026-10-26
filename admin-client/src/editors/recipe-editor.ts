@@ -46,6 +46,10 @@ const CRAFT_EFFECTS = ['item', 'pocket_spell', 'enchant_knot'];
 const HEX_CATEGORIES = ['pocket_spell', 'familiar_knot', 'charm', 'talisman', 'binding', 'other'];
 const HEX_EFFECTS = ['pocket_spell', 'enchant_knot', 'item'];
 const HEX_THEMES = ['protection', 'binding', 'spirit', 'healing', 'baneful', 'dream', 'neutral'];
+
+function optionList(values: readonly string[]): { value: string; label: string }[] {
+  return values.map((value) => ({ value, label: value.replace(/_/g, ' ') }));
+}
 const SOCKET_IDS = ['power', 'protection', 'communication', 'binding', 'influence', 'offering', 'core'];
 
 let editorTarget: EditorTarget = null;
@@ -171,8 +175,8 @@ async function renderRecipeEditor(
         <form id="craft-form" class="mt">
           ${field('ID', textInput('id', recipe.id))}
           ${field('Name', textInput('name', recipe.name))}
-          ${field('Station', selectInput('stationType', recipe.stationType, STATION_TYPES))}
-          ${field('Effect', selectInput('effect', recipe.effect ?? 'item', CRAFT_EFFECTS))}
+          ${field('Station', selectInput('stationType', optionList(STATION_TYPES), recipe.stationType))}
+          ${field('Effect', selectInput('effect', optionList(CRAFT_EFFECTS), recipe.effect ?? 'item'))}
           ${field('ME Cost', numberInput('meCost', recipe.meCost ?? 0))}
           ${field('Spell ID (pocket)', textInput('spellId', recipe.spellId ?? ''))}
           ${field('Enchant Intent', textInput('enchantIntent', recipe.enchantIntent ?? ''))}
@@ -237,9 +241,9 @@ async function renderRecipeEditor(
       <form id="hex-form" class="mt">
         ${field('ID', textInput('id', recipe.id))}
         ${field('Name', textInput('name', recipe.name))}
-        ${field('Category', selectInput('category', recipe.category, HEX_CATEGORIES))}
-        ${field('Effect', selectInput('effect', recipe.effect, HEX_EFFECTS))}
-        ${field('Visual Theme', selectInput('visualTheme', recipe.visualTheme, HEX_THEMES))}
+        ${field('Category', selectInput('category', optionList(HEX_CATEGORIES), recipe.category))}
+        ${field('Effect', selectInput('effect', optionList(HEX_EFFECTS), recipe.effect))}
+        ${field('Visual Theme', selectInput('visualTheme', optionList(HEX_THEMES), recipe.visualTheme))}
         ${field('Difficulty', numberInput('difficulty', recipe.difficulty))}
         ${field('ME Cost', numberInput('meCost', recipe.meCost))}
         ${field('Power Tier', numberInput('powerTier', recipe.powerTier))}

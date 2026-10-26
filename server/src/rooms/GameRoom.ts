@@ -42,7 +42,21 @@ import {
   sendFriendRequest,
 } from '../systems/friend-system.js';
 import { applyMeRegen, computeMeRegenAmount, meRegenIntervalMs } from '../systems/me-regen.js';
-import { applySurvivalTick, hungerRegenMultiplier, MAX_HUNGER, grantSkillXp, type SurvivalActivity } from '@witchcraft/shared';
+import {
+  applySurvivalTick,
+  hungerRegenMultiplier,
+  MAX_HUNGER,
+  grantExperience,
+  shopPriceMultiplier,
+  applyReputationSource,
+  applyMoralityGossip,
+  defaultProgression,
+  meetsAssignedUnlock,
+  assignedUnlockLevel,
+  levelGateMessage,
+  playerLevel,
+  type SurvivalActivity,
+} from '@witchcraft/shared';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
 import {
   createApartmentInvite,
@@ -97,6 +111,7 @@ import {
   checkInteractAvailable,
   tickStudyCircleEvents,
   completeQuestRewards,
+  syncRecognition,
   type HandlerCtx,
 } from './progression-handlers.js';
 import { tickWorldClock, getWorldHour } from '../systems/world-clock.js';
@@ -281,6 +296,7 @@ export class GameRoom extends Room<GameRoomState> {
     });
 
     sendWorldState(client);
+    this.withProgression(client, player, (ctx) => syncRecognition(ctx, { notify: false }));
     if (!persisted.stats.specialty) {
       const eligible = eligibleSpecialtyTraditions(persisted.stats.affinities);
       if (eligible.length) {
@@ -291,6 +307,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.sendApartmentVisitState(client);
     this.refreshWardWeb(client.sessionId);
     this.sendPlayerSync(client, player);
+    client.send('progression_update', { progression: this.playerData.get(client.sessionId)?.progression });
 
     this.recordMetPlayers(client.sessionId);
 
@@ -960,6 +977,15 @@ export class GameRoom extends Room<GameRoomState> {
         const npcId = target.data?.npcId as string;
         const npc = contentRegistry.npcs.get(npcId);
         if (npc) {
+          const npcLevel = assignedUnlockLevel('npcIds', npcId);
+          if (npcLevel != null && !meetsAssignedUnlock('npcIds', npcId, player.stats.experience ?? 0)) {
+            client.send('notification', {
+              type: 'notification',
+              message: levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)),
+              level: 'warn',
+            });
+            break;
+          }
           client.send('open_ui', {
             ui: 'dialogue',
             npcId,
@@ -1127,21 +1153,74 @@ export class GameRoom extends Room<GameRoomState> {
         stats.magicalEnergy = Math.max(0, stats.magicalEnergy - meCost);
       }
       if (result.success) {
-        stats.experience += 5;
         const data = this.playerData.get(client.sessionId);
+        const progression = data?.progression ?? defaultProgression();
+        const xp = grantExperience(stats, progression, 'spell_cast_success');
+        stats = xp.stats;
         if (data) {
-          const skill = grantSkillXp(stats, data.progression, 'ritualSkill', 8);
-          stats = skill.stats;
-          data.progression = skill.progression;
+          data.progression = xp.progression;
           client.send('progression_update', { progression: data.progression });
-        } else {
-          stats.ritualSkill = Math.min(100, stats.ritualSkill + 0.5);
+        }
+        if (xp.granted > 0) {
+          client.send('notification', {
+            type: 'notification',
+            message: xp.leveledUp
+              ? `+${xp.granted} XP — Practitioner Level ${xp.levelAfter}!`
+              : `+${xp.granted} XP — ${xp.source?.label ?? 'Working'}`,
+            level: xp.leveledUp ? 'success' : 'info',
+          });
+          for (const event of xp.levelUpEvents) {
+            client.send('notification', {
+              type: 'notification',
+              message: event.message,
+              level: 'success',
+            });
+            client.send('level_up', {
+              type: 'level_up',
+              eventId: event.eventId,
+              message: event.message,
+              level: xp.levelAfter,
+            });
+          }
+        }
+        // Blatant magic in town hurts public standing; witnessed workings raise spiritual.
+        if (player.scene === 'town') {
+          const pub = applyReputationSource(stats, 'public', 'visible_magic_town');
+          stats = pub.stats;
+          if (pub.applied !== 0) {
+            client.send('notification', {
+              type: 'notification',
+              message: `Townsfolk noticed the working (${pub.applied > 0 ? '+' : ''}${Math.round(pub.applied)} public reputation).`,
+              level: 'warn',
+            });
+          }
+        }
+        const spi = applyReputationSource(stats, 'spiritual', 'public_working_success');
+        stats = spi.stats;
+      } else if (result.diagnostics?.code === 'focus_check') {
+        const data = this.playerData.get(client.sessionId);
+        const progression = data?.progression ?? defaultProgression();
+        const xp = grantExperience(stats, progression, 'spell_cast_focus_fail');
+        stats = xp.stats;
+        if (data) {
+          data.progression = xp.progression;
+          client.send('progression_update', { progression: data.progression });
+        }
+        if (player.scene === 'town') {
+          const botch = applyReputationSource(stats, 'spiritual', 'botched_public_working');
+          stats = botch.stats;
         }
       }
       stats = syncLevelDerivedStats(stats);
       if (fam) stats = familiarSystem.applyBonuses(stats, fam);
       player.stats = stats;
       player.aura = auraSystem.applyMoralityDelta(player.aura, result.moralDelta);
+      if (result.moralDelta) {
+        const gossip = applyMoralityGossip(player.stats, result.moralDelta);
+        if (gossip.applied !== 0) {
+          player.stats = gossip.stats;
+        }
+      }
 
       const isShieldBreaker =
         isShieldBreakerSpell && result.success;
@@ -1441,6 +1520,21 @@ export class GameRoom extends Room<GameRoomState> {
         magicalEnergy: Math.max(0, player.stats.magicalEnergy - meCost),
       };
 
+      const dataForXp = this.playerData.get(client.sessionId);
+      if (dataForXp) {
+        const xp = grantExperience(player.stats, dataForXp.progression, 'ward_place');
+        player.stats = xp.stats;
+        dataForXp.progression = xp.progression;
+        client.send('progression_update', { progression: dataForXp.progression });
+        if (xp.granted > 0) {
+          client.send('notification', {
+            type: 'notification',
+            message: `+${xp.granted} XP — ${xp.source?.label ?? 'Ward'}`,
+            level: 'info',
+          });
+        }
+      }
+
       const wards = this.activeWards.get(client.sessionId) ?? [];
       void this.storeNewWard(client.sessionId, result.ward).then((stored) => {
         wards.push(stored);
@@ -1497,13 +1591,22 @@ export class GameRoom extends Room<GameRoomState> {
     nodeId: string,
     choiceIndex: number
   ) {
+    const progression = this.playerData.get(client.sessionId)?.progression;
     const result = dialogueSystem.resolveChoice(
       dialogueTreeId,
       nodeId,
       choiceIndex,
-      player.inventory
+      player.inventory,
+      progression
     );
-    if (!result) return;
+    if (!result) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That path is closed to you yet — recognition or a license may be required.',
+        level: 'warn',
+      });
+      return;
+    }
 
     if (result.inventory) player.inventory = result.inventory;
     if (result.statBoost) {
@@ -1535,7 +1638,16 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private handleBuy(client: Client, player: PlayerSchema, shopId: string, itemId: string, quantity: number) {
-    const result = shopSystem.buy(shopId, itemId, quantity, player.inventory, player.coins);
+    const result = shopSystem.buy(
+      shopId,
+      itemId,
+      quantity,
+      player.inventory,
+      player.coins,
+      shopPriceMultiplier(player.stats),
+      player.stats,
+      this.playerData.get(client.sessionId)?.progression
+    );
     if (result.success && result.inventory && result.cost !== undefined) {
       player.inventory = result.inventory;
       player.coins -= result.cost;
@@ -1680,6 +1792,20 @@ export class GameRoom extends Room<GameRoomState> {
     const data = this.playerData.get(client.sessionId);
     if (data) data.familiar = result.familiar;
 
+    if (action === 'bond' && data) {
+      const xp = grantExperience(player.stats, data.progression, 'familiar_bond');
+      player.stats = xp.stats;
+      data.progression = xp.progression;
+      client.send('progression_update', { progression: data.progression });
+      if (xp.granted > 0) {
+        client.send('notification', {
+          type: 'notification',
+          message: `+${xp.granted} XP — ${xp.source?.label ?? 'Familiar bond'}`,
+          level: 'info',
+        });
+      }
+    }
+
     try {
       await prisma.familiar.update({
         where: { playerId: player.dbPlayerId },
@@ -1701,6 +1827,7 @@ export class GameRoom extends Room<GameRoomState> {
 
     client.send('familiar_update', { type: 'familiar_update', familiar: result.familiar });
     this.refreshWardWeb(client.sessionId);
+    this.sendPlayerSync(client, player);
     client.send('notification', {
       type: 'notification',
       message: `${action.charAt(0).toUpperCase() + action.slice(1)} complete.`,

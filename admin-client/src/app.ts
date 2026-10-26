@@ -6,13 +6,15 @@ import { renderNpcList, renderNpcEditor } from './editors/npc-editor.js';
 import { renderWardManager, renderEventManager } from './editors/ward-event-manager.js';
 import { renderMapBuilder } from './map-builder/index.js';
 import { renderHudBuilder } from './hud-builder/index.js';
+import { renderLevelEditor } from './editors/level-editor.js';
 
-type Page = 'dashboard' | 'players' | 'spells' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
+type Page = 'dashboard' | 'players' | 'spells' | 'levels' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
 
 const NAV: { id: Page; label: string; perm?: string }[] = [
   { id: 'dashboard', label: 'Dashboard', perm: 'dashboard.view' },
   { id: 'players', label: 'Player Manager', perm: 'player.view' },
   { id: 'spells', label: 'Spell Editor', perm: 'content.spell.view' },
+  { id: 'levels', label: 'Level Editor', perm: 'content.spell.view' },
   { id: 'recipes', label: 'Recipe Manager', perm: 'content.item.view' },
   { id: 'items', label: 'Item Editor', perm: 'content.item.view' },
   { id: 'npcs', label: 'NPC Builder', perm: 'content.npc.view' },
@@ -120,6 +122,8 @@ async function loadPage(): Promise<void> {
         return renderSpellEditor(el, editSpellId, () => { editSpellId = null; void loadPage(); });
       }
       return renderSpellList(el, (id) => { editSpellId = id; void loadPage(); });
+    case 'levels':
+      return renderLevelEditor(el);
     case 'recipes':
       return renderRecipeManager(el);
     case 'items':
@@ -215,8 +219,8 @@ async function showPlayer(id: string): Promise<void> {
     }
     return 'crafts';
   };
-  const playerLevel = 1 + Math.floor((stats.experience ?? 0) / 100);
-  const statFields = ['health', 'hunger', 'stamina', 'magicalEnergy', 'protection', 'intuition', 'spiritualAwareness', 'ritualSkill', 'experience', 'reputation', 'morality', 'divinationSkill', 'herbalism', 'cursecraft', 'warding', 'healing', 'willpower', 'memory', 'presence', 'authority', 'mediumship', 'potionMaking', 'spiritNegotiation'];
+  const playerLevel = Math.min(10, 1 + Math.floor((stats.experience ?? 0) / 100));
+  const statFields = ['health', 'hunger', 'stamina', 'magicalEnergy', 'protection', 'intuition', 'spiritualAwareness', 'ritualSkill', 'experience', 'reputation', 'publicReputation', 'spiritualReputation', 'morality', 'divinationSkill', 'herbalism', 'cursecraft', 'warding', 'healing', 'willpower', 'memory', 'presence', 'authority', 'mediumship', 'potionMaking', 'spiritNegotiation'];
   const el = document.getElementById('content')!;
   el.innerHTML = `
     <button class="btn secondary" id="back">← Back</button>

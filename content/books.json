@@ -12,7 +12,9 @@
       "grants": {
         "statXp": {
           "herbalism": 2,
-          "ritualSkill": 1
+          "ritualSkill": 1,
+          "willpower": 1,
+          "memory": 1
         },
         "discoverItems": ["rosemary", "bay_leaf", "white_candle", "salt"],
         "affinity": "traditional_european"

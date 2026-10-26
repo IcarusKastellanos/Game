@@ -7,8 +7,8 @@
   "note": "Native asset is 1024×576 (converted from the supplied ChatGPT image). Overlay positions are relative to this canvas.",
   "zones": {
     "auraVisualization": { "x": 52, "y": 68, "width": 392, "height": 332 },
-    "auraOverviewValues": { "x": 536, "y": 102, "width": 432, "height": 72 },
-    "auraStatusMessage": { "x": 536, "y": 192, "width": 432, "height": 56 },
+    "auraOverviewValues": { "x": 536, "y": 98, "width": 432, "height": 86 },
+    "auraStatusMessage": { "x": 536, "y": 188, "width": 432, "height": 58 },
     "closeButton": { "x": 932, "y": 14, "width": 43, "height": 43 },
     "actionsDock": { "x": 536, "y": 252, "width": 432, "height": 20 }
   },

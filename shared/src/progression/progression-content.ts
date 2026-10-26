@@ -1,5 +1,10 @@
 import type { MagicTradition, PlayerStats } from '../types/index.js';
 import { resolveStatValue, type StatDisplayKey } from './stats-catalog.js';
+import { setReputationContent } from './reputation.js';
+import { setXpSourcesContent } from './xp-sources.js';
+import { setLevelCurveContent } from './level-curve.js';
+import { setLevelProfiles } from './level-profiles.js';
+import { setRecognitionContent } from './recognition.js';
 
 export interface HungerDebuffBand {
   belowHunger: number;
@@ -145,7 +150,7 @@ const DEFAULT_BOOKS: Record<string, BookContentLegacy> = {
       'Chapter II — Correspondences\n\nRosemary guards thresholds. Bay leaf carries wishes to the wind. White candles invite clarity; black candles absorb what must not follow you home.',
       'Chapter III — First Workings\n\nA healing charm needs little more than focus and rosemary. Protection begins at the threshold — salt, flame, and a clear name for what you ward against.',
     ],
-    statBoost: { herbalism: 2, ritualSkill: 1 },
+    statBoost: { herbalism: 2, ritualSkill: 1, willpower: 1, memory: 1 },
     discoverItems: ['rosemary', 'bay_leaf', 'white_candle', 'salt'],
     affinity: 'traditional_european',
   },
@@ -184,7 +189,32 @@ export function setProgressionContent(partial: {
   statLabelsJson?: unknown;
   focusWeightsJson?: unknown;
   booksJson?: unknown;
+  reputationPublicJson?: unknown;
+  reputationSpiritualJson?: unknown;
+  xpSourcesJson?: unknown;
+  levelCurveJson?: unknown;
+  levelProfilesJson?: unknown;
+  recognitionTiersJson?: unknown;
 }): void {
+  if (partial.levelCurveJson !== undefined) {
+    setLevelCurveContent(partial.levelCurveJson);
+  }
+  if (partial.levelProfilesJson !== undefined && partial.levelProfilesJson != null) {
+    setLevelProfiles(partial.levelProfilesJson);
+  }
+  if (partial.recognitionTiersJson !== undefined && partial.recognitionTiersJson != null) {
+    setRecognitionContent(partial.recognitionTiersJson);
+  }
+  if (partial.reputationPublicJson !== undefined || partial.reputationSpiritualJson !== undefined) {
+    setReputationContent({
+      publicJson: partial.reputationPublicJson,
+      spiritualJson: partial.reputationSpiritualJson,
+    });
+  }
+  if (partial.xpSourcesJson !== undefined) {
+    setXpSourcesContent(partial.xpSourcesJson);
+  }
+
   const next: ProgressionContentState = {
     survival: { ...state.survival, staminaRegenPerMinute: { ...state.survival.staminaRegenPerMinute } },
     statLabels: { ...state.statLabels },

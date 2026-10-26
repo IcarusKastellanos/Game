@@ -10,10 +10,10 @@
     "admin-client"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:admin\"",
-    "dev:admin": "npm run dev -w admin-client",
-    "dev:client": "npm run dev -w client",
-    "dev:server": "npm run dev -w server",
+    "dev": "npm run build -w shared && concurrently \"npm run dev -w server\" \"npm run dev -w client\" \"npm run dev -w admin-client\"",
+    "dev:admin": "npm run build -w shared && npm run dev -w admin-client",
+    "dev:client": "npm run build -w shared && npm run dev -w client",
+    "dev:server": "npm run build -w shared && npm run dev -w server",
     "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
     "lint": "npm run lint -w shared && npm run lint -w server && npm run lint -w client && npm run lint -w admin-client",
     "postinstall": "npm run build -w shared && npm run db:generate",

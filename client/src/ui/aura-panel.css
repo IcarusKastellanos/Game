@@ -91,10 +91,10 @@
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
-  gap: 0;
-  padding: 3px 12px;
-  font-size: 10.5px;
-  line-height: 1.2;
+  gap: 1px;
+  padding: 4px 12px;
+  font-size: 11px;
+  line-height: 1.25;
   color: var(--text);
   text-shadow: 0 1px 1px #000;
   overflow: hidden;
@@ -107,6 +107,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.aura-overview-values__progress {
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
 .aura-overview-values .k {
   color: var(--text-dim);
 }
@@ -115,6 +119,7 @@
 }
 .aura-overview-values .v.accent {
   color: var(--gold-bright);
+  font-weight: 700;
 }
 .aura-overview-values .v.good {
   color: var(--good);
@@ -142,9 +147,14 @@
 }
 .aura-status-message span {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.aura-status-recent {
+  display: inline;
+  color: var(--gold-bright, #e8d48b);
+  font-size: 10.5px;
 }
 .aura-status-message.sev-critical {
   color: #ffc9c9;

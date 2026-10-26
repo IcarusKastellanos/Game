@@ -15,6 +15,8 @@ import {
   hexagramSocketPositions,
   socketAcceptsItem,
   totalItemQuantity,
+  playerLevel,
+  meetsMinLevel,
 } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
@@ -40,6 +42,7 @@ type HexRecipeRow = Pick<
   | 'effect'
   | 'spellId'
   | 'visualTheme'
+  | 'minLevel'
 >;
 
 interface Particle {
@@ -250,6 +253,19 @@ export class HexagramEnchantPanel {
     this.render();
   }
 
+  private getPlayerExperience(): number {
+    try {
+      const stats = JSON.parse(gameState.localPlayer?.statsJson ?? '{}');
+      return Number(stats.experience) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private isRecipeUnlocked(recipe: HexRecipeRow): boolean {
+    return meetsMinLevel(this.getPlayerExperience(), recipe.minLevel);
+  }
+
   private filteredRecipes(): HexRecipeRow[] {
     return this.recipes.filter((r) => {
       if (this.categoryTab !== 'all' && r.category !== this.categoryTab) return false;
@@ -398,17 +414,35 @@ export class HexagramEnchantPanel {
   private renderRecipePicker(): void {
     const el = this.root.querySelector('#hex-recipe-picker')!;
     const list = this.filteredRecipes();
+    const level = playerLevel(this.getPlayerExperience());
+    if (this.selectedId) {
+      const current = list.find((r) => r.id === this.selectedId);
+      if (current && !this.isRecipeUnlocked(current)) this.selectedId = null;
+    }
+    if (!this.selectedId) {
+      this.selectedId = list.find((r) => this.isRecipeUnlocked(r))?.id ?? null;
+    }
     el.innerHTML = `
       <label>Enchantment
-        <select id="hex-recipe-select">${list.map((r) =>
-          `<option value="${r.id}" ${r.id === this.selectedId ? 'selected' : ''}>${this.escape(r.name)}</option>`
-        ).join('')}</select>
+        <select id="hex-recipe-select">${list.map((r) => {
+          const unlocked = this.isRecipeUnlocked(r);
+          const need = r.minLevel ?? 1;
+          const label = unlocked
+            ? this.escape(r.name)
+            : `${this.escape(r.name)} — Level ${need} (you are ${level})`;
+          return `<option value="${r.id}" ${r.id === this.selectedId ? 'selected' : ''} ${unlocked ? '' : 'disabled'}>${label}</option>`;
+        }).join('')}</select>
       </label>`;
     const sel = el.querySelector('#hex-recipe-select') as HTMLSelectElement;
     sel.onchange = () => {
+      const recipe = list.find((r) => r.id === sel.value);
+      if (recipe && !this.isRecipeUnlocked(recipe)) {
+        sel.value = this.selectedId ?? '';
+        return;
+      }
       this.selectedId = sel.value;
-      const recipe = this.selectedRecipe();
-      this.declaration = recipe?.declarationTemplates[0] ?? '';
+      const next = this.selectedRecipe();
+      this.declaration = next?.declarationTemplates[0] ?? '';
       this.clearHexagram(false);
       this.render();
     };
@@ -588,6 +622,11 @@ export class HexagramEnchantPanel {
     const recipe = this.selectedRecipe();
     const prev = this.preview();
     if (!recipe || !prev?.complete || this.ritualActive) return;
+    if (!this.isRecipeUnlocked(recipe)) {
+      this.selectedId = null;
+      this.render();
+      return;
+    }
     this.pushUndo();
     this.ritualActive = true;
     this.ritualPhase = 0;

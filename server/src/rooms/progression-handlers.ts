@@ -13,6 +13,13 @@ import {
   CLEANSER_MORALITY_COST,
   grantSkillXp,
   resolveTechnicalSkillKey,
+  applyReputationDelta,
+  applyReputationSource,
+  reputationTrackForNpc,
+  grantExperience,
+  evaluateRecognition,
+  grantLicenses,
+  type ReputationTrack,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { craftingSystem } from '../systems/crafting-system.js';
@@ -37,8 +44,70 @@ export type HandlerCtx = {
   refreshWardWeb?: (sessionId: string) => void;
 };
 
-function applyReputation(stats: PlayerStats, delta: number): PlayerStats {
-  return { ...stats, reputation: Math.max(-100, Math.min(100, stats.reputation + delta)) };
+function notifyXp(ctx: HandlerCtx, granted: number, leveledUp: boolean, levelAfter: number, label: string): void {
+  if (granted <= 0) return;
+  ctx.client.send('notification', {
+    type: 'notification',
+    message: leveledUp
+      ? `+${granted} XP (${label}) — Practitioner Level ${levelAfter}!`
+      : `+${granted} XP — ${label}`,
+    level: leveledUp ? 'success' : 'info',
+  });
+}
+
+function notifyLevelUpEvents(ctx: HandlerCtx, events: { message: string; eventId: string }[]): void {
+  for (const event of events) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: event.message,
+      level: 'success',
+    });
+    ctx.client.send('level_up', {
+      type: 'level_up',
+      eventId: event.eventId,
+      message: event.message,
+    });
+  }
+}
+
+/** Recompute recognition tier after level / quest / reputation / affinity changes. */
+export function syncRecognition(ctx: HandlerCtx, opts: { notify?: boolean } = {}): void {
+  const result = evaluateRecognition(ctx.player.stats, ctx.data.progression);
+  ctx.data.progression = result.progression;
+  if (result.changed && opts.notify !== false) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: `Recognition: you are acknowledged as ${result.tier.label}.`,
+      level: 'success',
+    });
+    ctx.sendProgression(ctx.client, ctx.data.progression);
+  }
+}
+
+function grantXp(
+  ctx: HandlerCtx,
+  sourceId: string,
+  context?: Parameters<typeof grantExperience>[3]
+): ReturnType<typeof grantExperience> {
+  const result = grantExperience(ctx.player.stats, ctx.data.progression, sourceId, context);
+  ctx.player.stats = result.stats;
+  ctx.data.progression = result.progression;
+  ctx.data.stats = result.stats;
+  if (result.granted > 0) {
+    ctx.sendProgression(ctx.client, ctx.data.progression);
+    notifyXp(ctx, result.granted, result.leveledUp, result.levelAfter, result.source?.label ?? sourceId);
+    notifyLevelUpEvents(ctx, result.levelUpEvents);
+    if (result.leveledUp) syncRecognition(ctx);
+  }
+  return result;
+}
+
+function applyReputation(
+  stats: PlayerStats,
+  delta: number,
+  track: ReputationTrack = 'public'
+): PlayerStats {
+  return applyReputationDelta(stats, track, delta);
 }
 
 function checkSpecialtyOffer(client: Client, stats: PlayerStats): void {
@@ -69,14 +138,29 @@ export function handleDialogueProgression(
 
   if (relationshipDelta && resolvedNpcId) {
     data.progression = applyNpcRelationshipDelta(data.progression, resolvedNpcId, relationshipDelta);
-    const stats = applyReputation(player.stats, relationshipDelta);
-    player.stats = stats;
+    const track = reputationTrackForNpc(resolvedNpcId);
+    // Positive relationship deltas use help_npc / study weights; negative use harm.
+    const sourceId = relationshipDelta >= 0 ? 'help_npc' : 'harm_npc';
+    const applied = applyReputationSource(player.stats, track, sourceId, {
+      npcId: resolvedNpcId,
+      scale: Math.abs(relationshipDelta) / 2,
+    });
+    // Fall back to raw delta on the inferred track when content source is missing.
+    player.stats =
+      applied.source != null
+        ? applied.stats
+        : applyReputation(player.stats, relationshipDelta, track);
   }
 
   if (resolvedNpcId === 'npc_mara' && !data.progression.questProgress.quest_first_steps) {
-    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps');
+    const before = data.progression.questProgress.quest_first_steps;
+    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps', player.stats);
+    if (!before && data.progression.questProgress.quest_first_steps) {
+      grantXp(ctx, 'quest_stage');
+    }
   }
 
+  syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   checkSpecialtyOffer(ctx.client, player.stats);
 }
@@ -156,10 +240,18 @@ export function handleReadBookComplete(ctx: HandlerCtx, bookId: string): void {
     };
   }
   player.stats = normalizePlayerStats(stats);
+  data.progression = data.progression;
+  const xp = grantExperience(player.stats, data.progression, 'read_book', {
+    tradition: book.affinity,
+  });
+  player.stats = xp.stats;
+  data.progression = xp.progression;
 
+  syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);
   checkSpecialtyOffer(ctx.client, player.stats);
+  notifyXp(ctx, xp.granted, xp.leveledUp, xp.levelAfter, xp.source?.label ?? 'Study');
   ctx.client.send('notification', {
     type: 'notification',
     message: `Finished reading — correspondences and insights recorded in your journal.`,
@@ -179,7 +271,10 @@ export function handleChooseSpecialty(ctx: HandlerCtx, specialty: MagicTradition
     return;
   }
   player.stats = { ...player.stats, specialty };
+  data.stats = player.stats;
+  syncRecognition(ctx);
   ctx.sendPlayerSync(ctx.client, player);
+  ctx.sendProgression(ctx.client, data.progression);
   ctx.client.send('notification', {
     type: 'notification',
     message: `You have claimed the ${specialty.replace(/_/g, ' ')} path.`,
@@ -197,6 +292,7 @@ export function handleCraftRecipe(ctx: HandlerCtx, recipeId: string): void {
   player.inventory = result.inventory!;
   data.progression = result.progression!;
   if (result.stats) player.stats = result.stats;
+  grantXp(ctx, 'craft_success');
   ctx.sendProgression(client, data.progression);
   ctx.sendPlayerSync(client, player);
   client.send('notification', {
@@ -341,7 +437,10 @@ export function handleExperiment(ctx: HandlerCtx, itemIds: string[]): void {
     return;
   }
   data.progression = result.progression!;
+  grantXp(ctx, 'experiment_success');
+  grantXp(ctx, 'discover_correspondence');
   ctx.sendProgression(client, data.progression);
+  ctx.sendPlayerSync(client, player);
   client.send('notification', {
     type: 'notification',
     message: result.message ?? 'You note new correspondences in your journal.',
@@ -372,6 +471,7 @@ export function handleInteractCrafting(
       output: r.output,
       effect: r.effect ?? 'item',
       meCost: r.meCost,
+      minLevel: r.minLevel ?? 1,
     })),
   });
 }
@@ -400,6 +500,7 @@ export function handleInteractHexagram(ctx: HandlerCtx, interactableId: string):
       effect: r.effect,
       spellId: r.spellId,
       visualTheme: r.visualTheme,
+      minLevel: r.minLevel ?? 1,
     })),
   });
 }
@@ -449,6 +550,8 @@ export function handleHexagramEnchant(
   player.inventory = result.inventory!;
   data.progression = result.progression!;
   if (result.stats) player.stats = result.stats;
+  const recipe = hexagramEnchantSystem.recipes.get(payload.recipeId);
+  grantXp(ctx, recipe?.effect === 'pocket_spell' ? 'pocket_spell_prepare' : 'hexagram_enchant');
   ctx.sendProgression(client, data.progression);
   ctx.sendPlayerSync(client, player);
   const successMessage = result.message ?? 'Enchantment complete.';
@@ -539,8 +642,42 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
     }
     player.stats = stats;
   }
-  if (quest.rewards.reputation) {
-    player.stats = applyReputation(player.stats, quest.rewards.reputation);
+  const publicRepReward = quest.rewards.publicReputation ?? quest.rewards.reputation;
+  if (publicRepReward) {
+    const source =
+      publicRepReward >= 0
+        ? applyReputationSource(player.stats, 'public', 'quest_mundane_success', {
+            scale: Math.abs(publicRepReward) / 5,
+          })
+        : applyReputationSource(player.stats, 'public', 'rumor_scandal', {
+            scale: Math.abs(publicRepReward) / 6,
+          });
+    player.stats =
+      source.source != null ? source.stats : applyReputation(player.stats, publicRepReward, 'public');
   }
+
+  let spiritualRepReward = quest.rewards.spiritualReputation;
+  if (
+    spiritualRepReward == null &&
+    quest.rewards.reputation &&
+    (questId.includes('circle') || questId.includes('rowan') || questId.includes('study'))
+  ) {
+    spiritualRepReward = Math.ceil(quest.rewards.reputation * 0.6);
+  }
+  if (spiritualRepReward) {
+    const source = applyReputationSource(player.stats, 'spiritual', 'quest_spiritual_success', {
+      scale: Math.abs(spiritualRepReward) / 6,
+    });
+    player.stats =
+      source.source != null
+        ? source.stats
+        : applyReputation(player.stats, spiritualRepReward, 'spiritual');
+  }
+  if (quest.rewards.licenses?.length) {
+    data.progression = grantLicenses(data.progression, quest.rewards.licenses);
+  }
+  grantXp(ctx, 'quest_complete');
+  syncRecognition(ctx);
+  ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);
 }
