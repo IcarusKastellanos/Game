@@ -17,6 +17,8 @@ import {
   applyReputationSource,
   reputationTrackForNpc,
   grantExperience,
+  evaluateRecognition,
+  grantLicenses,
   type ReputationTrack,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
@@ -68,6 +70,20 @@ function notifyLevelUpEvents(ctx: HandlerCtx, events: { message: string; eventId
   }
 }
 
+/** Recompute recognition tier after level / quest / reputation / affinity changes. */
+export function syncRecognition(ctx: HandlerCtx, opts: { notify?: boolean } = {}): void {
+  const result = evaluateRecognition(ctx.player.stats, ctx.data.progression);
+  ctx.data.progression = result.progression;
+  if (result.changed && opts.notify !== false) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: `Recognition: you are acknowledged as ${result.tier.label}.`,
+      level: 'success',
+    });
+    ctx.sendProgression(ctx.client, ctx.data.progression);
+  }
+}
+
 function grantXp(
   ctx: HandlerCtx,
   sourceId: string,
@@ -81,6 +97,7 @@ function grantXp(
     ctx.sendProgression(ctx.client, ctx.data.progression);
     notifyXp(ctx, result.granted, result.leveledUp, result.levelAfter, result.source?.label ?? sourceId);
     notifyLevelUpEvents(ctx, result.levelUpEvents);
+    if (result.leveledUp) syncRecognition(ctx);
   }
   return result;
 }
@@ -143,6 +160,7 @@ export function handleDialogueProgression(
     }
   }
 
+  syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   checkSpecialtyOffer(ctx.client, player.stats);
 }
@@ -229,6 +247,7 @@ export function handleReadBookComplete(ctx: HandlerCtx, bookId: string): void {
   player.stats = xp.stats;
   data.progression = xp.progression;
 
+  syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);
   checkSpecialtyOffer(ctx.client, player.stats);
@@ -252,7 +271,10 @@ export function handleChooseSpecialty(ctx: HandlerCtx, specialty: MagicTradition
     return;
   }
   player.stats = { ...player.stats, specialty };
+  data.stats = player.stats;
+  syncRecognition(ctx);
   ctx.sendPlayerSync(ctx.client, player);
+  ctx.sendProgression(ctx.client, data.progression);
   ctx.client.send('notification', {
     type: 'notification',
     message: `You have claimed the ${specialty.replace(/_/g, ' ')} path.`,
@@ -651,6 +673,11 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
         ? source.stats
         : applyReputation(player.stats, spiritualRepReward, 'spiritual');
   }
+  if (quest.rewards.licenses?.length) {
+    data.progression = grantLicenses(data.progression, quest.rewards.licenses);
+  }
   grantXp(ctx, 'quest_complete');
+  syncRecognition(ctx);
+  ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);
 }

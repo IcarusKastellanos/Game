@@ -77,6 +77,14 @@ export interface PlayerProgression {
   recentXp?: import('./xp-sources.js').RecentXpEntry[];
   /** actionId → timestamp when the source is usable again. */
   xpSourceCooldowns?: Record<string, number>;
+  /** Highest recognition tier currently held (`content/progression/recognition-tiers.json`). */
+  recognitionTierId?: string;
+  /** Cached label for HUD / friends (filled by evaluateRecognition). */
+  recognitionTierLabel?: string;
+  /** Formal licenses earned via quests / content (warder, healer, seer, …). */
+  earnedLicenses?: string[];
+  /** Story / recognition flags unlocked by tiers and content. */
+  storyFlags?: string[];
 }
 
 export interface ContentRecipe {
@@ -177,6 +185,8 @@ export interface ContentQuest {
     reputation?: number;
     publicReputation?: number;
     spiritualReputation?: number;
+    /** Recognition licenses granted on quest complete. */
+    licenses?: string[];
   };
 }
 
@@ -217,6 +227,10 @@ export function defaultProgression(): PlayerProgression {
     skillXp: {},
     recentXp: [],
     xpSourceCooldowns: {},
+    recognitionTierId: 'initiate',
+    recognitionTierLabel: 'Initiate',
+    earnedLicenses: [],
+    storyFlags: [],
   };
 }
 
@@ -262,6 +276,20 @@ export function parseProgression(raw: unknown): PlayerProgression {
       o.xpSourceCooldowns && typeof o.xpSourceCooldowns === 'object'
         ? (o.xpSourceCooldowns as Record<string, number>)
         : {},
+    recognitionTierId:
+      typeof o.recognitionTierId === 'string' && o.recognitionTierId
+        ? o.recognitionTierId
+        : base.recognitionTierId,
+    recognitionTierLabel:
+      typeof o.recognitionTierLabel === 'string' && o.recognitionTierLabel
+        ? o.recognitionTierLabel
+        : base.recognitionTierLabel,
+    earnedLicenses: Array.isArray(o.earnedLicenses)
+      ? [...new Set((o.earnedLicenses as unknown[]).filter((id): id is string => typeof id === 'string'))]
+      : [],
+    storyFlags: Array.isArray(o.storyFlags)
+      ? [...new Set((o.storyFlags as unknown[]).filter((id): id is string => typeof id === 'string'))]
+      : [],
   };
 }
 

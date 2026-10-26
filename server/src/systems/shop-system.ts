@@ -7,6 +7,8 @@ import {
   meetsMinLevel,
   levelGateMessage,
   playerLevel,
+  recognitionUnlocksVendor,
+  type PlayerProgression,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { inventorySystem } from './inventory-ward-aura.js';
@@ -27,11 +29,19 @@ export class ShopSystem {
     playerInventory: InventorySlot[],
     playerMoney: number,
     priceMultiplier = 1,
-    stats?: PlayerStats
+    stats?: PlayerStats,
+    progression?: PlayerProgression
   ): PurchaseResult {
     const shop = contentRegistry.shops.get(shopId);
     if (!shop) {
       return { success: false, message: 'Shop not found.' };
+    }
+
+    if (progression && !recognitionUnlocksVendor(shopId, progression)) {
+      return {
+        success: false,
+        message: 'This vendor only deals with practitioners of higher recognition.',
+      };
     }
 
     if (stats && !canTradePublicly(stats)) {

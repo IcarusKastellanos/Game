@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { getRecognitionDocument } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { getPublicIngredients, getIconManifest, mergeIngredientIconsFromDb, verifyIconHashes } from '../content/ingredient-icons.js';
 import { mergeNpcSpritesFromDb } from '../content/npc-sprites.js';
@@ -20,6 +21,7 @@ contentRouter.get('/all', (_req: Request, res: Response) => {
     decorations: [...contentRegistry.decorations.values()],
     maps: [...contentRegistry.maps.values()],
     dialogues: [...contentRegistry.dialogues.values()],
+    recognitionTiers: getRecognitionDocument(),
   });
 });
 
