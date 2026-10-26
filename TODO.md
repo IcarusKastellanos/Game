@@ -29,8 +29,9 @@
 ### Phase 1 — Milestone B (next)
 
 5. ~~Recognition tiers + licenses + dialogue/vendor gates~~ — done (`recognition-tiers.json` + `evaluateRecognition`)
-6. Character sheet UI (full sheet)
-7. Then Milestone C — Grimoire
+6. **Licensure Marks & credentialed practice** — see §1.3b (spell/spirit/NPC/place gates, examiner NPC, vows, council discipline)
+7. Character sheet UI (full sheet)
+8. Then Milestone C — Grimoire
 
 See **Phase 1** below for the full practitioner framework roadmap.
 
@@ -286,6 +287,47 @@ Recognition is **what the magical establishment acknowledges you as** — distin
 
 
 
+### 1.3b Licensure Marks & Magical Council credentials (planned)
+
+Formal credentials (Licensed Exorcist, Certified Healer, Certified Seer, Licensed Warder, hex/cursecraft credentials, etc.) are **stronger than recognition tiers**. A license gates content that only credentialed practitioners may use, and binds the holder to a professional vow enforced by Licensure Marks and the Magical Council.
+
+#### Credential issuance (examiner NPC)
+
+- [ ] Content: examiner / Magical Council clerk NPC(s) who **scan the player holistically** (level, recognition, spiritual rep, relevant skills, morality, prior vows)
+- [ ] Exam flow: charge **money**, require a **vow** that binds the player’s reputation to that skill set (stored on progression)
+- [ ] On pass: grant license id + initialize that license’s **Licensure Marks** pool; unlock credential story flags
+- [ ] Content file e.g. `content/progression/licenses.json` — per license: `{ id, label, examNpcId, fee, vowId, requirements{}, markCapacity, warnAtMarks, revokeAtMarks, forbids[], allows[], unlocks: { spellIds[], spiritIds[], npcIds[], placeIds[] } }`
+
+#### Content gates (credential-only)
+
+- [ ] Spells: `{ requiresLicense: "certified_healer" }` (and/or `requiresAnyLicense[]`) — cast blocked without credential; altar UI treats like level-gate (visible, not selectable, tip explains license)
+- [ ] Spirits: license-specific spirit contacts / offerings only for that credential
+- [ ] NPCs: teachers, temple staff, council clerks gated by license
+- [ ] Places / map zones: healer **office or temple**, seer **psychic tent**, warder **seal yard**, etc. (`requiresLicense` on interactables / map zones)
+
+#### Professional vows & practice limits
+
+- [ ] Each license defines practice rules, e.g.:
+  - **Healers** must not harm (baneful / high malevolent moralDelta forbidden or heavily punished)
+  - **Hex / curse workers** have **weak or blocked heals**
+  - Seers / exorcists / warders: content-defined allow/forbid spell categories and effect tags
+- [ ] Server enforces vow on cast / craft / spirit work (not only UI)
+
+#### Licensure Marks & Magical Council discipline
+
+- [ ] Persist `progression.licensureMarks: Record<licenseId, { marks, markCapacity, status: 'good'|'warned'|'revoked' }>`
+- [ ] Going against your license **consumes Licensure Marks** (content-defined cost per violation)
+- [ ] At `warnAtMarks`: Magical Council **warning** (notification + dialogue / letter)
+- [ ] At `revokeAtMarks` (or marks exhausted): **license revoked** — lose credential gates until re-examination; spiritual / public reputation hit
+- [ ] Optional: marks slowly recover with clean practice or council restitution quests
+
+#### UI / admin (when built)
+
+- [ ] Character sheet: licenses held, marks remaining, vow text, council standing
+- [ ] Admin: license editor + examiner quest wiring
+
+
+
 ### 1.4 Public reputation (mundane world)
 
 How townspeople, shopkeepers, and authorities perceive you.
@@ -536,22 +578,23 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 **Milestone B — Recognition & gates**  
 4. ~~Recognition tiers + license flags~~  
 5. ~~Wire gates into shops, dialogues, quests (vendor unlocks + dialogue requiresRecognition/requiresLicense)~~  
-6. Character sheet UI (full sheet still open; HUD shows recognition + specialty)  
+6. **Licensure Marks & Magical Council** (§1.3b) — examiner NPC, vows, spell/spirit/NPC/place gates, marks → warn → revoke  
+7. Character sheet UI (full sheet still open; HUD shows recognition + specialty)  
 
 **Milestone C — Grimoire**  
-7. Grimoire state + auto-record hooks  
-8. Grimoire UI + player notes  
-9. Gameplay requirements tied to Grimoire entries  
+8. Grimoire state + auto-record hooks  
+9. Grimoire UI + player notes  
+10. Gameplay requirements tied to Grimoire entries  
 
 **Milestone D — Traditions & spirits**  
-10. Tradition pack loader  
-11. Affinity rules + cross-tradition costs  
-12. Spirit registry + per-spirit reputation  
+11. Tradition pack loader  
+12. Affinity rules + cross-tradition costs  
+13. Spirit registry + per-spirit reputation (+ license-specific spirits from §1.3b)  
 
 **Milestone E — Living world loops**  
-13. Hunger / stamina ticks  
-14. Dream + observation entry sources  
-15. Teacher NPCs + certification questlines  
+14. Hunger / stamina ticks  
+15. Dream + observation entry sources  
+16. Teacher NPCs + certification / re-examination questlines  
 
 ---
 
