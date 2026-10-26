@@ -1,7 +1,7 @@
-import Phaser from 'phaser';
 import { meetsDialogueRecognitionGate, type PlayerProgression } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
+import { escapeHtml, ledgerOverlayShell } from './ledger-chrome';
 
 type DialogueChoiceRow = {
   label: string;
@@ -24,113 +24,130 @@ type DialogueTreeRow = {
   nodes: DialogueNodeRow[];
 };
 
-/** NPC dialogue tree renderer */
+/** NPC conversation, drawn as a practitioner-ledger page. */
 export class DialoguePanel {
-  private container!: Phaser.GameObjects.Container;
-  private dynamic: Phaser.GameObjects.GameObject[] = [];
-  private npcText!: Phaser.GameObjects.Text;
+  private root: HTMLDivElement;
+  private scroller: HTMLElement;
+  private titleEl: HTMLElement;
+  private subtitleEl: HTMLElement;
+  private visible = false;
   private treeId = '';
   private nodeId = 'start';
+  private closeTimer = 0;
 
-  constructor(private scene: Phaser.Scene) {
-    this.build();
-    this.hide();
+  constructor() {
+    this.root = document.createElement('div');
+    this.root.id = 'dialogue-panel';
+    this.root.className = 'ledger-overlay';
+    this.root.innerHTML = ledgerOverlayShell({
+      kicker: 'Conversation',
+      title: 'A practitioner',
+      subtitle: '',
+      foot: 'Listen, answer, or close the page. The street will still be there.',
+    });
+    document.body.appendChild(this.root);
+    this.scroller = this.root.querySelector('.ledger-scroll') as HTMLElement;
+    this.titleEl = this.root.querySelector('h1') as HTMLElement;
+    this.subtitleEl = this.root.querySelector('.ledger-type') as HTMLElement;
+    this.root.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-ledger-close]')) this.hide();
+    });
     window.addEventListener('game:dialogue-update', this.onUpdate as EventListener);
   }
 
-  private build(): void {
-    const bg = this.scene.add.rectangle(256, 192, 440, 260, 0x0a1020, 0.95).setStrokeStyle(2, 0x6688aa);
-    const title = this.scene.add.text(256, 80, '◆ DIALOGUE ◆', {
-      fontSize: '11px', color: '#aaccff', fontFamily: 'monospace',
-    }).setOrigin(0.5);
-
-    this.npcText = this.scene.add.text(256, 120, '', {
-      fontSize: '8px', color: '#ddeeff', fontFamily: 'monospace',
-      wordWrap: { width: 400 }, align: 'center',
-    }).setOrigin(0.5);
-
-    const closeBtn = this.scene.add.text(450, 75, '[X]', {
-      fontSize: '10px', color: '#ff6666', fontFamily: 'monospace',
-    }).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.hide());
-
-    this.container = this.scene.add.container(0, 0, [bg, title, this.npcText, closeBtn]);
-    this.container.setDepth(2000).setScrollFactor(0);
-  }
-
   show(npcId: string, dialogueTreeId: string, nodeId = 'start'): void {
+    window.clearTimeout(this.closeTimer);
     this.treeId = dialogueTreeId;
     this.nodeId = nodeId;
-    this.container.setVisible(true);
+    this.visible = true;
+    this.root.classList.add('is-open');
 
     const npc = gameState.content?.npcs.find((n) => n.id === npcId);
     const tree = gameState.content?.dialogues?.find((d) => d.id === dialogueTreeId) as DialogueTreeRow | undefined;
     const node = tree?.nodes.find((n) => n.id === nodeId);
-    const progression = (gameState.progression ?? { earnedLicenses: [], recognitionTierId: 'initiate' }) as PlayerProgression;
+    const progression = this.progression();
+
+    this.titleEl.textContent = npc?.name ?? 'A practitioner';
+    this.subtitleEl.textContent = npc?.role ?? '';
+    const frame = this.root.querySelector('.ledger-frame');
+    frame?.setAttribute('aria-label', npc?.name ?? 'Conversation');
 
     if (node && !meetsDialogueRecognitionGate(node, progression)) {
-      this.npcText.setText(`${npc?.name ?? 'NPC'} has nothing further to offer at your recognition.`);
-      this.clearDynamic();
+      this.renderBody(
+        `${npc?.name ?? 'They'} has nothing further to offer at your recognition.`,
+        ''
+      );
       return;
     }
 
-    this.npcText.setText(node?.text ?? `${npc?.name ?? 'NPC'} has nothing to say.`);
-    this.renderChoices(tree, nodeId, progression);
+    this.renderBody(node?.text ?? `${npc?.name ?? 'They'} has nothing to say.`, this.choiceHtml(node, progression));
   }
 
   hide(): void {
-    this.container.setVisible(false);
-    this.clearDynamic();
+    window.clearTimeout(this.closeTimer);
+    if (!this.visible) return;
+    this.visible = false;
+    this.root.classList.remove('is-open');
+    this.scroller.innerHTML = '';
+    if (gameState.activeUI === 'dialogue') gameState.activeUI = 'none';
   }
 
-  private clearDynamic(): void {
-    this.dynamic.forEach((o) => o.destroy());
-    this.dynamic = [];
+  private progression(): PlayerProgression {
+    return (gameState.progression ?? {
+      earnedLicenses: [],
+      recognitionTierId: 'initiate',
+    }) as PlayerProgression;
   }
 
-  private renderChoices(
-    tree: DialogueTreeRow | undefined,
-    nodeId: string,
-    progression: PlayerProgression
-  ): void {
-    this.clearDynamic();
-    const node = tree?.nodes.find((n) => n.id === nodeId);
-    if (!node) return;
-
-    let y = 180;
-    node.choices.forEach((choice, originalIndex) => {
-      if (!meetsDialogueRecognitionGate(choice, progression)) return;
-      const btn = this.scene.add.text(256, y, choice.label, {
-        fontSize: '8px', color: '#bbddff', fontFamily: 'monospace',
-        backgroundColor: '#223344', padding: { x: 6, y: 3 },
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-        .setScrollFactor(0).setDepth(2001)
-        .on('pointerdown', () => {
-          network.send('dialogue_choice', {
-            dialogueTreeId: this.treeId,
-            nodeId: this.nodeId,
-            choiceIndex: originalIndex,
-          });
+  private renderBody(text: string, choices: string): void {
+    this.scroller.innerHTML = `<p class="ledger-lead">${escapeHtml(text)}</p>${choices}`;
+    this.scroller.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const choiceIndex = Number(btn.dataset.choice);
+        if (!Number.isInteger(choiceIndex)) return;
+        network.send('dialogue_choice', {
+          dialogueTreeId: this.treeId,
+          nodeId: this.nodeId,
+          choiceIndex,
         });
-      this.dynamic.push(btn);
-      y += 22;
+      });
     });
   }
 
+  private choiceHtml(node: DialogueNodeRow | undefined, progression: PlayerProgression): string {
+    if (!node?.choices.length) {
+      return '<p class="ledger-aside dim">There is nothing further to answer.</p>';
+    }
+    const rows = node.choices.flatMap((choice, originalIndex) => {
+      if (!meetsDialogueRecognitionGate(choice, progression)) return [];
+      return [
+        `<button type="button" class="ledger-choice" data-choice="${originalIndex}"><span class="k">Answer</span>${escapeHtml(choice.label)}</button>`,
+      ];
+    });
+    if (!rows.length) {
+      return '<p class="ledger-aside dim">None of the remaining answers are open to you yet.</p>';
+    }
+    return `<div class="ledger-choices">${rows.join('')}</div>`;
+  }
+
   private onUpdate = (e: CustomEvent<{
-    ended: boolean; nodeId: string; message: string; dialogueTreeId: string;
+    ended: boolean;
+    nodeId: string;
+    message: string;
+    dialogueTreeId: string;
   }>): void => {
-    if (!this.container.visible) return;
+    if (!this.visible) return;
     const { ended, nodeId, message, dialogueTreeId } = e.detail;
     if (ended) {
-      this.npcText.setText(message);
-      this.clearDynamic();
-      setTimeout(() => this.hide(), 2000);
+      this.renderBody(message, '');
+      window.clearTimeout(this.closeTimer);
+      this.closeTimer = window.setTimeout(() => this.hide(), 2000);
       return;
     }
     this.nodeId = nodeId;
-    this.npcText.setText(message);
     const tree = gameState.content?.dialogues?.find((d) => d.id === dialogueTreeId) as DialogueTreeRow | undefined;
-    const progression = (gameState.progression ?? { earnedLicenses: [], recognitionTierId: 'initiate' }) as PlayerProgression;
-    this.renderChoices(tree, nodeId, progression);
+    const node = tree?.nodes.find((n) => n.id === nodeId);
+    this.renderBody(message, this.choiceHtml(node, this.progression()));
   };
 }

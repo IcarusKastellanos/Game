@@ -44,11 +44,11 @@ export class UIScene extends Phaser.Scene {
   create(): void {
     this.altarPanel = new AltarPanel(this);
     this.inventoryPanel = new InventoryPanel(this);
-    this.shopPanel = new ShopPanel(this);
+    this.shopPanel = new ShopPanel();
     this.auraPanel = new AuraPanel(this);
     this.characterSheet = new CharacterSheet(this);
     this.familiarPanel = new FamiliarPanel(this);
-    this.dialoguePanel = new DialoguePanel(this);
+    this.dialoguePanel = new DialoguePanel();
     this.hud = new HUD(this);
     this.adminConsole = new AdminConsole(this);
     this.adminPanel = new AdminPanel(this);

@@ -46,8 +46,8 @@ export interface ClientContentBundle {
   maps: ContentMapDefinition[];
   ingredients: { id: string; name: string; category: string; iconPixels?: string[] }[];
   familiars?: { id: string; species: string; description: string; defaultPublicName: string }[];
-  shops: { id: string; name: string; inventory: { itemId: string; price: number; stock: number; minLevel?: number }[] }[];
-  npcs: { id: string; name: string; dialogueTreeId: string }[];
+  shops: { id: string; name: string; npcId?: string; inventory: { itemId: string; price: number; stock: number; minLevel?: number }[] }[];
+  npcs: { id: string; name: string; role?: string; dialogueTreeId: string }[];
   decorations: { id: string; name: string; category: string }[];
   dialogues?: DialogueTree[];
   recognitionTiers?: RecognitionDocument;

@@ -1,0 +1,284 @@
+/* Conversation, shop, and familiar pages. Same palette and frame language as the practitioner ledger.
+   The character sheet, Aura screen, altar, and hexagram stay as they are. The familiar ward-net
+   drawing is unchanged; only the page around it uses this frame. */
+
+.ledger-overlay,
+.hud-window {
+  --gold: #d4af6a;
+  --gold-bright: #e8c98a;
+  --text: #efe4f4;
+  --text-dim: #b7a8c4;
+  --good: #7ee0a6;
+  --bad: #ff9a9a;
+  --warn: #ffcf7a;
+  --ink: #120c1c;
+  --panel: rgba(18, 12, 28, 0.72);
+}
+
+.ledger-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9050;
+  display: none;
+  place-items: center;
+  padding: 28px 18px;
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--text);
+}
+
+.ledger-overlay.is-open {
+  display: grid;
+}
+
+.ledger-overlay .ledger-frame {
+  width: min(720px, 100%);
+  max-height: min(820px, 100%);
+}
+
+.ledger-overlay .ledger-lead {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text);
+  margin-bottom: 22px;
+}
+
+.ledger-choices,
+.ledger-wares {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ledger-choice,
+.ledger-buy {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid rgba(212, 175, 106, 0.28);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.ledger-choice .k,
+.ledger-buy .k {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.ledger-choice:hover,
+.ledger-buy:hover,
+.ledger-choice:focus-visible,
+.ledger-buy:focus-visible {
+  border-color: rgba(232, 201, 138, 0.75);
+  color: var(--gold-bright);
+  outline: none;
+}
+
+.ledger-ware {
+  background: var(--panel);
+  border: 1px solid rgba(212, 175, 106, 0.18);
+  padding: 14px 16px 16px;
+}
+
+.ledger-ware header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.ledger-ware h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.ledger-ware header strong {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-ware p {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.ledger-ware.is-sealed {
+  opacity: 0.8;
+}
+
+.ledger-ware.is-sealed p {
+  margin-bottom: 0;
+  color: var(--warn);
+}
+
+.ledger-overlay .ledger-close,
+.hud-window .ledger-close {
+  z-index: 3;
+}
+
+/* Familiar chooser and care — not the Aura screen */
+#familiar-panel .ledger-frame {
+  width: min(760px, 100%);
+}
+
+#familiar-panel .fam-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+#familiar-panel .ledger-familiar {
+  background: var(--panel);
+  border: 1px solid rgba(212, 175, 106, 0.18);
+  padding: 16px 16px 14px;
+}
+
+#familiar-panel .ledger-familiar.is-selected {
+  border-color: rgba(232, 201, 138, 0.7);
+}
+
+#familiar-panel .fam-identity,
+#familiar-panel .ledger-familiar header {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+#familiar-panel .ledger-familiar header {
+  margin-bottom: 10px;
+}
+
+#familiar-panel .fam-icon,
+#familiar-panel .fam-portrait img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  display: block;
+}
+
+#familiar-panel .fam-portrait {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(212, 175, 106, 0.4);
+}
+
+#familiar-panel .fam-portrait canvas {
+  position: absolute;
+  inset: 0;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+}
+
+#familiar-panel .ledger-familiar h3,
+#familiar-panel .fam-identity h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+#familiar-panel .ledger-familiar .k,
+#familiar-panel .fam-identity .k {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+#familiar-panel .ledger-familiar p,
+#familiar-panel .fam-note {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+#familiar-panel .ledger-familiar .dim,
+#familiar-panel .fam-note.dim {
+  color: var(--text-dim);
+}
+
+#familiar-panel .ledger-familiar .ledger-choice {
+  margin-top: 4px;
+}
+
+#familiar-panel .fam-form {
+  margin-top: 18px;
+  padding: 16px 16px 8px;
+  background: var(--panel);
+  border: 1px solid rgba(212, 175, 106, 0.28);
+}
+
+#familiar-panel .fam-form h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--gold-bright);
+}
+
+#familiar-panel .fam-form label {
+  display: block;
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+#familiar-panel .fam-form input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(10, 7, 18, 0.9);
+  border: 1px solid rgba(212, 175, 106, 0.35);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+}
+
+#familiar-panel .fam-form input:focus-visible {
+  outline: 1px solid #b98cff;
+}
+
+#familiar-panel .fam-identity {
+  margin-bottom: 18px;
+}
+
+#familiar-panel .fam-identity .ledger-level {
+  margin-top: 4px;
+}
+
+#familiar-panel .ledger-choice:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--text-dim);
+  border-color: rgba(212, 175, 106, 0.16);
+}
+
+#familiar-panel .fam-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
