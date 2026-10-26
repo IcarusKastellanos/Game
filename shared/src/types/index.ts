@@ -271,8 +271,13 @@ export interface MetPlayer {
   metAt: number;
 }
 
-/** Derive practitioner title from stats */
-export function getPractitionerType(stats: Pick<PlayerStats, 'specialty' | 'warding' | 'healing' | 'cursecraft' | 'divinationSkill' | 'herbalism' | 'ritualSkill'>): string {
+/** Specialty / skill-focus subtitle (no recognition tier). */
+export function getPractitionerSpecialtyLabel(
+  stats: Pick<
+    PlayerStats,
+    'specialty' | 'warding' | 'healing' | 'cursecraft' | 'divinationSkill' | 'herbalism' | 'ritualSkill'
+  >
+): string {
   if (stats.specialty) {
     const labels: Record<string, string> = {
       traditional_european: 'Folk Witch',
@@ -293,6 +298,26 @@ export function getPractitionerType(stats: Pick<PlayerStats, 'specialty' | 'ward
   ];
   ranked.sort((a, b) => b[1] - a[1]);
   return ranked[0][0];
+}
+
+/**
+ * Display label: recognition tier when known, with optional specialty subtitle.
+ * Pass `recognitionTierLabel` from progression content (keeps this module free of progression imports).
+ */
+export function getPractitionerType(
+  stats: Pick<
+    PlayerStats,
+    'specialty' | 'warding' | 'healing' | 'cursecraft' | 'divinationSkill' | 'herbalism' | 'ritualSkill'
+  >,
+  recognitionTierLabel?: string | null
+): string {
+  const specialty = getPractitionerSpecialtyLabel(stats);
+  const tier = recognitionTierLabel?.trim();
+  if (tier) {
+    if (specialty && specialty !== 'Practitioner') return `${tier} · ${specialty}`;
+    return tier;
+  }
+  return specialty;
 }
 
 export function playerLevel(experience: number): number {

@@ -11,9 +11,9 @@
 
 
 
-### HUD follow-ups (optional)
+### HUD follow-ups
 
-- [ ] Wire remaining HUD elements from admin layout JSON (nav, resources, moon panel) — intuition meter is nameplate-anchored
+- ~~Wire remaining HUD elements from admin layout JSON (nav, resources, moon panel)~~ — discarded
 - [x] Store intuition meter offset relative to player-status in layout editor (not absolute canvas coords)
 - [x] Pocket spell completion → "Working Complete" toast (spells only today; hexagram/craft use "Notice")
 
@@ -270,13 +270,13 @@ Each track has: **current value**, **tier/level label**, **history log** (option
 
 Recognition is **what the magical establishment acknowledges you as** — distinct from fame (public) or spirit favor.
 
-- [ ] Add `content/progression/recognition-tiers.json`:
+- [x] Add `content/progression/recognition-tiers.json`:
   - Tiers e.g. `initiate`, `registered_practitioner`, `licensed_warder`, `certified_healer`, `recognized_seer`, `tradition_adept`, `temple_associate`, `covenant_holder`
   - Each tier: `{ id, label, requirements: { minLevel?, minSpiritualRep?, questsCompleted[], licenses[], npcRelationships{}, traditionAffinity{} }, unlocks: { vendors[], teachers[], rituals[], organizations[], storyFlags[] } }`
-- [ ] Persist `progression.recognitionTierId` + `progression.earnedLicenses[]` on player
-- [ ] Server: `evaluateRecognition(player)` on login and after quest/reputation/affinity changes
-- [ ] NPCs react to recognition tier (dialogue conditions in `dialogues.json`: `requiresRecognition`, `requiresLicense`)
-- [ ] Replace/augment `getPractitionerType()` display with tier label + optional specialty subtitle
+- [x] Persist `progression.recognitionTierId` + `progression.earnedLicenses[]` on player
+- [x] Server: `evaluateRecognition(player)` on login and after quest/reputation/affinity changes
+- [x] NPCs react to recognition tier (dialogue conditions in `dialogues.json`: `requiresRecognition`, `requiresLicense`)
+- [x] Replace/augment `getPractitionerType()` display with tier label + optional specialty subtitle
 
 
 
@@ -484,7 +484,7 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 
 - [x] `content/progression/xp-sources.json`
 - [x] `content/progression/level-curve.json` (max Level 10)
-- [ ] `content/progression/recognition-tiers.json`
+- [x] `content/progression/recognition-tiers.json`
 - [x] `content/progression/reputation-public.json` (+ `reputation-spiritual.json`)
 - [x] `content/progression/reputation-spiritual.json`
 - [ ] `content/progression/reputation-coven.json` (stub)
@@ -528,9 +528,9 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 3. ~~XP source registry + central grant function~~
 
 **Milestone B — Recognition & gates**  
-4. Recognition tiers + license flags  
-5. Wire gates into shops, spells, dialogues, quests  
-6. Character sheet UI  
+4. ~~Recognition tiers + license flags~~  
+5. ~~Wire gates into shops, dialogues, quests (vendor unlocks + dialogue requiresRecognition/requiresLicense)~~  
+6. Character sheet UI (full sheet still open; HUD shows recognition + specialty)  
 
 **Milestone C — Grimoire**  
 7. Grimoire state + auto-record hooks  

@@ -1,17 +1,25 @@
-import type { InventorySlot, TaglockType } from '@witchcraft/shared';
-import { addItemToInventory } from '@witchcraft/shared';
+import type { InventorySlot, PlayerProgression, TaglockType } from '@witchcraft/shared';
+import { addItemToInventory, meetsDialogueRecognitionGate } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
+
+export interface DialogueChoice {
+  label: string;
+  next: string;
+  relationshipDelta?: number;
+  statBoost?: Record<string, number>;
+  grantItem?: string;
+  /** Minimum recognition tier id (rank) required to select this choice. */
+  requiresRecognition?: string;
+  /** License id required to select this choice. */
+  requiresLicense?: string;
+}
 
 export interface DialogueNode {
   id: string;
   text: string;
-  choices: {
-    label: string;
-    next: string;
-    relationshipDelta?: number;
-    statBoost?: Record<string, number>;
-    grantItem?: string;
-  }[];
+  choices: DialogueChoice[];
+  requiresRecognition?: string;
+  requiresLicense?: string;
 }
 
 export interface DialogueTree {
@@ -35,11 +43,27 @@ export class DialogueSystem {
     return this.trees.get(dialogueTreeId);
   }
 
+  /** Choices the practitioner may select at this node. */
+  availableChoices(
+    dialogueTreeId: string,
+    nodeId: string,
+    progression: PlayerProgression
+  ): { choice: DialogueChoice; originalIndex: number }[] {
+    const tree = this.trees.get(dialogueTreeId);
+    const node = tree?.nodes.find((n) => n.id === nodeId);
+    if (!node) return [];
+    if (!meetsDialogueRecognitionGate(node, progression)) return [];
+    return node.choices
+      .map((choice, originalIndex) => ({ choice, originalIndex }))
+      .filter(({ choice }) => meetsDialogueRecognitionGate(choice, progression));
+  }
+
   resolveChoice(
     dialogueTreeId: string,
     nodeId: string,
     choiceIndex: number,
-    inventory: InventorySlot[]
+    inventory: InventorySlot[],
+    progression?: PlayerProgression
   ): {
     nextNodeId: string;
     ended: boolean;
@@ -54,8 +78,16 @@ export class DialogueSystem {
     const node = tree.nodes.find((n) => n.id === nodeId);
     if (!node) return null;
 
+    if (progression && !meetsDialogueRecognitionGate(node, progression)) {
+      return null;
+    }
+
     const choice = node.choices[choiceIndex];
     if (!choice) return null;
+
+    if (progression && !meetsDialogueRecognitionGate(choice, progression)) {
+      return null;
+    }
 
     let updatedInv = inventory;
     if (choice.grantItem) {
@@ -95,4 +127,9 @@ export function resolveTaglockFromInventory(
     }
   }
   return undefined;
+}
+
+/** Re-export for callers that only need content registry dialogues. */
+export function getDialogueNpcId(dialogueTreeId: string): string | undefined {
+  return contentRegistry.dialogues.get(dialogueTreeId)?.npcId;
 }
