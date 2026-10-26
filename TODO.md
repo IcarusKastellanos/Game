@@ -21,7 +21,7 @@
 
 ### Phase 1 — Milestone A (foundation)
 
-1. Stats expansion + migration (`stamina`, mental stats)
+1. ~~Stats expansion + migration (`stamina`, mental stats)~~ — done (`extendedStats` + load-time backfill)
 2. Reputation split (`publicReputation` / `spiritualReputation`) + content files
 3. XP source registry + central `grantExperience()` in `progression-handlers.ts`
 
@@ -339,9 +339,9 @@ Extend `PlayerStats` (and Prisma `PlayerStats` columns or JSON extension) in thr
 | Magical Energy | ✅ exists             | Already level-scaled; tie max ME display to stamina for long rituals                      |
 
 
-- [ ] Add `stamina` to `PlayerStats`, `DEFAULT_STATS`, admin panel, Colyseus schema sync
-- [ ] Server tick: hunger ↓, stamina regen when idle/eating/sleeping (apartment bed interact)
-- [ ] Content debuffs: `{ belowHunger: 20, meRegenMultiplier: 0.5 }` etc.
+- [x] Add `stamina` to `PlayerStats`, `DEFAULT_STATS`, admin panel, Colyseus schema sync
+- [x] Server tick: hunger ↓, stamina regen when idle/eating/sleeping (apartment bed interact)
+- [x] Content debuffs: `{ belowHunger: 20, meRegenMultiplier: 0.5 }` etc.
 
 
 
@@ -359,9 +359,9 @@ Extend `PlayerStats` (and Prisma `PlayerStats` columns or JSON extension) in thr
 | Mediumship | ❌          | Spirit communication quality, astral perception, channeled dialogue |
 
 
-- [ ] Add missing stats to schema; migration preserves old saves via `normalizePlayerStats`
-- [ ] Spell focus formula in `spell-engine.ts`: pull weights from `content/progression/focus-weights.json` per spell category
-- [ ] Books grant mental stat XP in `BOOK_CONTENT` → move to `content/books.json`
+- [x] Add missing stats to schema; migration preserves old saves via `normalizePlayerStats`
+- [x] Spell focus formula in `spell-engine.ts`: pull weights from `content/progression/focus-weights.json` per spell category
+- [x] Books grant mental stat XP in `BOOK_CONTENT` → move to `content/books.json`
 
 
 

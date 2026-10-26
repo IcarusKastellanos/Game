@@ -37,6 +37,9 @@ export {
   clampMagicalEnergy,
   clampPlayerStatValue,
   normalizePlayerStats,
+  EXTENDED_STAT_KEYS,
+  extendedStatsRecord,
+  extendedStatsNeedsMigration,
   NULLIFICATION_POWDER_ITEM_ID,
 } from './constants/index.js';
 export {

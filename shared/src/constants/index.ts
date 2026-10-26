@@ -106,6 +106,28 @@ const EXTENDED_STAT_ALIASES: Record<string, readonly string[]> = {
   spiritNegotiation: ['spiritNegotiation'],
 };
 
+/** Keys stored in PlayerStats.extendedStats (not as their own columns). */
+export const EXTENDED_STAT_KEYS = Object.keys(EXTENDED_STAT_ALIASES);
+
+/** JSON blob written to PlayerStats.extendedStats. */
+export function extendedStatsRecord(stats: PlayerStats): Record<string, number> {
+  const source = stats as unknown as Record<string, unknown>;
+  const out: Record<string, number> = {};
+  for (const key of EXTENDED_STAT_KEYS) {
+    const value = toFiniteNumber(source[key]);
+    const fallback = (DEFAULT_STATS as unknown as Record<string, unknown>)[key];
+    out[key] = typeof value === 'number' ? value : (fallback as number);
+  }
+  return out;
+}
+
+/** True when a stored extendedStats object is missing a finite value for any extended key. */
+export function extendedStatsNeedsMigration(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return true;
+  const record = raw as Record<string, unknown>;
+  return EXTENDED_STAT_KEYS.some((key) => toFiniteNumber(record[key]) == null);
+}
+
 /** Clamp all numeric stats (fixes legacy inflated values on load/save). */
 export function normalizePlayerStats(stats: PlayerStats): PlayerStats {
   const experience = stats.experience ?? 0;

@@ -145,7 +145,7 @@ const DEFAULT_BOOKS: Record<string, BookContentLegacy> = {
       'Chapter II — Correspondences\n\nRosemary guards thresholds. Bay leaf carries wishes to the wind. White candles invite clarity; black candles absorb what must not follow you home.',
       'Chapter III — First Workings\n\nA healing charm needs little more than focus and rosemary. Protection begins at the threshold — salt, flame, and a clear name for what you ward against.',
     ],
-    statBoost: { herbalism: 2, ritualSkill: 1 },
+    statBoost: { herbalism: 2, ritualSkill: 1, willpower: 1, memory: 1 },
     discoverItems: ['rosemary', 'bay_leaf', 'white_candle', 'salt'],
     affinity: 'traditional_european',
   },

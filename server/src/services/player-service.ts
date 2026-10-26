@@ -11,7 +11,7 @@ import type {
   SceneId,
   WardState,
 } from '@witchcraft/shared';
-import { DEFAULT_STATS, normalizePlayerStats } from '@witchcraft/shared';
+import { DEFAULT_STATS, EXTENDED_STAT_KEYS, extendedStatsNeedsMigration, extendedStatsRecord, normalizePlayerStats } from '@witchcraft/shared';
 import { migrateInventoryToGrid, loadInventoryFromDbRows, applySlotIndicesForSave, addItemToInventory } from '@witchcraft/shared';
 import { parseProgression, defaultProgression, type PlayerProgression } from '@witchcraft/shared';
 import { Prisma } from '@prisma/client';
@@ -67,11 +67,32 @@ export async function loadOrCreatePlayer(
     });
 
     if (!player) {
+      const fresh = normalizePlayerStats({ ...DEFAULT_STATS });
       await prisma.player.create({
         data: {
           username: username.toLowerCase(),
           displayName: displayName ?? username,
-          stats: { create: { affinities: DEFAULT_STATS.affinities as Prisma.InputJsonValue } },
+          stats: {
+            create: {
+              health: fresh.health,
+              hunger: fresh.hunger,
+              magicalEnergy: fresh.magicalEnergy,
+              protection: fresh.protection,
+              intuition: fresh.intuition,
+              spiritualAwareness: fresh.spiritualAwareness,
+              divinationSkill: fresh.divinationSkill,
+              herbalism: fresh.herbalism,
+              cursecraft: fresh.cursecraft,
+              warding: fresh.warding,
+              healing: fresh.healing,
+              ritualSkill: fresh.ritualSkill,
+              experience: fresh.experience,
+              reputation: fresh.reputation,
+              morality: fresh.morality,
+              affinities: fresh.affinities as Prisma.InputJsonValue,
+              extendedStats: extendedStatsRecord(fresh) as Prisma.InputJsonValue,
+            },
+          },
           apartment: { create: { altarState: defaultAltar() as unknown as Prisma.InputJsonValue } },
           aura: { create: { effects: [] } },
           inventory: { create: STARTER_INVENTORY.map((i) => ({ itemId: i.itemId, quantity: i.quantity })) },
@@ -132,6 +153,18 @@ export async function loadOrCreatePlayer(
       specialty: stats.specialty as PlayerStats['specialty'],
       ...extended,
     });
+
+    // Older rows have extendedStats {} — write the backfilled stamina/mental stats once.
+    if (extendedStatsNeedsMigration(rawExtended)) {
+      try {
+        await prisma.playerStats.update({
+          where: { playerId: player.id },
+          data: { extendedStats: extendedStatsRecord(playerStats) as Prisma.InputJsonValue },
+        });
+      } catch (migrateErr) {
+        console.warn('[PlayerService] extended stats migration skipped:', migrateErr);
+      }
+    }
 
     const familiar: FamiliarState | null = player.familiar
       ? {
@@ -275,16 +308,7 @@ export async function savePlayer(data: PersistedPlayer): Promise<void> {
         reputation: stats.reputation,
         morality: stats.morality,
         affinities: stats.affinities,
-        extendedStats: {
-          stamina: stats.stamina,
-          willpower: stats.willpower,
-          memory: stats.memory,
-          presence: stats.presence,
-          authority: stats.authority,
-          mediumship: stats.mediumship,
-          potionMaking: stats.potionMaking,
-          spiritNegotiation: stats.spiritNegotiation,
-        } as Prisma.InputJsonValue,
+        extendedStats: extendedStatsRecord(stats) as Prisma.InputJsonValue,
         specialty: stats.specialty ?? null,
         scene: data.location.scene,
         posX: data.location.x,
