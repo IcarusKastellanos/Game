@@ -18,6 +18,9 @@ import {
   type PlayerStats,
   type AuraState,
   computeBindingCastPenalty,
+  meetsMinLevel,
+  levelGateMessage,
+  playerLevel,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { getEnchantKnotMetadata } from './enchant-system.js';
@@ -67,6 +70,12 @@ export class HexagramEnchantSystem {
     if (!recipe) return { ok: false, error: 'Unknown enchantment.' };
     if (!progression.discoveredRecipes.includes(recipe.id)) {
       return { ok: false, error: 'Enchantment not yet discovered.' };
+    }
+    if (!meetsMinLevel(stats.experience ?? 0, recipe.minLevel)) {
+      return {
+        ok: false,
+        error: levelGateMessage(recipe.name, recipe.minLevel ?? 1, playerLevel(stats.experience ?? 0)),
+      };
     }
 
     const categories = this.itemCategoryMap();

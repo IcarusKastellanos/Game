@@ -18,9 +18,17 @@
       }
     ],
     "rewards": {
-      "items": [{ "itemId": "frankincense", "quantity": 2 }],
-      "stats": { "ritualSkill": 2 },
+      "items": [
+        {
+          "itemId": "frankincense",
+          "quantity": 2
+        }
+      ],
+      "stats": {
+        "ritualSkill": 2
+      },
       "reputation": 5
-    }
+    },
+    "minLevel": 1
   }
 ]

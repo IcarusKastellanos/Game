@@ -2,6 +2,11 @@ import {
   getPractitionerType,
   magicalEnergyCap,
   playerLevel,
+  practitionerXpProgress,
+  getMaxPlayerLevel,
+  getLevelTitle,
+  getLevelRankLabel,
+  spiritRangeForLevel,
   type PlayerStats,
 } from '@witchcraft/shared';
 import { gameState } from '../../data/game-state.js';
@@ -38,14 +43,6 @@ function resolveMorality(stats: PlayerStats | null): number {
   return Math.round(stats?.morality ?? 0);
 }
 
-function rankLabel(level: number): string {
-  if (level >= 80) return 'Rank IX';
-  if (level >= 60) return 'Rank VII';
-  if (level >= 40) return 'Rank V';
-  if (level >= 20) return 'Rank III';
-  return 'Rank I';
-}
-
 /** Top-left portrait + status — always visible when HUD is ready */
 export class PlayerPanel {
   readonly root: HTMLDivElement;
@@ -74,17 +71,21 @@ export class PlayerPanel {
     const stats = parseStats();
     const name = gameState.displayName ?? 'Practitioner';
     const level = playerLevel(stats?.experience ?? 0);
-    const rank = rankLabel(level);
-    const type = stats ? getPractitionerType(stats) : 'Practitioner';
+    const rank = `${getLevelRankLabel(level)} · ${getLevelTitle(level)}`;
+    const tierLabel = gameState.progression?.recognitionTierLabel ?? 'Initiate';
+    const type = stats ? getPractitionerType(stats, tierLabel) : tierLabel;
     const morality = resolveMorality(stats);
     const hp = Math.round(stats?.health ?? HEALTH_MAX);
     const me = Math.round(stats?.magicalEnergy ?? 0);
     const meMax = magicalEnergyCap(stats?.experience ?? 0);
     const xp = stats?.experience ?? 0;
-    const xpInLevel = xp % 100;
+    const progress = practitionerXpProgress(xp);
     const hpPct = Math.max(0, Math.min(100, (hp / HEALTH_MAX) * 100));
     const mePct = meMax > 0 ? Math.max(0, Math.min(100, (me / meMax) * 100)) : 0;
-    const xpPct = Math.max(0, Math.min(100, xpInLevel));
+    const xpPct = Math.max(0, Math.min(100, progress.ratio * 100));
+    const xpLabel = progress.isMaxLevel
+      ? `Lv ${progress.level}/${getMaxPlayerLevel()} MAX`
+      : `${Math.round(progress.xpIntoLevel)} / ${progress.xpToNext}`;
 
     this.root.innerHTML = `
       <img class="hud-player-panel__chrome" src="${hudSprites.player.frame}" alt="" draggable="false" />
@@ -96,7 +97,7 @@ export class PlayerPanel {
       <div class="hud-player-panel__bars">
         ${barRow('hp', hpPct, `${hp} / ${HEALTH_MAX}`)}
         ${barRow('me', mePct, `${me} / ${meMax}`)}
-        ${barRow('xp', xpPct, `${Math.round(xpInLevel)} / 100`)}
+        ${barRow('xp', xpPct, xpLabel)}
       </div>`;
 
     // Re-mount the persistent morality gauge (innerHTML wiped its slot) and
@@ -113,8 +114,7 @@ export class PlayerPanel {
   private tooltipHtml(): string {
     const stats = parseStats();
     const level = playerLevel(stats?.experience ?? 0);
-    const xp = stats?.experience ?? 0;
-    const xpInLevel = xp % 100;
+    const progress = practitionerXpProgress(stats?.experience ?? 0);
     const publicRep = Math.round(stats?.publicReputation ?? stats?.reputation ?? 0);
     const spiritualRep = Math.round(stats?.spiritualReputation ?? 0);
     const recent = (gameState.progression?.recentXp ?? []).slice(-3).reverse();
@@ -122,14 +122,22 @@ export class PlayerPanel {
       recent.length > 0
         ? `Recent XP: ${recent.map((r) => `+${r.amount} ${r.label}`).join(' · ')}`
         : 'Recent XP: —';
+    const xpLine = progress.isMaxLevel
+      ? `Practitioner Level ${level}/${getMaxPlayerLevel()} (max)`
+      : `Practitioner Level ${level}/${getMaxPlayerLevel()} · ${progress.xpIntoLevel}/${progress.xpToNext} XP`;
+    const spirits = spiritRangeForLevel(level);
     return [
       `<strong>${gameState.displayName ?? 'Practitioner'}</strong>`,
-      `Practitioner Level ${level} · ${xpInLevel}/100 XP`,
-      stats ? getPractitionerType(stats) : 'Practitioner',
+      xpLine,
+      `${getLevelRankLabel(level)} · ${getLevelTitle(level)}`,
+      spirits.label ? `Spirits: ${spirits.label} (${spirits.minPower}–${spirits.maxPower})` : '',
+      stats
+        ? getPractitionerType(stats, gameState.progression?.recognitionTierLabel ?? 'Initiate')
+        : 'Practitioner',
       `Public rep ${publicRep} · Spiritual rep ${spiritualRep}`,
       recentLine,
       '<em>Press X for Aura &amp; Wards (full stats)</em>',
-    ].join('<br/>');
+    ].filter(Boolean).join('<br/>');
   }
 }
 

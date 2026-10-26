@@ -1,9 +1,15 @@
 import type { MagicTradition, PlayerStats } from '../types/index.js';
 import { playerLevel } from '../types/index.js';
-import { clampPlayerStatValue, toFiniteNumber } from '../constants/index.js';
+import { clampMagicalEnergy, clampPlayerStatValue, toFiniteNumber } from '../constants/index.js';
 import { syncLevelDerivedStats } from '../balance/index.js';
 import type { PlayerProgression } from './index.js';
 import { grantSkillXp, resolveTechnicalSkillKey, type TechnicalSkillKey } from './skill-xp.js';
+import {
+  experienceCap,
+  levelUpEventsBetween,
+  practitionerXpProgressFromCurve,
+  type LevelUpEventDef,
+} from './level-curve.js';
 
 export interface XpSourceDef {
   actionId: string;
@@ -45,6 +51,8 @@ export interface GrantExperienceResult {
   levelAfter: number;
   source: XpSourceDef | null;
   skippedReason?: 'unknown_source' | 'cooldown';
+  /** Content onLevelUp events crossed by this grant. */
+  levelUpEvents: LevelUpEventDef[];
 }
 
 const RECENT_XP_LIMIT = 12;
@@ -152,15 +160,17 @@ export function grantExperience(
 ): GrantExperienceResult {
   const source = getXpSource(sourceId) ?? null;
   if (!source) {
+    const level = playerLevel(stats.experience ?? 0);
     return {
       stats,
       progression,
       granted: 0,
       leveledUp: false,
-      levelBefore: playerLevel(stats.experience ?? 0),
-      levelAfter: playerLevel(stats.experience ?? 0),
+      levelBefore: level,
+      levelAfter: level,
       source: null,
       skippedReason: 'unknown_source',
+      levelUpEvents: [],
     };
   }
 
@@ -168,30 +178,36 @@ export function grantExperience(
   const cooldowns = cooldownMap(progression);
   const readyAt = cooldowns[source.actionId] ?? 0;
   if (source.cooldownMs > 0 && now < readyAt) {
+    const level = playerLevel(stats.experience ?? 0);
     return {
       stats,
       progression,
       granted: 0,
       leveledUp: false,
-      levelBefore: playerLevel(stats.experience ?? 0),
-      levelAfter: playerLevel(stats.experience ?? 0),
+      levelBefore: level,
+      levelAfter: level,
       source,
       skippedReason: 'cooldown',
+      levelUpEvents: [],
     };
   }
 
   const mult = context.multiplier != null && context.multiplier > 0 ? context.multiplier : 1;
   const rawAmount =
     context.amountOverride != null ? context.amountOverride : source.baseXp * mult;
-  const granted = Math.max(0, Math.round(rawAmount));
   const levelBefore = playerLevel(stats.experience ?? 0);
+  const beforeXp = stats.experience ?? 0;
+  const cap = experienceCap();
+  const room = Math.max(0, cap - beforeXp);
+  const granted = Math.max(0, Math.min(room, Math.round(rawAmount)));
 
   let nextStats: PlayerStats = {
     ...stats,
-    experience: clampPlayerStatValue('experience', (stats.experience ?? 0) + granted, stats.experience ?? 0),
+    experience: clampPlayerStatValue('experience', beforeXp + granted, beforeXp),
   };
   nextStats = syncLevelDerivedStats(nextStats);
   const levelAfter = playerLevel(nextStats.experience ?? 0);
+  const levelUpEvents = levelUpEventsBetween(levelBefore, levelAfter);
 
   let nextProgression: PlayerProgression = { ...progression };
   if (source.cooldownMs > 0) {
@@ -245,6 +261,10 @@ export function grantExperience(
   }
 
   nextStats = syncLevelDerivedStats(nextStats);
+  nextStats = {
+    ...nextStats,
+    magicalEnergy: clampMagicalEnergy(nextStats.magicalEnergy, nextStats.experience ?? 0),
+  };
 
   if (granted > 0) {
     nextProgression = pushRecent(nextProgression, {
@@ -265,20 +285,19 @@ export function grantExperience(
     levelBefore,
     levelAfter,
     source,
+    levelUpEvents,
   };
 }
 
-/** XP progress within the current practitioner level (100 XP per level). */
+/** XP progress within the current practitioner level (content curve). */
 export function practitionerXpProgress(experience: number): {
   level: number;
   xpIntoLevel: number;
   xpToNext: number;
   ratio: number;
+  isMaxLevel?: boolean;
 } {
-  const level = playerLevel(experience);
-  const xpIntoLevel = experience % 100;
-  const xpToNext = 100;
-  return { level, xpIntoLevel, xpToNext, ratio: xpIntoLevel / xpToNext };
+  return practitionerXpProgressFromCurve(experience);
 }
 
 export type { TechnicalSkillKey };

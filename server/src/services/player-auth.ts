@@ -76,7 +76,8 @@ export async function loginPlayer(
   });
   if (banned) return { error: 'This account is banned.' };
 
-  await prisma.player.update({ where: { id: player.id }, data: { lastLoginAt: new Date() } });
+  // lastLoginAt + reputation decay are applied in loadOrCreatePlayer on world join
+  // so idle days are measured until the practitioner actually enters the game.
 
   const token = jwt.sign({ playerId: player.id, username: player.username } satisfies PlayerTokenPayload, JWT_SECRET, {
     expiresIn: JWT_EXPIRY,

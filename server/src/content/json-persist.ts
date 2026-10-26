@@ -15,3 +15,14 @@ export function writeContentJson<T>(filename: string, data: T[]): void {
   const path = resolve(CONTENT_DIR, filename);
   writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`, 'utf-8');
 }
+
+export function readContentObject<T>(filename: string): T | null {
+  const path = resolve(CONTENT_DIR, filename);
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, 'utf-8')) as T;
+}
+
+export function writeContentObject(filename: string, data: unknown): void {
+  const path = resolve(CONTENT_DIR, filename);
+  writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`, 'utf-8');
+}

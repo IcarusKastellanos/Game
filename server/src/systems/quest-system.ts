@@ -1,4 +1,5 @@
-import type { ContentQuest, PlayerProgression, QuestProgress } from '@witchcraft/shared';
+import type { ContentQuest, PlayerProgression, PlayerStats, QuestProgress } from '@witchcraft/shared';
+import { meetsMinLevel } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 
 export class QuestSystem {
@@ -9,9 +10,16 @@ export class QuestSystem {
     for (const q of quests) this.quests.set(q.id, q);
   }
 
-  startQuest(progression: PlayerProgression, questId: string): PlayerProgression {
+  startQuest(
+    progression: PlayerProgression,
+    questId: string,
+    stats?: PlayerStats
+  ): PlayerProgression {
     const quest = this.quests.get(questId);
     if (!quest || progression.questProgress[questId]) return progression;
+    if (stats && !meetsMinLevel(stats.experience ?? 0, quest.minLevel)) {
+      return progression;
+    }
     const entry: QuestProgress = {
       questId,
       stage: quest.startStage,

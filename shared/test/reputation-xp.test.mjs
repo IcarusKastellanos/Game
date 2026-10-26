@@ -17,6 +17,8 @@ import {
   publicDialogueTone,
   meetsSpiritualGate,
   applyMoralityGossip,
+  applyReputationDecay,
+  gameDaysBetween,
   listXpSources,
 } from '../dist/index.js';
 import { readFileSync } from 'node:fs';
@@ -174,4 +176,31 @@ test('listXpSources loads full content registry', () => {
   ]) {
     assert.ok(ids.includes(required), `missing ${required}`);
   }
+});
+
+test('applyReputationDecay drifts toward neutrality without overshooting', () => {
+  setReputationContent({
+    publicJson: JSON.parse(readFileSync(join(root, 'content/progression/reputation-public.json'), 'utf8')),
+    spiritualJson: JSON.parse(
+      readFileSync(join(root, 'content/progression/reputation-spiritual.json'), 'utf8')
+    ),
+  });
+  assert.equal(gameDaysBetween(null), 0);
+  assert.ok(gameDaysBetween(Date.now() - 48 * 60 * 60 * 1000) >= 1.9);
+
+  const hot = applyReputationDecay(
+    { ...DEFAULT_STATS, publicReputation: 40, reputation: 40, spiritualReputation: -20 },
+    10
+  );
+  // public 0.15/day * 10 = 1.5 toward 0; spiritual 0.05/day * 10 = 0.5 toward 0
+  assert.equal(hot.publicReputation, 40 - 1.5);
+  assert.equal(hot.reputation, 40 - 1.5);
+  assert.equal(hot.spiritualReputation, -20 + 0.5);
+
+  const near = applyReputationDecay(
+    { ...DEFAULT_STATS, publicReputation: 0.1, reputation: 0.1, spiritualReputation: 0 },
+    100
+  );
+  assert.equal(near.publicReputation, 0);
+  assert.equal(near.spiritualReputation, 0);
 });

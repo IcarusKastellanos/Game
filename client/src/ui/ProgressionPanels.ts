@@ -1,6 +1,6 @@
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
-import { formatContentLabel } from '@witchcraft/shared';
+import { formatContentLabel, meetsMinLevel, playerLevel } from '@witchcraft/shared';
 import { bindDomInputs } from './input-focus';
 
 type CraftRecipeRow = {
@@ -10,6 +10,7 @@ type CraftRecipeRow = {
   inputs: { itemId: string; quantity: number }[];
   effect?: string;
   meCost?: number;
+  minLevel?: number;
 };
 
 /** Book reading, journal, specialty, and crafting panels */
@@ -135,20 +136,45 @@ export class ProgressionPanels {
     });
   }
 
+  private getPlayerExperience(): number {
+    try {
+      const stats = JSON.parse(gameState.localPlayer?.statsJson ?? '{}');
+      return Number(stats.experience) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
   showCrafting(stationType: string, recipes: CraftRecipeRow[]): void {
     const craftLabel = (r: CraftRecipeRow) =>
       r.effect === 'pocket_spell' ? 'Prepare' : r.effect === 'enchant_knot' ? 'Enchant' : 'Craft';
+    const xp = this.getPlayerExperience();
+    const level = playerLevel(xp);
 
     this.craftRoot.innerHTML = `
       <h3 style="color:#fc8;">${formatContentLabel(stationType)}</h3>
-      ${recipes.map((r) => `
+      ${recipes.map((r) => {
+        const unlocked = meetsMinLevel(xp, r.minLevel);
+        const need = r.minLevel ?? 1;
+        if (!unlocked) {
+          return `
+        <div style="margin:8px 0;padding:8px;background:#1a1025;border:1px solid #664422;opacity:0.85;">
+          <strong style="font-size:10px;">${r.name}</strong>
+          <div style="font-size:8px;margin:4px 0;padding:3px 5px;border:1px solid #a86;color:#e8b080;background:#2a1810;">Level gated — requires Practitioner Level ${need} (you are ${level})</div>
+          <div style="font-size:8px;color:#888;">${r.description ?? ''}</div>
+          <div style="font-size:8px;color:#666;font-style:italic;margin:4px 0;">Ingredients stay sealed until Level ${need}.</div>
+          <button type="button" disabled style="padding:4px 8px;background:#221a18;border:1px solid #554;color:#776;cursor:not-allowed;">${craftLabel(r)} · Locked</button>
+        </div>`;
+        }
+        return `
         <div style="margin:8px 0;padding:8px;background:#1a1025;border:1px solid #443;">
           <strong style="font-size:10px;">${r.name}</strong>
           <div style="font-size:8px;color:#888;">${r.description ?? ''}</div>
           <div style="font-size:8px;margin:4px 0;">Needs: ${r.inputs.map((i) => `${i.quantity}× ${i.itemId}`).join(', ')}</div>
           ${r.meCost ? `<div style="font-size:8px;color:#88a;">Costs ${r.meCost} ME</div>` : ''}
           <button class="craft-btn" data-id="${r.id}" style="padding:4px 8px;background:#224422;border:1px solid #484;color:#afa;cursor:pointer;">${craftLabel(r)}</button>
-        </div>`).join('') || '<div style="color:#666;">No known recipes here.</div>'}
+        </div>`;
+      }).join('') || '<div style="color:#666;">No known recipes here.</div>'}
       ${stationType !== 'mirror' ? '' : '<div style="margin-top:10px;font-size:9px;color:#aaa;">Experiment: combine ingredients to discover hidden recipes.</div>'}
       <button id="craft-close" style="margin-top:8px;padding:4px 8px;background:#311;border:1px solid #844;color:#faa;cursor:pointer;">Close</button>`;
     this.craftRoot.style.display = 'block';

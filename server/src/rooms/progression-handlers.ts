@@ -17,6 +17,8 @@ import {
   applyReputationSource,
   reputationTrackForNpc,
   grantExperience,
+  evaluateRecognition,
+  grantLicenses,
   type ReputationTrack,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
@@ -53,6 +55,35 @@ function notifyXp(ctx: HandlerCtx, granted: number, leveledUp: boolean, levelAft
   });
 }
 
+function notifyLevelUpEvents(ctx: HandlerCtx, events: { message: string; eventId: string }[]): void {
+  for (const event of events) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: event.message,
+      level: 'success',
+    });
+    ctx.client.send('level_up', {
+      type: 'level_up',
+      eventId: event.eventId,
+      message: event.message,
+    });
+  }
+}
+
+/** Recompute recognition tier after level / quest / reputation / affinity changes. */
+export function syncRecognition(ctx: HandlerCtx, opts: { notify?: boolean } = {}): void {
+  const result = evaluateRecognition(ctx.player.stats, ctx.data.progression);
+  ctx.data.progression = result.progression;
+  if (result.changed && opts.notify !== false) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: `Recognition: you are acknowledged as ${result.tier.label}.`,
+      level: 'success',
+    });
+    ctx.sendProgression(ctx.client, ctx.data.progression);
+  }
+}
+
 function grantXp(
   ctx: HandlerCtx,
   sourceId: string,
@@ -65,6 +96,8 @@ function grantXp(
   if (result.granted > 0) {
     ctx.sendProgression(ctx.client, ctx.data.progression);
     notifyXp(ctx, result.granted, result.leveledUp, result.levelAfter, result.source?.label ?? sourceId);
+    notifyLevelUpEvents(ctx, result.levelUpEvents);
+    if (result.leveledUp) syncRecognition(ctx);
   }
   return result;
 }
@@ -120,10 +153,14 @@ export function handleDialogueProgression(
   }
 
   if (resolvedNpcId === 'npc_mara' && !data.progression.questProgress.quest_first_steps) {
-    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps');
-    grantXp(ctx, 'quest_stage');
+    const before = data.progression.questProgress.quest_first_steps;
+    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps', player.stats);
+    if (!before && data.progression.questProgress.quest_first_steps) {
+      grantXp(ctx, 'quest_stage');
+    }
   }
 
+  syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   checkSpecialtyOffer(ctx.client, player.stats);
 }
@@ -210,6 +247,7 @@ export function handleReadBookComplete(ctx: HandlerCtx, bookId: string): void {
   player.stats = xp.stats;
   data.progression = xp.progression;
 
+  syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);
   checkSpecialtyOffer(ctx.client, player.stats);
@@ -233,7 +271,10 @@ export function handleChooseSpecialty(ctx: HandlerCtx, specialty: MagicTradition
     return;
   }
   player.stats = { ...player.stats, specialty };
+  data.stats = player.stats;
+  syncRecognition(ctx);
   ctx.sendPlayerSync(ctx.client, player);
+  ctx.sendProgression(ctx.client, data.progression);
   ctx.client.send('notification', {
     type: 'notification',
     message: `You have claimed the ${specialty.replace(/_/g, ' ')} path.`,
@@ -430,6 +471,7 @@ export function handleInteractCrafting(
       output: r.output,
       effect: r.effect ?? 'item',
       meCost: r.meCost,
+      minLevel: r.minLevel ?? 1,
     })),
   });
 }
@@ -458,6 +500,7 @@ export function handleInteractHexagram(ctx: HandlerCtx, interactableId: string):
       effect: r.effect,
       spellId: r.spellId,
       visualTheme: r.visualTheme,
+      minLevel: r.minLevel ?? 1,
     })),
   });
 }
@@ -630,6 +673,11 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
         ? source.stats
         : applyReputation(player.stats, spiritualRepReward, 'spiritual');
   }
+  if (quest.rewards.licenses?.length) {
+    data.progression = grantLicenses(data.progression, quest.rewards.licenses);
+  }
   grantXp(ctx, 'quest_complete');
+  syncRecognition(ctx);
+  ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);
 }
