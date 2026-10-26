@@ -120,6 +120,8 @@ export class CharacterSheet {
   private root: HTMLDivElement;
   private visible = false;
   private lastFocused: HTMLElement | null = null;
+  /** Last scroll-body HTML, so live stat ticks do not rebuild the scroller. */
+  private lastBody = '';
 
   constructor(_scene: Phaser.Scene) {
     this.root = document.createElement('div');
@@ -144,11 +146,11 @@ export class CharacterSheet {
     this.root.classList.add('is-open');
     window.addEventListener('keydown', this.onKeyDown);
     this.render();
-    this.root.querySelector<HTMLElement>('.ledger-scroll')?.focus();
   }
 
   hide(): void {
     this.visible = false;
+    this.lastBody = '';
     this.root.classList.remove('is-open');
     this.root.innerHTML = '';
     window.removeEventListener('keydown', this.onKeyDown);
@@ -185,6 +187,37 @@ export class CharacterSheet {
       ? `Practitioner Level ${level} of ${max} — the present curve ends here.`
       : `${progress.xpIntoLevel} of ${progress.xpToNext} experience toward Level ${level + 1}.`;
 
+    this.ensureShell();
+    this.setText('.ledger-head h1', name);
+    this.setText('.ledger-rank', `${getLevelRankLabel(level)} · ${getLevelTitle(level)}`);
+    this.setText('.ledger-type', typeLine);
+
+    const body = [
+      this.identityHtml(level, max, xpFill, xpCaption, profile?.unlockMessage, spirits),
+      this.standingHtml(pub, spi, moral, morality),
+      this.credentialsHtml(progression),
+      this.attributesHtml(stats, progression),
+      this.affinitiesHtml(stats),
+      this.recordHtml(progression),
+    ].join('');
+
+    const scroller = this.root.querySelector<HTMLElement>('.ledger-scroll');
+    if (!scroller || body === this.lastBody) return;
+    const scrollTop = scroller.scrollTop;
+    scroller.innerHTML = body;
+    this.lastBody = body;
+    const restore = (): void => {
+      if (!this.visible || !scroller.isConnected) return;
+      const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      scroller.scrollTop = Math.min(scrollTop, max);
+    };
+    restore();
+    requestAnimationFrame(restore);
+  }
+
+  /** Frame stays mounted so the scroll position is not thrown away on each stat tick. */
+  private ensureShell(): void {
+    if (this.root.querySelector('.ledger-scroll')) return;
     this.root.innerHTML = `
       <div class="ledger-veil" data-close="1"></div>
       <article class="ledger-frame">
@@ -194,29 +227,26 @@ export class CharacterSheet {
         <header class="ledger-head">
           <img class="ledger-head__ornament" src="${ART}/aura-header-decoration.png" alt="" draggable="false" />
           <p class="ledger-kicker">Practitioner ledger</p>
-          <h1>${esc(name)}</h1>
-          <p class="ledger-rank">${esc(getLevelRankLabel(level))} · ${esc(getLevelTitle(level))}</p>
-          <p class="ledger-type">${esc(typeLine)}</p>
+          <h1></h1>
+          <p class="ledger-rank"></p>
+          <p class="ledger-type"></p>
           <button type="button" class="ledger-close" id="ledger-close" aria-label="Close ledger" title="Close (Esc)">
             <img src="${ART}/aura-close-frame.png" alt="" draggable="false" />
           </button>
         </header>
-        <div class="ledger-scroll" tabindex="-1">
-          ${this.identityHtml(level, max, xpFill, xpCaption, profile?.unlockMessage, spirits)}
-          ${this.standingHtml(pub, spi, moral, morality)}
-          ${this.credentialsHtml(progression)}
-          ${this.attributesHtml(stats, progression)}
-          ${this.affinitiesHtml(stats)}
-          ${this.recordHtml(progression)}
-        </div>
+        <div class="ledger-scroll"></div>
         <footer class="ledger-foot">
           <img src="${ART}/bottom-moon-ornament.png" alt="" draggable="false" />
           <p>Click your name or press <kbd>Y</kbd> to open this ledger. Aura &amp; Wards stays on <kbd>X</kbd>. Esc closes.</p>
         </footer>
       </article>`;
-
     this.root.querySelector('#ledger-close')?.addEventListener('click', () => this.hide());
     this.root.querySelector('.ledger-veil')?.addEventListener('click', () => this.hide());
+  }
+
+  private setText(selector: string, text: string): void {
+    const el = this.root.querySelector(selector);
+    if (el && el.textContent !== text) el.textContent = text;
   }
 
   private moralityScore(stats: PlayerStats): number {
