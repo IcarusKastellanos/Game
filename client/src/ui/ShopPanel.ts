@@ -1,45 +1,53 @@
-import Phaser from 'phaser';
 import { formatContentLabel, meetsMinLevel, playerLevel } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import { ambientAudio } from '../audio/AmbientAudio';
+import { escapeHtml, ledgerOverlayShell } from './ledger-chrome';
 
-/** Shop panel — buy from data-driven shop inventory */
+/** Shop counter — the same reading page as the practitioner ledger. */
 export class ShopPanel {
-  private container!: Phaser.GameObjects.Container;
-  private itemTexts: Phaser.GameObjects.Text[] = [];
+  private root: HTMLDivElement;
+  private scroller: HTMLElement;
+  private titleEl: HTMLElement;
+  private subtitleEl: HTMLElement;
+  private visible = false;
   private shopId = '';
 
-  constructor(private scene: Phaser.Scene) {
-    this.build();
-    this.hide();
-  }
-
-  private build(): void {
-    const bg = this.scene.add.rectangle(256, 192, 440, 320, 0x1a1a2e, 0.95).setStrokeStyle(2, 0x6688cc);
-    const title = this.scene.add
-      .text(256, 45, '◆ SHOP ◆', { fontSize: '12px', color: '#aaccff', fontFamily: 'monospace' })
-      .setOrigin(0.5);
-    const closeBtn = this.scene.add
-      .text(450, 40, '[X]', { fontSize: '10px', color: '#ff6666', fontFamily: 'monospace' })
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.hide());
-
-    this.container = this.scene.add.container(0, 0, [bg, title, closeBtn]);
-    this.container.setDepth(2000).setScrollFactor(0);
+  constructor() {
+    this.root = document.createElement('div');
+    this.root.id = 'shop-panel';
+    this.root.className = 'ledger-overlay';
+    this.root.innerHTML = ledgerOverlayShell({
+      kicker: 'Counter',
+      title: 'Shop',
+      subtitle: '',
+      foot: 'Coin leaves your purse when you purchase. Close the page to step back.',
+    });
+    document.body.appendChild(this.root);
+    this.scroller = this.root.querySelector('.ledger-scroll') as HTMLElement;
+    this.titleEl = this.root.querySelector('h1') as HTMLElement;
+    this.subtitleEl = this.root.querySelector('.ledger-type') as HTMLElement;
+    this.root.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-ledger-close]')) this.hide();
+    });
   }
 
   show(shopId: string): void {
     this.shopId = shopId;
-    this.container.setVisible(true);
+    this.visible = true;
+    this.root.classList.add('is-open');
     ambientAudio.setScene('shop');
     this.renderShop();
   }
 
   hide(): void {
-    this.container.setVisible(false);
-    this.itemTexts.forEach((t) => t.destroy());
-    this.itemTexts = [];
+    const wasOpen = this.visible;
+    this.visible = false;
+    this.root.classList.remove('is-open');
+    this.scroller.innerHTML = '';
+    if (gameState.activeUI === 'shop') gameState.activeUI = 'none';
+    if (!wasOpen) return;
     const scene = gameState.currentScene;
     ambientAudio.setScene(scene === 'town' ? 'town' : scene === 'apartment' ? 'apartment' : 'none');
   }
@@ -54,45 +62,70 @@ export class ShopPanel {
   }
 
   private renderShop(): void {
-    this.itemTexts.forEach((t) => t.destroy());
-    this.itemTexts = [];
-
     const shop = gameState.content?.shops.find((s) => s.id === this.shopId);
-    if (!shop) return;
+    const scrollTop = this.scroller.scrollTop;
+    if (!shop) {
+      this.titleEl.textContent = 'Closed counter';
+      this.subtitleEl.textContent = '';
+      this.scroller.innerHTML = '<p class="ledger-lead">This counter has nothing laid out.</p>';
+      return;
+    }
+
+    const keeper = gameState.content?.npcs.find((n) => n.id === shop.npcId);
+    this.titleEl.textContent = shop.name;
+    this.subtitleEl.textContent = keeper?.name ?? 'Open counter';
+    this.root.querySelector('.ledger-frame')?.setAttribute('aria-label', shop.name);
 
     const xp = this.getPlayerExperience();
     const level = playerLevel(xp);
-    let y = 70;
-    for (const item of shop.inventory.slice(0, 10)) {
+    const wares = shop.inventory.map((item) => {
       const ing = gameState.content?.ingredients.find((i) => i.id === item.itemId);
       const name = ing?.name ?? formatContentLabel(item.itemId);
       const unlocked = meetsMinLevel(xp, item.minLevel);
       const need = item.minLevel ?? 1;
-      const label = unlocked
-        ? `${name} — ${item.price}c (stock: ${item.stock}) [BUY]`
-        : `${name} — Level gated (need ${need}, you are ${level})`;
-      const txt = this.scene.add
-        .text(40, y, label, {
-          fontSize: '8px',
-          color: unlocked ? '#bbddff' : '#886644',
-          fontFamily: 'monospace',
-          backgroundColor: unlocked ? '#223355' : '#2a2218',
-          padding: { x: 3, y: 1 },
-        })
-        .setScrollFactor(0)
-        .setDepth(2001);
-
       if (unlocked) {
-        txt.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.buy(item.itemId));
+        return `
+          <article class="ledger-ware">
+            <header>
+              <h3>${escapeHtml(name)}</h3>
+              <strong>${item.price} coin</strong>
+            </header>
+            <p>${item.stock} still on the shelf.</p>
+            <button type="button" class="ledger-buy" data-item="${escapeHtml(item.itemId)}"><span class="k">Purchase</span>Take one</button>
+          </article>`;
       }
+      return `
+        <article class="ledger-ware is-sealed">
+          <header><h3>${escapeHtml(name)}</h3></header>
+          <p>Level gated (need ${need}, you are ${level})</p>
+        </article>`;
+    }).join('');
 
-      this.itemTexts.push(txt);
-      y += 16;
-    }
+    const intro = keeper
+      ? `${escapeHtml(keeper.name)} keeps ${escapeHtml(shop.name)}. Choose what you can carry.`
+      : `${escapeHtml(shop.name)} has the following laid out.`;
+
+    this.scroller.innerHTML = `<p class="ledger-lead">${intro}</p><div class="ledger-wares">${wares}</div>`;
+    this.scroller.querySelectorAll<HTMLButtonElement>('.ledger-buy').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const itemId = btn.dataset.item;
+        if (!itemId || !this.visible) return;
+        this.buy(itemId);
+      });
+    });
+    const restore = (): void => {
+      if (!this.visible) return;
+      const max = Math.max(0, this.scroller.scrollHeight - this.scroller.clientHeight);
+      this.scroller.scrollTop = Math.min(scrollTop, max);
+    };
+    restore();
+    requestAnimationFrame(restore);
   }
 
   private buy(itemId: string): void {
     network.send('buy_item', { shopId: this.shopId, itemId, quantity: 1 });
-    setTimeout(() => this.renderShop(), 300);
+    window.setTimeout(() => {
+      if (this.visible) this.renderShop();
+    }, 300);
   }
 }
