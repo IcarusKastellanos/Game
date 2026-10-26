@@ -9,6 +9,7 @@ import {
   applyLevelStatFloors,
   spiritRangeForLevel,
   normalizeLevelDocument,
+  findUnknownLevelUnlocks,
   DEFAULT_STATS,
 } from '../dist/index.js';
 import { readFileSync } from 'node:fs';
@@ -82,4 +83,24 @@ test('legacy familiarIds unlock lists are ignored — familiars are not level-ga
   }
   setLevelProfiles(doc);
   assert.equal(assignedUnlockLevel('spellIds', 'healing_charm'), 1);
+});
+
+test('findUnknownLevelUnlocks reports ids missing from the catalog', () => {
+  setLevelProfiles({
+    maxLevel: 2,
+    xpPerLevel: 100,
+    levels: [
+      { level: 1, spellIds: ['healing_charm', 'no_such_spell'] },
+      { level: 2, questIds: ['missing_quest'] },
+    ],
+  });
+  const unknown = findUnknownLevelUnlocks({
+    spellIds: ['healing_charm'],
+    questIds: ['quest_first_steps'],
+  });
+  assert.deepEqual(
+    unknown.map((row) => `${row.bucket}:${row.id}@${row.level}`).sort(),
+    ['questIds:missing_quest@2', 'spellIds:no_such_spell@1']
+  );
+  setLevelProfiles(JSON.parse(readFileSync(join(root, 'content/progression/levels.json'), 'utf8')));
 });

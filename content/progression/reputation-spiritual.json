@@ -5,7 +5,8 @@
   "range": { "min": -100, "max": 100 },
   "decay": {
     "perGameDay": 0.05,
-    "toward": 0
+    "toward": 0,
+    "note": "Applied on world join from lastLoginAt (24h wall-clock = 1 game day)."
   },
   "gates": {
     "mentorAccessAbove": 15,

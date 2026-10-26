@@ -235,6 +235,33 @@ export function spiritRangeForLevel(level: number): SpiritRangeDef {
 
 type UnlockBucket = 'spellIds' | 'recipeIds' | 'hexagramIds' | 'shopItemIds' | 'npcIds' | 'questIds';
 
+const UNLOCK_BUCKETS: UnlockBucket[] = [
+  'spellIds',
+  'recipeIds',
+  'hexagramIds',
+  'shopItemIds',
+  'npcIds',
+  'questIds',
+];
+
+export type UnlockCatalog = Partial<Record<UnlockBucket, ReadonlySet<string> | readonly string[]>>;
+
+/** Warn-style report of unlock ids that are not present in the live content catalogs. */
+export function findUnknownLevelUnlocks(catalog: UnlockCatalog): { bucket: UnlockBucket; id: string; level: number }[] {
+  const unknown: { bucket: UnlockBucket; id: string; level: number }[] = [];
+  for (const level of documentState.levels) {
+    for (const bucket of UNLOCK_BUCKETS) {
+      const known = catalog[bucket];
+      if (!known) continue;
+      const set = known instanceof Set ? known : new Set(known);
+      for (const id of level[bucket]) {
+        if (!set.has(id)) unknown.push({ bucket, id, level: level.level });
+      }
+    }
+  }
+  return unknown;
+}
+
 /** Level that unlocks this id, or null when it is not assigned (open to everyone). */
 export function assignedUnlockLevel(bucket: UnlockBucket, id: string): number | null {
   for (const level of documentState.levels) {

@@ -59,6 +59,7 @@ function syncCurveFile(doc: LevelDocument): void {
 
 /** Persist the level document and push unlocks into spell/recipe/shop/quest content. */
 export function saveLevelDocument(raw: unknown): LevelDocument {
+  // normalizeLevelDocument drops legacy keys (e.g. familiarIds) and enforces exclusive unlocks.
   const doc = normalizeLevelDocument(raw);
   writeContentObject('progression/levels.json', doc);
   syncCurveFile(doc);
