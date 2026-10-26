@@ -12,8 +12,16 @@
       "objects": []
     },
     "spawnPoints": [
-      { "id": "default", "x": 8, "y": 10 },
-      { "id": "door", "x": 8, "y": 11 }
+      {
+        "id": "default",
+        "x": 8,
+        "y": 10
+      },
+      {
+        "id": "door",
+        "x": 8,
+        "y": 11
+      }
     ],
     "interactables": [
       {
@@ -45,8 +53,16 @@
       "objects": []
     },
     "spawnPoints": [
-      { "id": "default", "x": 16, "y": 20 },
-      { "id": "apartment_building", "x": 16, "y": 8 }
+      {
+        "id": "default",
+        "x": 16,
+        "y": 20
+      },
+      {
+        "id": "apartment_building",
+        "x": 16,
+        "y": 8
+      }
     ],
     "interactables": [
       {
@@ -62,49 +78,105 @@
         "type": "shop",
         "x": 6,
         "y": 10,
-        "data": { "shopId": "metaphysical_shop" }
+        "data": {
+          "shopId": "metaphysical_shop"
+        }
       },
       {
         "id": "shop_grocery",
         "type": "shop",
         "x": 22,
         "y": 10,
-        "data": { "shopId": "grocery_store" }
+        "data": {
+          "shopId": "grocery_store"
+        }
       },
       {
         "id": "shop_pharmacy",
         "type": "shop",
         "x": 28,
         "y": 14,
-        "data": { "shopId": "pharmacy" }
+        "data": {
+          "shopId": "pharmacy"
+        }
       },
       {
         "id": "npc_library",
         "type": "npc",
         "x": 10,
         "y": 18,
-        "data": { "npcId": "npc_librarian" }
+        "data": {
+          "npcId": "npc_librarian"
+        }
       },
       {
         "id": "npc_cafe",
         "type": "npc",
         "x": 20,
         "y": 18,
-        "data": { "npcId": "npc_cafe_owner" }
+        "data": {
+          "npcId": "npc_cafe_owner"
+        }
       },
       {
         "id": "npc_circle",
         "type": "npc",
         "x": 4,
         "y": 20,
-        "data": { "npcId": "npc_circle_leader" }
+        "data": {
+          "npcId": "npc_circle_leader"
+        }
       },
       {
         "id": "park_entrance",
         "type": "door",
         "x": 2,
         "y": 22,
-        "data": { "label": "Park / Woods" }
+        "data": {
+          "label": "Park / Woods"
+        }
+      },
+      {
+        "id": "npc_council",
+        "type": "npc",
+        "x": 6,
+        "y": 20,
+        "data": {
+          "npcId": "npc_council_clerk"
+        }
+      },
+      {
+        "id": "place_healer_office",
+        "type": "npc",
+        "x": 8,
+        "y": 22,
+        "data": {
+          "npcId": "npc_temple_healer",
+          "placeId": "place_healer_office",
+          "requiresLicense": "healer_license"
+        }
+      },
+      {
+        "id": "place_seal_yard",
+        "type": "npc",
+        "x": 10,
+        "y": 22,
+        "data": {
+          "npcId": "npc_seal_yard_foreman",
+          "placeId": "place_seal_yard",
+          "requiresLicense": "warder_license"
+        }
+      },
+      {
+        "id": "place_psychic_tent",
+        "type": "npc",
+        "x": 12,
+        "y": 22,
+        "data": {
+          "npcId": "npc_psychic_tent_reader",
+          "placeId": "place_psychic_tent",
+          "requiresLicense": "seer_license"
+        }
       }
     ]
   }

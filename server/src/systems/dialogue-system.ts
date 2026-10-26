@@ -1,5 +1,13 @@
-import type { InventorySlot, PlayerProgression, TaglockType } from '@witchcraft/shared';
-import { addItemToInventory, meetsDialogueRecognitionGate } from '@witchcraft/shared';
+import type { InventorySlot, PlayerProgression, PlayerStats, TaglockType } from '@witchcraft/shared';
+import {
+  addItemToInventory,
+  getLicense,
+  getVow,
+  holdsActiveLicense,
+  issueLicense,
+  meetsDialogueRecognitionGate,
+  meetsLicenseExamRequirements,
+} from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 
 export interface DialogueChoice {
@@ -12,6 +20,15 @@ export interface DialogueChoice {
   requiresRecognition?: string;
   /** License id required to select this choice. */
   requiresLicense?: string;
+  requiresAnyLicense?: string[];
+  /** Coin fee charged when the choice succeeds. */
+  chargeCoins?: number;
+  /** Vow id recorded when granting a license. */
+  acceptVow?: string;
+  /** License id granted on success (Magical Council exam). */
+  grantLicense?: string;
+  /** Holistic exam eligibility check for this license id. */
+  requiresExamEligibility?: string;
 }
 
 export interface DialogueNode {
@@ -20,12 +37,32 @@ export interface DialogueNode {
   choices: DialogueChoice[];
   requiresRecognition?: string;
   requiresLicense?: string;
+  requiresAnyLicense?: string[];
 }
 
 export interface DialogueTree {
   id: string;
   npcId: string;
   nodes: DialogueNode[];
+}
+
+export interface DialogueResolveContext {
+  inventory: InventorySlot[];
+  progression?: PlayerProgression;
+  stats?: PlayerStats;
+  coins?: number;
+}
+
+export interface DialogueResolveResult {
+  nextNodeId: string;
+  ended: boolean;
+  message: string;
+  inventory?: InventorySlot[];
+  statBoost?: Record<string, number>;
+  relationshipDelta?: number;
+  coinsDelta?: number;
+  progression?: PlayerProgression;
+  notification?: string;
 }
 
 /** Dialogue tree loader and choice resolver */
@@ -47,7 +84,8 @@ export class DialogueSystem {
   availableChoices(
     dialogueTreeId: string,
     nodeId: string,
-    progression: PlayerProgression
+    progression: PlayerProgression,
+    stats?: PlayerStats
   ): { choice: DialogueChoice; originalIndex: number }[] {
     const tree = this.trees.get(dialogueTreeId);
     const node = tree?.nodes.find((n) => n.id === nodeId);
@@ -55,29 +93,36 @@ export class DialogueSystem {
     if (!meetsDialogueRecognitionGate(node, progression)) return [];
     return node.choices
       .map((choice, originalIndex) => ({ choice, originalIndex }))
-      .filter(({ choice }) => meetsDialogueRecognitionGate(choice, progression));
+      .filter(({ choice }) => {
+        if (!meetsDialogueRecognitionGate(choice, progression)) return false;
+        if (choice.requiresExamEligibility && stats) {
+          const license = getLicense(choice.requiresExamEligibility);
+          if (!license) return false;
+          if (holdsActiveLicense(progression, license.id)) return false;
+          return meetsLicenseExamRequirements(license, stats, progression).ok;
+        }
+        return true;
+      });
   }
 
   resolveChoice(
     dialogueTreeId: string,
     nodeId: string,
     choiceIndex: number,
-    inventory: InventorySlot[],
-    progression?: PlayerProgression
-  ): {
-    nextNodeId: string;
-    ended: boolean;
-    message: string;
-    inventory?: InventorySlot[];
-    statBoost?: Record<string, number>;
-    relationshipDelta?: number;
-  } | null {
+    inventoryOrCtx: InventorySlot[] | DialogueResolveContext,
+    progressionArg?: PlayerProgression
+  ): DialogueResolveResult | null {
+    const ctx: DialogueResolveContext = Array.isArray(inventoryOrCtx)
+      ? { inventory: inventoryOrCtx, progression: progressionArg }
+      : inventoryOrCtx;
+
     const tree = this.trees.get(dialogueTreeId);
     if (!tree) return null;
 
     const node = tree.nodes.find((n) => n.id === nodeId);
     if (!node) return null;
 
+    const progression = ctx.progression;
     if (progression && !meetsDialogueRecognitionGate(node, progression)) {
       return null;
     }
@@ -89,9 +134,49 @@ export class DialogueSystem {
       return null;
     }
 
-    let updatedInv = inventory;
+    let nextProgression = progression;
+    let coinsDelta = 0;
+    let notification: string | undefined;
+
+    if (choice.requiresExamEligibility) {
+      const license = getLicense(choice.requiresExamEligibility);
+      if (!license || !ctx.stats || !progression) return null;
+      if (holdsActiveLicense(progression, license.id)) {
+        return null;
+      }
+      const exam = meetsLicenseExamRequirements(license, ctx.stats, progression);
+      if (!exam.ok) {
+        return null;
+      }
+    }
+
+    if (choice.chargeCoins != null && choice.chargeCoins > 0) {
+      const coins = ctx.coins ?? 0;
+      if (coins < choice.chargeCoins) {
+        return null;
+      }
+      coinsDelta = -choice.chargeCoins;
+    }
+
+    if (choice.grantLicense && progression) {
+      if (choice.acceptVow) {
+        const vow = getVow(choice.acceptVow);
+        if (!vow) return null;
+      }
+      const issued = issueLicense(progression, choice.grantLicense);
+      if (!issued) return null;
+      nextProgression = issued.progression;
+      notification = issued.alreadyHeld
+        ? `${issued.license.label} marks restored after re-examination.`
+        : `Credential granted: ${issued.license.label}.`
+          + (choice.acceptVow && getVow(choice.acceptVow)
+            ? ` Vow sealed: “${getVow(choice.acceptVow)!.text}”`
+            : '');
+    }
+
+    let updatedInv = ctx.inventory;
     if (choice.grantItem) {
-      updatedInv = addItemToInventory(inventory, choice.grantItem, 1);
+      updatedInv = addItemToInventory(ctx.inventory, choice.grantItem, 1);
     }
 
     const nextNode = tree.nodes.find((n) => n.id === choice.next);
@@ -102,6 +187,9 @@ export class DialogueSystem {
       inventory: choice.grantItem ? updatedInv : undefined,
       statBoost: choice.statBoost,
       relationshipDelta: choice.relationshipDelta,
+      coinsDelta: coinsDelta || undefined,
+      progression: nextProgression !== progression ? nextProgression : undefined,
+      notification,
     };
   }
 }

@@ -55,6 +55,17 @@ import {
   assignedUnlockLevel,
   levelGateMessage,
   playerLevel,
+  holdsActiveLicense,
+  licenseGateMessage,
+  licenseUnlocksPlace,
+  licenseUnlocksNpc,
+  findVowViolations,
+  applyLicensureMarkPenalty,
+  recoverLicensureMarks,
+  applyReputationDelta,
+  revocationReputationPenalty,
+  activeLicenseIds,
+  getLicense,
   type SurvivalActivity,
 } from '@witchcraft/shared';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
@@ -944,6 +955,26 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
 
+    const progression = this.playerData.get(client.sessionId)?.progression;
+    const requiredLicense = target.data?.requiresLicense as string | undefined;
+    const placeId = typeof target.data?.placeId === 'string' ? target.data.placeId : undefined;
+    if (progression && requiredLicense && !holdsActiveLicense(progression, requiredLicense)) {
+      client.send('notification', {
+        type: 'notification',
+        message: licenseGateMessage(requiredLicense),
+        level: 'warn',
+      });
+      return;
+    }
+    if (progression && placeId && !licenseUnlocksPlace(placeId, progression)) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'This place admits only Magical Council credential holders.',
+        level: 'warn',
+      });
+      return;
+    }
+
     switch (target.type) {
       case 'door':
         if (target.targetScene) {
@@ -982,6 +1013,14 @@ export class GameRoom extends Room<GameRoomState> {
             client.send('notification', {
               type: 'notification',
               message: levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)),
+              level: 'warn',
+            });
+            break;
+          }
+          if (progression && !licenseUnlocksNpc(npcId, progression)) {
+            client.send('notification', {
+              type: 'notification',
+              message: 'This practitioner only speaks with Magical Council credential holders.',
               level: 'warn',
             });
             break;
@@ -1126,6 +1165,7 @@ export class GameRoom extends Room<GameRoomState> {
       magicOnly: msg.magicOnly,
       timing: msg.timing,
       bindingPenalty,
+      progression: this.playerData.get(client.sessionId)?.progression,
     });
 
     const isShieldBreakerSpell =
@@ -1154,7 +1194,37 @@ export class GameRoom extends Room<GameRoomState> {
       }
       if (result.success) {
         const data = this.playerData.get(client.sessionId);
-        const progression = data?.progression ?? defaultProgression();
+        let progression = data?.progression ?? defaultProgression();
+        if (spellDef) {
+          const violations = findVowViolations(progression, spellDef);
+          for (const violation of violations) {
+            const penalty = applyLicensureMarkPenalty(
+              progression,
+              violation.licenseId,
+              violation.markCost
+            );
+            if (!penalty) continue;
+            progression = penalty.progression;
+            client.send('notification', {
+              type: 'notification',
+              message: `${violation.reason}. ${penalty.message}`,
+              level: penalty.revoked ? 'error' : 'warn',
+            });
+            if (penalty.revoked) {
+              const hit = revocationReputationPenalty();
+              stats = applyReputationDelta(stats, 'public', hit.public);
+              stats = applyReputationDelta(stats, 'spiritual', hit.spiritual);
+            }
+          }
+          if (!violations.length) {
+            for (const licenseId of activeLicenseIds(progression)) {
+              const def = getLicense(licenseId);
+              if (def?.allows.categories?.includes(spellDef.category)) {
+                progression = recoverLicensureMarks(progression, licenseId, 1);
+              }
+            }
+          }
+        }
         const xp = grantExperience(stats, progression, 'spell_cast_success');
         stats = xp.stats;
         if (data) {
@@ -1592,23 +1662,26 @@ export class GameRoom extends Room<GameRoomState> {
     choiceIndex: number
   ) {
     const progression = this.playerData.get(client.sessionId)?.progression;
-    const result = dialogueSystem.resolveChoice(
-      dialogueTreeId,
-      nodeId,
-      choiceIndex,
-      player.inventory,
-      progression
-    );
+    const result = dialogueSystem.resolveChoice(dialogueTreeId, nodeId, choiceIndex, {
+      inventory: player.inventory,
+      progression,
+      stats: player.stats,
+      coins: player.coins,
+    });
     if (!result) {
       client.send('notification', {
         type: 'notification',
-        message: 'That path is closed to you yet — recognition or a license may be required.',
+        message:
+          'That path is closed — recognition, a Magical Council credential, exam eligibility, or coins may be required.',
         level: 'warn',
       });
       return;
     }
 
     if (result.inventory) player.inventory = result.inventory;
+    if (result.coinsDelta) {
+      player.coins = Math.max(0, player.coins + result.coinsDelta);
+    }
     if (result.statBoost) {
       const stats = { ...player.stats };
       for (const [k, v] of Object.entries(result.statBoost)) {
@@ -1625,9 +1698,26 @@ export class GameRoom extends Room<GameRoomState> {
     }
 
     const tree = contentRegistry.dialogues.get(dialogueTreeId);
-    this.withProgression(client, player, (ctx) =>
-      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, tree?.npcId)
-    );
+    this.withProgression(client, player, (ctx) => {
+      if (result.progression) {
+        ctx.data.progression = result.progression;
+        ctx.sendProgression(ctx.client, ctx.data.progression);
+      }
+      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, tree?.npcId);
+      syncRecognition(ctx);
+    });
+
+    if (result.notification) {
+      client.send('notification', {
+        type: 'notification',
+        message: result.notification,
+        level: 'success',
+      });
+    }
+
+    if (result.coinsDelta) {
+      this.sendPlayerSync(client, player);
+    }
 
     client.send('dialogue_update', {
       ended: result.ended,

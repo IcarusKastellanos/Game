@@ -182,7 +182,10 @@ export function listRecognitionLicenses(): RecognitionLicenseDef[] {
 }
 
 export function hasLicense(progression: PlayerProgression, licenseId: string): boolean {
-  return (progression.earnedLicenses ?? []).includes(licenseId);
+  if (!(progression.earnedLicenses ?? []).includes(licenseId)) return false;
+  const marks = progression.licensureMarks?.[licenseId];
+  if (marks?.status === 'revoked') return false;
+  return true;
 }
 
 export function grantLicenses(
@@ -270,6 +273,7 @@ export function recognitionUnlocksTeacher(npcId: string, progression: PlayerProg
 export interface DialogueRecognitionGate {
   requiresRecognition?: string;
   requiresLicense?: string;
+  requiresAnyLicense?: string[];
 }
 
 /** Whether a dialogue choice/node gate is satisfied. */
@@ -279,6 +283,9 @@ export function meetsDialogueRecognitionGate(
 ): boolean {
   if (!gate) return true;
   if (gate.requiresLicense && !hasLicense(progression, gate.requiresLicense)) return false;
+  if (gate.requiresAnyLicense?.length) {
+    if (!gate.requiresAnyLicense.some((id) => hasLicense(progression, id))) return false;
+  }
   if (gate.requiresRecognition) {
     const need = getRecognitionTier(gate.requiresRecognition);
     const have = getRecognitionTier(progression.recognitionTierId);

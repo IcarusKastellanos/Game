@@ -1,0 +1,52 @@
+[
+  {
+    "id": "spirit_temple_attendant",
+    "name": "Temple Attendant",
+    "tradition": "traditional_european",
+    "domains": ["healing", "mercy"],
+    "defaultDisposition": 20,
+    "requiresLicense": "healer_license",
+    "offerings": ["bay_leaf", "white_candle", "herbal_tea"],
+    "description": "A gentle presence that answers only Certified Healers in temple work."
+  },
+  {
+    "id": "spirit_threshold_guardian",
+    "name": "Threshold Guardian",
+    "tradition": "traditional_european",
+    "domains": ["wards", "thresholds"],
+    "defaultDisposition": 10,
+    "requiresLicense": "warder_license",
+    "offerings": ["salt", "iron_nail", "horseshoe"],
+    "description": "Watches sealed doors. Licensed Warders may petition it at the Seal Yard."
+  },
+  {
+    "id": "spirit_veil_whisper",
+    "name": "Veil Whisper",
+    "tradition": "traditional_european",
+    "domains": ["divination", "dreams"],
+    "defaultDisposition": 5,
+    "requiresLicense": "seer_license",
+    "offerings": ["bay_leaf", "written_petition"],
+    "description": "Speaks in images to Certified Seers inside the psychic tent."
+  },
+  {
+    "id": "spirit_banishing_choir",
+    "name": "Banishing Choir",
+    "tradition": "traditional_european",
+    "domains": ["exorcism", "cleansing"],
+    "defaultDisposition": 0,
+    "requiresLicense": "exorcist_license",
+    "offerings": ["salt", "white_candle", "iron_nail"],
+    "description": "A stern chorus that aids Licensed Exorcists."
+  },
+  {
+    "id": "spirit_spite_mote",
+    "name": "Spite Mote",
+    "tradition": "traditional_european",
+    "domains": ["hex", "binding"],
+    "defaultDisposition": -15,
+    "requiresLicense": "hex_license",
+    "offerings": ["black_candle", "iron_nail", "poppet_cloth"],
+    "description": "Hungry for pins and petitions. Answers Licensed Hexworkers only."
+  }
+]

@@ -414,6 +414,10 @@ export interface ContentSpell {
   description: string;
   /** Minimum Practitioner Level required to cast (1–maxLevel). */
   minLevel?: number;
+  /** Magical Council credential required to cast. */
+  requiresLicense?: string;
+  /** Any one of these credentials unlocks the spell. */
+  requiresAnyLicense?: string[];
 }
 
 export interface ContentShop {

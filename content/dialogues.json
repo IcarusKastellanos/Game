@@ -7,22 +7,46 @@
         "id": "start",
         "text": "Welcome to the Veiled Moon. Looking for candles, herbs, or something sharper?",
         "choices": [
-          { "label": "I need supplies for protection work.", "next": "protection", "relationshipDelta": 1 },
-          { "label": "Tell me about folk magic.", "next": "folk_lore", "relationshipDelta": 2 },
-          { "label": "Just browsing.", "next": "end" }
+          {
+            "label": "I need supplies for protection work.",
+            "next": "protection",
+            "relationshipDelta": 1
+          },
+          {
+            "label": "Tell me about folk magic.",
+            "next": "folk_lore",
+            "relationshipDelta": 2
+          },
+          {
+            "label": "Just browsing.",
+            "next": "end"
+          }
         ]
       },
       {
         "id": "protection",
         "text": "Rosemary and salt for thresholds. Black candles if you mean business. Don't skip the intent.",
-        "choices": [{ "label": "Thank you.", "next": "end", "relationshipDelta": 1 }]
+        "choices": [
+          {
+            "label": "Thank you.",
+            "next": "end",
+            "relationshipDelta": 1
+          }
+        ]
       },
       {
         "id": "folk_lore",
-        "text": "Cunning folk worked with what was at hand — pins, pins, petitions, and nerve. Read the primer if you're serious.",
+        "text": "Cunning folk worked with what was at hand \u2014 pins, pins, petitions, and nerve. Read the primer if you're serious.",
         "choices": [
-          { "label": "I'll take the book.", "next": "end", "grantItem": "book_folk_magic" },
-          { "label": "Good to know.", "next": "end" }
+          {
+            "label": "I'll take the book.",
+            "next": "end",
+            "grantItem": "book_folk_magic"
+          },
+          {
+            "label": "Good to know.",
+            "next": "end"
+          }
         ]
       }
     ]
@@ -34,7 +58,12 @@
       {
         "id": "start",
         "text": "Morning! Bread's fresh. Tea helps when you've been up all night with... whatever you witches get up to.",
-        "choices": [{ "label": "I'll take some bread.", "next": "end" }]
+        "choices": [
+          {
+            "label": "I'll take some bread.",
+            "next": "end"
+          }
+        ]
       }
     ]
   },
@@ -45,7 +74,12 @@
       {
         "id": "start",
         "text": "Herbal teas and salts only. If you need something stronger, speak to Mara.",
-        "choices": [{ "label": "Understood.", "next": "end" }]
+        "choices": [
+          {
+            "label": "Understood.",
+            "next": "end"
+          }
+        ]
       }
     ]
   },
@@ -57,26 +91,48 @@
         "id": "start",
         "text": "The archive holds county folklore records. Some entries mention wards older than the town itself.",
         "choices": [
-          { "label": "Can I study correspondence charts?", "next": "study", "statBoost": { "herbalism": 1 } },
+          {
+            "label": "Can I study correspondence charts?",
+            "next": "study",
+            "statBoost": {
+              "herbalism": 1
+            }
+          },
           {
             "label": "I'd like the adept stacks.",
             "next": "adept",
             "requiresRecognition": "tradition_adept"
           },
-          { "label": "Maybe later.", "next": "end" }
+          {
+            "label": "Maybe later.",
+            "next": "end"
+          }
         ]
       },
       {
         "id": "study",
-        "text": "Bay for divination, rosemary for protection, sage for cleansing. Write them down — memory fails under stress.",
-        "choices": [{ "label": "Noted.", "next": "end", "relationshipDelta": 1 }]
+        "text": "Bay for divination, rosemary for protection, sage for cleansing. Write them down \u2014 memory fails under stress.",
+        "choices": [
+          {
+            "label": "Noted.",
+            "next": "end",
+            "relationshipDelta": 1
+          }
+        ]
       },
       {
         "id": "adept",
-        "text": "The adept shelves are open to you. Tradition notes, sealed correspondences — treat them with care.",
+        "text": "The adept shelves are open to you. Tradition notes, sealed correspondences \u2014 treat them with care.",
         "requiresRecognition": "tradition_adept",
         "choices": [
-          { "label": "I'll be careful.", "next": "end", "relationshipDelta": 2, "statBoost": { "memory": 1 } }
+          {
+            "label": "I'll be careful.",
+            "next": "end",
+            "relationshipDelta": 2,
+            "statBoost": {
+              "memory": 1
+            }
+          }
         ]
       }
     ]
@@ -87,8 +143,13 @@
     "nodes": [
       {
         "id": "start",
-        "text": "Coffee, tea, and a quiet corner. The study circle meets nearby — don't stir trouble in my café.",
-        "choices": [{ "label": "Fair enough.", "next": "end" }]
+        "text": "Coffee, tea, and a quiet corner. The study circle meets nearby \u2014 don't stir trouble in my caf\u00e9.",
+        "choices": [
+          {
+            "label": "Fair enough.",
+            "next": "end"
+          }
+        ]
       }
     ]
   },
@@ -98,9 +159,13 @@
     "nodes": [
       {
         "id": "start",
-        "text": "We gather to compare notes — never to play at Hollywood magic. Are you practicing seriously?",
+        "text": "We gather to compare notes \u2014 never to play at Hollywood magic. Are you practicing seriously?",
         "choices": [
-          { "label": "I'm learning the old ways.", "next": "welcome", "relationshipDelta": 2 },
+          {
+            "label": "I'm learning the old ways.",
+            "next": "welcome",
+            "relationshipDelta": 2
+          },
           {
             "label": "I'd like advanced circle teaching.",
             "next": "registered",
@@ -112,26 +177,335 @@
             "next": "warder",
             "requiresLicense": "warder_license"
           },
-          { "label": "Still finding my path.", "next": "end" }
+          {
+            "label": "Still finding my path.",
+            "next": "end"
+          }
         ]
       },
       {
         "id": "welcome",
         "text": "Good. Raise your ritual skill through repetition. Consistency beats flash every time.",
-        "choices": [{ "label": "I'll remember that.", "next": "end", "statBoost": { "ritualSkill": 0.5 } }]
+        "choices": [
+          {
+            "label": "I'll remember that.",
+            "next": "end",
+            "statBoost": {
+              "ritualSkill": 0.5
+            }
+          }
+        ]
       },
       {
         "id": "registered",
-        "text": "Ah — a registered practitioner. Sit with us; the circle keeps notes on household wards and quiet ethics.",
+        "text": "Ah \u2014 a registered practitioner. Sit with us; the circle keeps notes on household wards and quiet ethics.",
         "choices": [
-          { "label": "Share what you've learned.", "next": "end", "relationshipDelta": 2, "statBoost": { "ritualSkill": 1 } }
+          {
+            "label": "Share what you've learned.",
+            "next": "end",
+            "relationshipDelta": 2,
+            "statBoost": {
+              "ritualSkill": 1
+            }
+          }
         ]
       },
       {
         "id": "warder",
-        "text": "Licensed warders are rare in this county. Keep your seals honest — we notice shoddy work.",
+        "text": "Licensed warders are rare in this county. Keep your seals honest \u2014 we notice shoddy work.",
         "choices": [
-          { "label": "Understood.", "next": "end", "relationshipDelta": 2, "statBoost": { "warding": 1 } }
+          {
+            "label": "Understood.",
+            "next": "end",
+            "relationshipDelta": 2,
+            "statBoost": {
+              "warding": 1
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "council_exam",
+    "npcId": "npc_council_clerk",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "Magical Council examinations. I scan your standing \u2014 level, recognition, spiritual reputation, skill, morality, and prior vows \u2014 then bind a credential if you qualify. Which seal?",
+        "choices": [
+          {
+            "label": "Certified Healer.",
+            "next": "scan_healer"
+          },
+          {
+            "label": "Licensed Warder.",
+            "next": "scan_warder"
+          },
+          {
+            "label": "Certified Seer.",
+            "next": "scan_seer"
+          },
+          {
+            "label": "Licensed Exorcist.",
+            "next": "scan_exorcist"
+          },
+          {
+            "label": "Licensed Hexworker.",
+            "next": "scan_hex"
+          },
+          {
+            "label": "Not today.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "scan_healer",
+        "text": "Healer scan: Level 3+, Registered Practitioner, Spiritual Rep 10+, healing skill, and morality that will not stain a mercy vow. Fee 80 coins. Swear the Healer's Vow to proceed.",
+        "choices": [
+          {
+            "label": "Pay 80 coins and swear the Healer's Vow.",
+            "next": "granted_healer",
+            "chargeCoins": 80,
+            "acceptVow": "vow_healer",
+            "grantLicense": "healer_license",
+            "requiresExamEligibility": "healer_license"
+          },
+          {
+            "label": "I need more preparation.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "granted_healer",
+        "text": "Seal affixed. You are a Certified Healer. Licensure Marks begin full. Harm through craft will spend them \u2014 the Council watches.",
+        "choices": [
+          {
+            "label": "I understand.",
+            "next": "end",
+            "relationshipDelta": 2
+          }
+        ]
+      },
+      {
+        "id": "scan_warder",
+        "text": "Warder scan: Level 3+, Registered Practitioner, Spiritual Rep 10+, warding and protection skill. Fee 75 coins. Keep seals honest.",
+        "choices": [
+          {
+            "label": "Pay 75 coins and swear the Warder's Vow.",
+            "next": "granted_warder",
+            "chargeCoins": 75,
+            "acceptVow": "vow_warder",
+            "grantLicense": "warder_license",
+            "requiresExamEligibility": "warder_license"
+          },
+          {
+            "label": "Not ready.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "granted_warder",
+        "text": "You are a Licensed Warder. The Seal Yard will admit you. False seals cost Marks.",
+        "choices": [
+          {
+            "label": "I'll keep them honest.",
+            "next": "end",
+            "relationshipDelta": 2
+          }
+        ]
+      },
+      {
+        "id": "scan_seer",
+        "text": "Seer scan: Level 4+, Registered Practitioner, Spiritual Rep 15+, divination and intuition. Fee 90 coins. Do not invent omens.",
+        "choices": [
+          {
+            "label": "Pay 90 coins and swear the Seer's Vow.",
+            "next": "granted_seer",
+            "chargeCoins": 90,
+            "acceptVow": "vow_seer",
+            "grantLicense": "seer_license",
+            "requiresExamEligibility": "seer_license"
+          },
+          {
+            "label": "I'll return later.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "granted_seer",
+        "text": "Certified Seer. The psychic tent opens to you. Sight is a trust.",
+        "choices": [
+          {
+            "label": "I accept the trust.",
+            "next": "end",
+            "relationshipDelta": 2
+          }
+        ]
+      },
+      {
+        "id": "scan_exorcist",
+        "text": "Exorcist scan: Level 5+, Registered Practitioner, Spiritual Rep 20+, spiritual awareness and will. Fee 110 coins.",
+        "choices": [
+          {
+            "label": "Pay 110 coins and swear the Exorcist's Vow.",
+            "next": "granted_exorcist",
+            "chargeCoins": 110,
+            "acceptVow": "vow_exorcist",
+            "grantLicense": "exorcist_license",
+            "requiresExamEligibility": "exorcist_license"
+          },
+          {
+            "label": "Not yet.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "granted_exorcist",
+        "text": "Licensed Exorcist. Temple doors and banishing rites answer you now.",
+        "choices": [
+          {
+            "label": "Thank you.",
+            "next": "end",
+            "relationshipDelta": 2
+          }
+        ]
+      },
+      {
+        "id": "scan_hex",
+        "text": "Hexworker compact: Level 4+, Registered Practitioner, cursecraft skill, morality not saintly. Fee 95 coins. Healing will be weak in your hands \u2014 by design.",
+        "choices": [
+          {
+            "label": "Pay 95 coins and accept the Hexworker's Compact.",
+            "next": "granted_hex",
+            "chargeCoins": 95,
+            "acceptVow": "vow_hex",
+            "grantLicense": "hex_license",
+            "requiresExamEligibility": "hex_license"
+          },
+          {
+            "label": "I decline.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "granted_hex",
+        "text": "Licensed Hexworker. Binding pins and spite-motes answer you. Do not pretend to be a healer.",
+        "choices": [
+          {
+            "label": "Understood.",
+            "next": "end",
+            "relationshipDelta": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temple_healer",
+    "npcId": "npc_temple_healer",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "The healer's office is for credentialed hands. Sit \u2014 we share temple notes only with Certified Healers or Licensed Exorcists.",
+        "requiresAnyLicense": [
+          "healer_license",
+          "exorcist_license"
+        ],
+        "choices": [
+          {
+            "label": "What spirits attend here?",
+            "next": "spirits",
+            "requiresLicense": "healer_license"
+          },
+          {
+            "label": "I need quiet.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "spirits",
+        "text": "The Temple Attendant answers offerings of bay, white candle, and tea \u2014 only to Certified Healers.",
+        "choices": [
+          {
+            "label": "I'll remember.",
+            "next": "end",
+            "relationshipDelta": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "seal_yard",
+    "npcId": "npc_seal_yard_foreman",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "Seal Yard. Licensed Warders only \u2014 show your seal or leave.",
+        "requiresLicense": "warder_license",
+        "choices": [
+          {
+            "label": "Any threshold tips?",
+            "next": "tips"
+          },
+          {
+            "label": "Just checking the yard.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "tips",
+        "text": "Salt, iron, horseshoe \u2014 and never sell a seal you won't stand behind. The Threshold Guardian notices.",
+        "choices": [
+          {
+            "label": "Noted.",
+            "next": "end",
+            "relationshipDelta": 1,
+            "statBoost": {
+              "warding": 0.5
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "psychic_tent",
+    "npcId": "npc_psychic_tent_reader",
+    "nodes": [
+      {
+        "id": "start",
+        "text": "The tent flap stays closed to the uncredentialed. Certified Seers may sit.",
+        "requiresLicense": "seer_license",
+        "choices": [
+          {
+            "label": "What does the Veil Whisper want?",
+            "next": "veil"
+          },
+          {
+            "label": "Another time.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "veil",
+        "text": "Bay and written petition. It speaks in images \u2014 invent nothing for coin.",
+        "choices": [
+          {
+            "label": "I won't.",
+            "next": "end",
+            "relationshipDelta": 1
+          }
         ]
       }
     ]

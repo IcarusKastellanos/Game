@@ -5,6 +5,7 @@ import { setXpSourcesContent } from './xp-sources.js';
 import { setLevelCurveContent } from './level-curve.js';
 import { setLevelProfiles } from './level-profiles.js';
 import { setRecognitionContent } from './recognition.js';
+import { setLicensesContent } from './licenses.js';
 
 export interface HungerDebuffBand {
   belowHunger: number;
@@ -195,6 +196,7 @@ export function setProgressionContent(partial: {
   levelCurveJson?: unknown;
   levelProfilesJson?: unknown;
   recognitionTiersJson?: unknown;
+  licensesJson?: unknown;
 }): void {
   if (partial.levelCurveJson !== undefined) {
     setLevelCurveContent(partial.levelCurveJson);
@@ -204,6 +206,9 @@ export function setProgressionContent(partial: {
   }
   if (partial.recognitionTiersJson !== undefined && partial.recognitionTiersJson != null) {
     setRecognitionContent(partial.recognitionTiersJson);
+  }
+  if (partial.licensesJson !== undefined && partial.licensesJson != null) {
+    setLicensesContent(partial.licensesJson);
   }
   if (partial.reputationPublicJson !== undefined || partial.reputationSpiritualJson !== undefined) {
     setReputationContent({

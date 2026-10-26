@@ -53,6 +53,7 @@ export class ContentRegistry {
   decorations = new Map<string, ContentDecoration>();
   maps = new Map<string, ContentMapDefinition>();
   dialogues = new Map<string, DialogueTree>();
+  spirits = new Map<string, { id: string; name: string; requiresLicense?: string; [key: string]: unknown }>();
 
   load(): void {
     this.ingredients.clear();
@@ -64,6 +65,7 @@ export class ContentRegistry {
     this.decorations.clear();
     this.maps.clear();
     this.dialogues.clear();
+    this.spirits.clear();
 
     for (const item of loadJson<ContentIngredient>('ingredients.json')) {
       this.ingredients.set(item.id, item);
@@ -92,6 +94,9 @@ export class ContentRegistry {
     for (const dlg of loadJson<DialogueTree>('dialogues.json')) {
       this.dialogues.set(dlg.id, dlg);
     }
+    for (const spirit of loadJson<{ id: string; name: string; requiresLicense?: string }>('spirits.json')) {
+      this.spirits.set(spirit.id, spirit);
+    }
     craftingSystem.loadFromJson(loadJson<ContentRecipe>('recipes.json'));
     hexagramEnchantSystem.loadFromJson(loadJson<ContentHexagramRecipe>('hexagram-recipes.json'));
     questSystem.loadFromJson(loadJson<ContentQuest>('quests.json'));
@@ -108,6 +113,7 @@ export class ContentRegistry {
       levelCurveJson: loadJsonFile('progression/level-curve.json'),
       levelProfilesJson: loadJsonFile('progression/levels.json'),
       recognitionTiersJson: loadJsonFile('progression/recognition-tiers.json'),
+      licensesJson: loadJsonFile('progression/licenses.json'),
     });
 
     this.validateLevelGates();

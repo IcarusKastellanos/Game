@@ -1,4 +1,4 @@
-import type { PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
+import type { LicensesDocument, PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
 import {
   ContentMapDefinition,
   ContentSpell,
@@ -10,6 +10,7 @@ import {
   MetPlayer,
   PlayerLocation,
   WardState,
+  setLicensesContent,
   setRecognitionContent,
 } from '@witchcraft/shared';
 import { verifyItemIconsOncePerLogin } from '../assets/ItemIconAssetStore';
@@ -22,9 +23,15 @@ export interface DialogueNode {
     next: string;
     requiresRecognition?: string;
     requiresLicense?: string;
+    requiresAnyLicense?: string[];
+    chargeCoins?: number;
+    grantLicense?: string;
+    acceptVow?: string;
+    requiresExamEligibility?: string;
   }[];
   requiresRecognition?: string;
   requiresLicense?: string;
+  requiresAnyLicense?: string[];
 }
 
 export interface DialogueTree {
@@ -44,6 +51,8 @@ export interface ClientContentBundle {
   decorations: { id: string; name: string; category: string }[];
   dialogues?: DialogueTree[];
   recognitionTiers?: RecognitionDocument;
+  licenses?: LicensesDocument;
+  spirits?: { id: string; name: string; requiresLicense?: string }[];
 }
 
 export interface LocalPlayerState {
@@ -130,6 +139,9 @@ class GameState {
     this.content = await res.json();
     if (this.content?.recognitionTiers) {
       setRecognitionContent(this.content.recognitionTiers);
+    }
+    if (this.content?.licenses) {
+      setLicensesContent(this.content.licenses);
     }
     if (this.content?.ingredients) {
       await verifyItemIconsOncePerLogin(this.content.ingredients);
