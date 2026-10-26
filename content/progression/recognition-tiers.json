@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "note": "Practitioner recognition — what the magical establishment acknowledges you as. Distinct from public fame and spiritual favor.",
+  "defaultTierId": "initiate",
+  "tiers": [
+    {
+      "id": "initiate",
+      "label": "Initiate",
+      "rank": 0,
+      "requirements": {},
+      "unlocks": {
+        "storyFlags": ["recognition_initiate"]
+      }
+    },
+    {
+      "id": "registered_practitioner",
+      "label": "Registered Practitioner",
+      "rank": 1,
+      "requirements": {
+        "minLevel": 2,
+        "questsCompleted": ["quest_first_steps"]
+      },
+      "unlocks": {
+        "teachers": ["npc_circle_leader"],
+        "storyFlags": ["recognition_registered"]
+      }
+    },
+    {
+      "id": "licensed_warder",
+      "label": "Licensed Warder",
+      "rank": 2,
+      "requirements": {
+        "minLevel": 3,
+        "minSpiritualRep": 10,
+        "licenses": ["warder_license"],
+        "npcRelationships": { "npc_circle_leader": 15 }
+      },
+      "unlocks": {
+        "rituals": ["ward_household"],
+        "storyFlags": ["recognition_warder"]
+      }
+    },
+    {
+      "id": "certified_healer",
+      "label": "Certified Healer",
+      "rank": 2,
+      "requirements": {
+        "minLevel": 3,
+        "minSpiritualRep": 10,
+        "licenses": ["healer_license"],
+        "traditionAffinity": { "traditional_european": 20 }
+      },
+      "unlocks": {
+        "rituals": ["healing_charm"],
+        "storyFlags": ["recognition_healer"]
+      }
+    },
+    {
+      "id": "recognized_seer",
+      "label": "Recognized Seer",
+      "rank": 2,
+      "requirements": {
+        "minLevel": 4,
+        "minSpiritualRep": 15,
+        "licenses": ["seer_license"]
+      },
+      "unlocks": {
+        "rituals": ["pocket_divination_lens"],
+        "storyFlags": ["recognition_seer"]
+      }
+    },
+    {
+      "id": "tradition_adept",
+      "label": "Tradition Adept",
+      "rank": 3,
+      "requirements": {
+        "minLevel": 5,
+        "minSpiritualRep": 25,
+        "traditionAffinity": { "traditional_european": 30 }
+      },
+      "unlocks": {
+        "teachers": ["npc_librarian"],
+        "storyFlags": ["recognition_adept"]
+      }
+    },
+    {
+      "id": "temple_associate",
+      "label": "Temple Associate",
+      "rank": 4,
+      "requirements": {
+        "minLevel": 7,
+        "minSpiritualRep": 40,
+        "licenses": ["temple_associate_license"]
+      },
+      "unlocks": {
+        "organizations": ["temple_network"],
+        "storyFlags": ["recognition_temple"]
+      }
+    },
+    {
+      "id": "covenant_holder",
+      "label": "Covenant Holder",
+      "rank": 5,
+      "requirements": {
+        "minLevel": 9,
+        "minSpiritualRep": 50,
+        "licenses": ["covenant_license"],
+        "questsCompleted": ["quest_first_steps"]
+      },
+      "unlocks": {
+        "organizations": ["covenant"],
+        "storyFlags": ["recognition_covenant"]
+      }
+    }
+  ],
+  "licenses": [
+    { "id": "warder_license", "label": "Warder License" },
+    { "id": "healer_license", "label": "Healer License" },
+    { "id": "seer_license", "label": "Seer License" },
+    { "id": "temple_associate_license", "label": "Temple Associate License" },
+    { "id": "covenant_license", "label": "Covenant License" }
+  ]
+}

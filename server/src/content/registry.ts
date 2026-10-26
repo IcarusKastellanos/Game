@@ -107,6 +107,7 @@ export class ContentRegistry {
       xpSourcesJson: loadJsonFile('progression/xp-sources.json'),
       levelCurveJson: loadJsonFile('progression/level-curve.json'),
       levelProfilesJson: loadJsonFile('progression/levels.json'),
+      recognitionTiersJson: loadJsonFile('progression/recognition-tiers.json'),
     });
 
     this.validateLevelGates();

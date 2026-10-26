@@ -72,7 +72,8 @@ export class PlayerPanel {
     const name = gameState.displayName ?? 'Practitioner';
     const level = playerLevel(stats?.experience ?? 0);
     const rank = `${getLevelRankLabel(level)} · ${getLevelTitle(level)}`;
-    const type = stats ? getPractitionerType(stats) : 'Practitioner';
+    const tierLabel = gameState.progression?.recognitionTierLabel ?? 'Initiate';
+    const type = stats ? getPractitionerType(stats, tierLabel) : tierLabel;
     const morality = resolveMorality(stats);
     const hp = Math.round(stats?.health ?? HEALTH_MAX);
     const me = Math.round(stats?.magicalEnergy ?? 0);
@@ -130,7 +131,9 @@ export class PlayerPanel {
       xpLine,
       `${getLevelRankLabel(level)} · ${getLevelTitle(level)}`,
       spirits.label ? `Spirits: ${spirits.label} (${spirits.minPower}–${spirits.maxPower})` : '',
-      stats ? getPractitionerType(stats) : 'Practitioner',
+      stats
+        ? getPractitionerType(stats, gameState.progression?.recognitionTierLabel ?? 'Initiate')
+        : 'Practitioner',
       `Public rep ${publicRep} · Spiritual rep ${spiritualRep}`,
       recentLine,
       '<em>Press X for Aura &amp; Wards (full stats)</em>',
