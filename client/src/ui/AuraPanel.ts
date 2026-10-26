@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { AuraState, StatDisplayKey } from '@witchcraft/shared';
-import { isActiveAuraEffect } from '@witchcraft/shared';
+import { isActiveAuraEffect, playerLevel, practitionerXpProgress } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import {
@@ -287,7 +287,36 @@ export class AuraPanel {
           <span class="k">Energetic damage:</span>
           <span class="v ${dmgClass}">${vm.energeticDamage}</span>
         </div>
+        ${isOther ? '' : this.practitionerXpOverviewHtml()}
+        ${isOther ? '' : this.recentXpOverviewHtml()}
+        ${isOther ? '' : this.reputationOverviewHtml()}
       </div>`;
+  }
+
+  private practitionerXpOverviewHtml(): string {
+    const stats = parseStats(gameState.localPlayer?.statsJson);
+    const xp = stats.experience ?? 0;
+    const progress = practitionerXpProgress(xp);
+    const level = playerLevel(xp);
+    return `<div><span class="k">Practitioner Level:</span> <span class="v">${level} · ${progress.xpIntoLevel}/${progress.xpToNext} XP</span></div>`;
+  }
+
+  private recentXpOverviewHtml(): string {
+    const recent = (gameState.progression?.recentXp ?? []).slice(-5).reverse();
+    if (!recent.length) {
+      return `<div><span class="k">Recent XP:</span> <span class="v">—</span></div>`;
+    }
+    const lines = recent
+      .map((e) => `+${e.amount} ${esc(e.label)}${e.levelAfter > e.levelBefore ? ' ▲' : ''}`)
+      .join('<br/>');
+    return `<div><span class="k">Recent XP:</span><div class="v" style="margin-top:2px;line-height:1.25">${lines}</div></div>`;
+  }
+
+  private reputationOverviewHtml(): string {
+    const stats = parseStats(gameState.localPlayer?.statsJson);
+    const pub = Math.round(stats.publicReputation ?? stats.reputation ?? 0);
+    const spi = Math.round(stats.spiritualReputation ?? 0);
+    return `<div><span class="k">Reputation:</span> <span class="v">Public ${pub} · Spiritual ${spi}</span></div>`;
   }
 
   private statusMessageHtml(vm: AuraScreenViewModel, zone: Rect): string {

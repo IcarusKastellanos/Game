@@ -113,11 +113,22 @@ export class PlayerPanel {
   private tooltipHtml(): string {
     const stats = parseStats();
     const level = playerLevel(stats?.experience ?? 0);
+    const xp = stats?.experience ?? 0;
+    const xpInLevel = xp % 100;
+    const publicRep = Math.round(stats?.publicReputation ?? stats?.reputation ?? 0);
+    const spiritualRep = Math.round(stats?.spiritualReputation ?? 0);
+    const recent = (gameState.progression?.recentXp ?? []).slice(-3).reverse();
+    const recentLine =
+      recent.length > 0
+        ? `Recent XP: ${recent.map((r) => `+${r.amount} ${r.label}`).join(' · ')}`
+        : 'Recent XP: —';
     return [
       `<strong>${gameState.displayName ?? 'Practitioner'}</strong>`,
-      `Level ${level}`,
+      `Practitioner Level ${level} · ${xpInLevel}/100 XP`,
       stats ? getPractitionerType(stats) : 'Practitioner',
-      '<em>Portrait and bars update from your live stats</em>',
+      `Public rep ${publicRep} · Spiritual rep ${spiritualRep}`,
+      recentLine,
+      '<em>Press X for Aura &amp; Wards (full stats)</em>',
     ].join('<br/>');
   }
 }

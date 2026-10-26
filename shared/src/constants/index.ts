@@ -18,6 +18,8 @@ export const DEFAULT_STATS: PlayerStats = {
   ritualSkill: 2,
   experience: 0,
   reputation: 0,
+  publicReputation: 0,
+  spiritualReputation: 0,
   morality: 0,
   affinities: {
     traditional_european: 8,
@@ -65,10 +67,19 @@ export function clampMagicalEnergy(magicalEnergy: number, experience: number): n
   return Math.max(0, Math.min(magicalEnergyCap(experience), magicalEnergy));
 }
 
+/** Signed reputation / morality tracks use −100…100 (not 0…100). */
+const SIGNED_STAT_KEYS = new Set([
+  'reputation',
+  'publicReputation',
+  'spiritualReputation',
+  'morality',
+]);
+
 /** Clamp a player stat — ME uses 100 + 2×level; most skills cap at STAT_MAX. */
 export function clampPlayerStatValue(statKey: string, value: number, experience: number): number {
   if (statKey === 'magicalEnergy') return clampMagicalEnergy(value, experience);
   if (statKey === 'experience') return Math.max(0, value);
+  if (SIGNED_STAT_KEYS.has(statKey)) return Math.max(-STAT_MAX, Math.min(STAT_MAX, value));
   return Math.max(0, Math.min(STAT_MAX, value));
 }
 
@@ -104,6 +115,7 @@ const EXTENDED_STAT_ALIASES: Record<string, readonly string[]> = {
   mediumship: ['mediumship'],
   potionMaking: ['potionMaking'],
   spiritNegotiation: ['spiritNegotiation'],
+  spiritualReputation: ['spiritualReputation'],
 };
 
 /** Keys stored in PlayerStats.extendedStats (not as their own columns). */
@@ -118,6 +130,13 @@ export function extendedStatsRecord(stats: PlayerStats): Record<string, number> 
     const fallback = (DEFAULT_STATS as unknown as Record<string, unknown>)[key];
     out[key] = typeof value === 'number' ? value : (fallback as number);
   }
+  // Dual reputation: public is also mirrored on the reputation column; spiritual is JSON-only.
+  const publicRep =
+    toFiniteNumber(source.publicReputation) ?? toFiniteNumber(source.reputation) ?? 0;
+  out.publicReputation = publicRep;
+  const spiritual =
+    toFiniteNumber(source.spiritualReputation) ?? (DEFAULT_STATS.spiritualReputation as number);
+  out.spiritualReputation = spiritual;
   return out;
 }
 
@@ -147,6 +166,16 @@ export function normalizePlayerStats(stats: PlayerStats): PlayerStats {
     const fallback = (DEFAULT_STATS as unknown as Record<string, unknown>)[key] as number;
     target[key] = clampPlayerStatValue(key, raw ?? fallback, experience);
   }
+
+  // Reputation split: legacy `reputation` becomes publicReputation when missing.
+  const publicRaw =
+    toFiniteNumber(source.publicReputation) ?? toFiniteNumber(source.reputation) ?? 0;
+  const publicRep = clampPlayerStatValue('reputation', publicRaw, experience);
+  normalized.publicReputation = publicRep;
+  normalized.reputation = publicRep;
+  const spiritualRaw = toFiniteNumber(source.spiritualReputation) ?? 0;
+  normalized.spiritualReputation = clampPlayerStatValue('reputation', spiritualRaw, experience);
+
   for (const tradition of Object.keys(normalized.affinities) as MagicTradition[]) {
     normalized.affinities[tradition] = clampPlayerStatValue(
       'affinity',

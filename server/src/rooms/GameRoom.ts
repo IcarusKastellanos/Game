@@ -42,7 +42,17 @@ import {
   sendFriendRequest,
 } from '../systems/friend-system.js';
 import { applyMeRegen, computeMeRegenAmount, meRegenIntervalMs } from '../systems/me-regen.js';
-import { applySurvivalTick, hungerRegenMultiplier, MAX_HUNGER, grantSkillXp, type SurvivalActivity } from '@witchcraft/shared';
+import {
+  applySurvivalTick,
+  hungerRegenMultiplier,
+  MAX_HUNGER,
+  grantExperience,
+  shopPriceMultiplier,
+  applyReputationSource,
+  applyMoralityGossip,
+  defaultProgression,
+  type SurvivalActivity,
+} from '@witchcraft/shared';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
 import {
   createApartmentInvite,
@@ -1127,21 +1137,61 @@ export class GameRoom extends Room<GameRoomState> {
         stats.magicalEnergy = Math.max(0, stats.magicalEnergy - meCost);
       }
       if (result.success) {
-        stats.experience += 5;
         const data = this.playerData.get(client.sessionId);
+        const progression = data?.progression ?? defaultProgression();
+        const xp = grantExperience(stats, progression, 'spell_cast_success');
+        stats = xp.stats;
         if (data) {
-          const skill = grantSkillXp(stats, data.progression, 'ritualSkill', 8);
-          stats = skill.stats;
-          data.progression = skill.progression;
+          data.progression = xp.progression;
           client.send('progression_update', { progression: data.progression });
-        } else {
-          stats.ritualSkill = Math.min(100, stats.ritualSkill + 0.5);
+        }
+        if (xp.granted > 0) {
+          client.send('notification', {
+            type: 'notification',
+            message: xp.leveledUp
+              ? `+${xp.granted} XP — Practitioner Level ${xp.levelAfter}!`
+              : `+${xp.granted} XP — ${xp.source?.label ?? 'Working'}`,
+            level: xp.leveledUp ? 'success' : 'info',
+          });
+        }
+        // Blatant magic in town hurts public standing; witnessed workings raise spiritual.
+        if (player.scene === 'town') {
+          const pub = applyReputationSource(stats, 'public', 'visible_magic_town');
+          stats = pub.stats;
+          if (pub.applied !== 0) {
+            client.send('notification', {
+              type: 'notification',
+              message: `Townsfolk noticed the working (${pub.applied > 0 ? '+' : ''}${Math.round(pub.applied)} public reputation).`,
+              level: 'warn',
+            });
+          }
+        }
+        const spi = applyReputationSource(stats, 'spiritual', 'public_working_success');
+        stats = spi.stats;
+      } else if (result.diagnostics?.code === 'focus_check') {
+        const data = this.playerData.get(client.sessionId);
+        const progression = data?.progression ?? defaultProgression();
+        const xp = grantExperience(stats, progression, 'spell_cast_focus_fail');
+        stats = xp.stats;
+        if (data) {
+          data.progression = xp.progression;
+          client.send('progression_update', { progression: data.progression });
+        }
+        if (player.scene === 'town') {
+          const botch = applyReputationSource(stats, 'spiritual', 'botched_public_working');
+          stats = botch.stats;
         }
       }
       stats = syncLevelDerivedStats(stats);
       if (fam) stats = familiarSystem.applyBonuses(stats, fam);
       player.stats = stats;
       player.aura = auraSystem.applyMoralityDelta(player.aura, result.moralDelta);
+      if (result.moralDelta) {
+        const gossip = applyMoralityGossip(player.stats, result.moralDelta);
+        if (gossip.applied !== 0) {
+          player.stats = gossip.stats;
+        }
+      }
 
       const isShieldBreaker =
         isShieldBreakerSpell && result.success;
@@ -1441,6 +1491,21 @@ export class GameRoom extends Room<GameRoomState> {
         magicalEnergy: Math.max(0, player.stats.magicalEnergy - meCost),
       };
 
+      const dataForXp = this.playerData.get(client.sessionId);
+      if (dataForXp) {
+        const xp = grantExperience(player.stats, dataForXp.progression, 'ward_place');
+        player.stats = xp.stats;
+        dataForXp.progression = xp.progression;
+        client.send('progression_update', { progression: dataForXp.progression });
+        if (xp.granted > 0) {
+          client.send('notification', {
+            type: 'notification',
+            message: `+${xp.granted} XP — ${xp.source?.label ?? 'Ward'}`,
+            level: 'info',
+          });
+        }
+      }
+
       const wards = this.activeWards.get(client.sessionId) ?? [];
       void this.storeNewWard(client.sessionId, result.ward).then((stored) => {
         wards.push(stored);
@@ -1535,7 +1600,15 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private handleBuy(client: Client, player: PlayerSchema, shopId: string, itemId: string, quantity: number) {
-    const result = shopSystem.buy(shopId, itemId, quantity, player.inventory, player.coins);
+    const result = shopSystem.buy(
+      shopId,
+      itemId,
+      quantity,
+      player.inventory,
+      player.coins,
+      shopPriceMultiplier(player.stats),
+      player.stats
+    );
     if (result.success && result.inventory && result.cost !== undefined) {
       player.inventory = result.inventory;
       player.coins -= result.cost;
@@ -1680,6 +1753,20 @@ export class GameRoom extends Room<GameRoomState> {
     const data = this.playerData.get(client.sessionId);
     if (data) data.familiar = result.familiar;
 
+    if (action === 'bond' && data) {
+      const xp = grantExperience(player.stats, data.progression, 'familiar_bond');
+      player.stats = xp.stats;
+      data.progression = xp.progression;
+      client.send('progression_update', { progression: data.progression });
+      if (xp.granted > 0) {
+        client.send('notification', {
+          type: 'notification',
+          message: `+${xp.granted} XP — ${xp.source?.label ?? 'Familiar bond'}`,
+          level: 'info',
+        });
+      }
+    }
+
     try {
       await prisma.familiar.update({
         where: { playerId: player.dbPlayerId },
@@ -1701,6 +1788,7 @@ export class GameRoom extends Room<GameRoomState> {
 
     client.send('familiar_update', { type: 'familiar_update', familiar: result.familiar });
     this.refreshWardWeb(client.sessionId);
+    this.sendPlayerSync(client, player);
     client.send('notification', {
       type: 'notification',
       message: `${action.charAt(0).toUpperCase() + action.slice(1)} complete.`,

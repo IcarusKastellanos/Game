@@ -1,5 +1,7 @@
 import type { MagicTradition, PlayerStats } from '../types/index.js';
 import { resolveStatValue, type StatDisplayKey } from './stats-catalog.js';
+import { setReputationContent } from './reputation.js';
+import { setXpSourcesContent } from './xp-sources.js';
 
 export interface HungerDebuffBand {
   belowHunger: number;
@@ -184,7 +186,20 @@ export function setProgressionContent(partial: {
   statLabelsJson?: unknown;
   focusWeightsJson?: unknown;
   booksJson?: unknown;
+  reputationPublicJson?: unknown;
+  reputationSpiritualJson?: unknown;
+  xpSourcesJson?: unknown;
 }): void {
+  if (partial.reputationPublicJson !== undefined || partial.reputationSpiritualJson !== undefined) {
+    setReputationContent({
+      publicJson: partial.reputationPublicJson,
+      spiritualJson: partial.reputationSpiritualJson,
+    });
+  }
+  if (partial.xpSourcesJson !== undefined) {
+    setXpSourcesContent(partial.xpSourcesJson);
+  }
+
   const next: ProgressionContentState = {
     survival: { ...state.survival, staminaRegenPerMinute: { ...state.survival.staminaRegenPerMinute } },
     statLabels: { ...state.statLabels },

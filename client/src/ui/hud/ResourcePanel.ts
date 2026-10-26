@@ -7,20 +7,18 @@ import { tooltipManager } from './TooltipManager.js';
 
 
 
-function parseStats(): { reputation?: number; experience?: number } | null {
-
+function parseStats(): {
+  reputation?: number;
+  publicReputation?: number;
+  spiritualReputation?: number;
+  experience?: number;
+} | null {
   if (!gameState.localPlayer?.statsJson) return null;
-
   try {
-
     return JSON.parse(gameState.localPlayer.statsJson);
-
   } catch {
-
     return null;
-
   }
-
 }
 
 
@@ -60,27 +58,17 @@ export class ResourcePanel {
   render(): void {
 
     const stats = parseStats();
-
     const coins = gameState.localPlayer?.coins ?? 0;
-
-    const rep = Math.round(stats?.reputation ?? 0);
-
-    const essence = Math.round((stats?.experience ?? 0) * 0.4 + rep * 2);
-
-    const favor = Math.max(0, Math.round(rep * 0.5 + 12));
-
-
+    const publicRep = Math.round(stats?.publicReputation ?? stats?.reputation ?? 0);
+    const spiritualRep = Math.round(stats?.spiritualReputation ?? 0);
+    const essence = Math.round((stats?.experience ?? 0) * 0.4 + publicRep * 2);
+    const favor = Math.max(0, Math.round(spiritualRep * 0.5 + publicRep * 0.25 + 12));
 
     this.root.innerHTML = `
-
       <div class="hud-resources__stack">
-
         ${counterRow('coin', hudSprites.resources.coin, 'Coin', coins, 'Town trade & shop purchases')}
-
         ${counterRow('essence', hudSprites.resources.essence, 'Essence', essence, 'Distilled from workings — crafting fuel')}
-
-        ${counterRow('favor', hudSprites.resources.favor, 'Spirit Favor', favor, 'Spirit court standing')}
-
+        ${counterRow('favor', hudSprites.resources.favor, 'Spirit Favor', favor, `Public rep ${publicRep} · Spiritual rep ${spiritualRep}`)}
       </div>`;
 
 

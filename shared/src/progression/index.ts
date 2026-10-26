@@ -73,6 +73,10 @@ export interface PlayerProgression {
   discoveredRecipes: string[];
   /** Per-technical-skill XP pools (display keys → XP toward next skill point). */
   skillXp?: Partial<Record<string, number>>;
+  /** Recent practitioner XP grants for the character sheet. */
+  recentXp?: import('./xp-sources.js').RecentXpEntry[];
+  /** actionId → timestamp when the source is usable again. */
+  xpSourceCooldowns?: Record<string, number>;
 }
 
 export interface ContentRecipe {
@@ -165,7 +169,10 @@ export interface ContentQuest {
   rewards?: {
     items?: { itemId: string; quantity: number }[];
     stats?: Record<string, number>;
+    /** Legacy alias → public reputation. */
     reputation?: number;
+    publicReputation?: number;
+    spiritualReputation?: number;
   };
 }
 
@@ -204,6 +211,8 @@ export function defaultProgression(): PlayerProgression {
     questProgress: {},
     discoveredRecipes: [...BASELINE_DISCOVERED_RECIPES],
     skillXp: {},
+    recentXp: [],
+    xpSourceCooldowns: {},
   };
 }
 
@@ -240,6 +249,15 @@ export function parseProgression(raw: unknown): PlayerProgression {
       Array.isArray(o.discoveredRecipes) ? (o.discoveredRecipes as string[]) : base.discoveredRecipes
     ),
     skillXp: parseSkillXp(o.skillXp),
+    recentXp: Array.isArray(o.recentXp)
+      ? (o.recentXp as import('./xp-sources.js').RecentXpEntry[]).filter(
+          (e) => e && typeof e.actionId === 'string' && typeof e.amount === 'number'
+        )
+      : [],
+    xpSourceCooldowns:
+      o.xpSourceCooldowns && typeof o.xpSourceCooldowns === 'object'
+        ? (o.xpSourceCooldowns as Record<string, number>)
+        : {},
   };
 }
 
