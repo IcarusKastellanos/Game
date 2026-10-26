@@ -321,7 +321,8 @@ Formal credentials (Licensed Exorcist, Certified Healer, Certified Seer, License
 #### UI / admin (when built)
 
 - [x] HUD tooltip: licenses held + marks remaining (full character sheet still open)
-- [ ] Admin: license editor + examiner quest wiring
+- [x] Admin: license editor (vows, exams, marks, forbids/allows, unlocks → `licenses.json`)
+- [ ] Admin: examiner quest wiring / re-examination questlines (Milestone E)
 
 
 
