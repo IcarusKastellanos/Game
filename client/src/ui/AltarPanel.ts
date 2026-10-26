@@ -592,7 +592,7 @@ export class AltarPanel {
       <div class="altar-tip-desc">${spell.description}</div>
       <div class="altar-tip-row"><span>Effect</span> ${effectKeys || spell.category}</div>
       <div class="altar-tip-row"><span>Target</span> ${spell.targetType.replace(/_/g, ' ')} · ${Math.round(spell.duration / 60)} min duration</div>
-      <div class="altar-tip-row"><span>Focus</span> difficulty ${spell.difficulty} · roll Ritual + Intuition + specialty</div>
+      <div class="altar-tip-row"><span>Focus</span> difficulty ${spell.difficulty} · roll Ritual + Intuition</div>
       <div class="altar-tip-row"><span>ME</span> ${spell.maintenanceCost} with ingredients · ${Math.ceil(spell.maintenanceCost * 2.5)} raw magic</div>
       <div class="altar-tip-row"><span>Requires</span> ${ingList || 'none'}</div>
       ${tagReq}

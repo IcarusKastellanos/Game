@@ -229,14 +229,15 @@ export const PENTACLE_SLOT_CATEGORIES: Record<string, string> = {
   medicine: 'herbs',
 };
 
-/** Registered magic systems — add new traditions without rewriting core */
+/** Registered magic systems — add new traditions without rewriting core.
+ * TEMPORARY: all packs stay disabled in UI until tradition packs ship. Data keys remain. */
 export const MAGIC_SYSTEMS: Record<
   MagicTradition,
   { label: string; enabled: boolean; description: string }
 > = {
   traditional_european: {
     label: 'Traditional European Folk Magic',
-    enabled: true,
+    enabled: false, // was true — TEMPORARY: hide from player-facing tradition UI
     description: 'Candles, herbs, poppets, wards, and household charms.',
   },
   chaos_magic: {

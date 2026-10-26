@@ -128,7 +128,8 @@ import {
 import { tickWorldClock, getWorldHour } from '../systems/world-clock.js';
 import { getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
 import { questSystem } from '../systems/quest-system.js';
-import { eligibleSpecialtyTraditions, craftStationTypeFromInteractable, isCraftingInteractable, type MagicTradition } from '@witchcraft/shared';
+import { craftStationTypeFromInteractable, isCraftingInteractable, type MagicTradition } from '@witchcraft/shared';
+// eligibleSpecialtyTraditions — TEMPORARY: tradition specialty offers deactivated
 
 /** Max spell casts per player within the rolling window. */
 const SPELL_CAST_RATE_LIMIT = 12;
@@ -308,12 +309,13 @@ export class GameRoom extends Room<GameRoomState> {
 
     sendWorldState(client);
     this.withProgression(client, player, (ctx) => syncRecognition(ctx, { notify: false }));
-    if (!persisted.stats.specialty) {
-      const eligible = eligibleSpecialtyTraditions(persisted.stats.affinities);
-      if (eligible.length) {
-        client.send('specialty_offer', { traditions: eligible });
-      }
-    }
+    // TEMPORARY: tradition specialty offers deactivated until tradition packs ship.
+    // if (!persisted.stats.specialty) {
+    //   const eligible = eligibleSpecialtyTraditions(persisted.stats.affinities);
+    //   if (eligible.length) {
+    //     client.send('specialty_offer', { traditions: eligible });
+    //   }
+    // }
 
     this.sendApartmentVisitState(client);
     this.refreshWardWeb(client.sessionId);

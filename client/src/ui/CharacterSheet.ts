@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import type { MagicTradition, PlayerStats, StatDisplayKey } from '@witchcraft/shared';
+import type { PlayerStats, StatDisplayKey } from '@witchcraft/shared';
 import {
-  MAGIC_SYSTEMS,
+  // MAGIC_SYSTEMS, // TEMPORARY: tradition section deactivated
   STAT_DESCRIPTIONS,
   STAT_GROUPS,
   STAT_LABELS,
@@ -197,7 +197,8 @@ export class CharacterSheet {
       this.standingHtml(pub, spi, moral, morality),
       this.credentialsHtml(progression),
       this.attributesHtml(stats, progression),
-      this.affinitiesHtml(stats),
+      // TEMPORARY: tradition / affinity section deactivated until tradition packs ship.
+      // this.affinitiesHtml(stats),
       this.recordHtml(progression),
     ].join('');
 
@@ -440,7 +441,11 @@ export class CharacterSheet {
       </article>`;
   }
 
+  /** TEMPORARY: tradition packs are far off — keep the renderer for later, do not show it. */
   private affinitiesHtml(stats: PlayerStats): string {
+    void stats;
+    return '';
+    /*
     const entries = (Object.keys(MAGIC_SYSTEMS) as MagicTradition[]).map((id) => {
       const sys = MAGIC_SYSTEMS[id];
       const value = Math.round(stats.affinities?.[id] ?? 0);
@@ -466,6 +471,7 @@ export class CharacterSheet {
         <p class="ledger-lead">${esc(specialtyNote)}</p>
         <div class="ledger-affinities">${entries.join('')}</div>
       </section>`;
+    */
   }
 
   private recordHtml(progression: PlayerProgression): string {
