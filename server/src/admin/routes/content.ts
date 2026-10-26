@@ -11,8 +11,9 @@ import { hexagramEnchantSystem } from '../../systems/hexagram-enchant-system.js'
 import { questSystem } from '../../systems/quest-system.js';
 import { readContentJson, writeContentJson } from '../../content/json-persist.js';
 import { saveLevelDocument } from '../../content/level-sync.js';
+import { licenseEditorCatalog, loadLicensesDocumentFromDisk, saveLicensesDocument } from '../../content/license-sync.js';
 import type { ContentRecipe, ContentHexagramRecipe } from '@witchcraft/shared';
-import { LEVEL_STAT_FLOOR_KEYS, getLevelDocument } from '@witchcraft/shared';
+import { LEVEL_STAT_FLOOR_KEYS, getLevelDocument, getLicensesDocument } from '@witchcraft/shared';
 import { hydrateNpcSprite, npcToDb } from '../../content/npc-sprites.js';
 
 function hydrateItemIcon(item: ContentIngredient & { data?: { iconPixels?: string[] | null } }): ContentIngredient {
@@ -520,6 +521,26 @@ contentRouter.put('/levels', requirePerm('content.spell.edit'), async (req: Admi
     newValue: document,
   });
   res.json({ document, catalog: levelCatalog() });
+});
+
+contentRouter.get('/licenses', requirePerm('content.spell.view'), (_req, res) => {
+  const document = getLicensesDocument().licenses.length
+    ? getLicensesDocument()
+    : loadLicensesDocumentFromDisk();
+  res.json({ document, catalog: licenseEditorCatalog() });
+});
+
+contentRouter.put('/licenses', requirePerm('content.spell.edit'), async (req: AdminRequest, res) => {
+  const before = getLicensesDocument();
+  const document = saveLicensesDocument(req.body?.document ?? req.body);
+  await writeAuditLog(auditContext(req), {
+    action: 'content.licenses.update',
+    objectType: 'licenses_document',
+    objectId: 'magical_council_licenses',
+    previousValue: before,
+    newValue: document,
+  });
+  res.json({ document, catalog: licenseEditorCatalog() });
 });
 
 // --- Reload ---

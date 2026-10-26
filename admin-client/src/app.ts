@@ -7,14 +7,16 @@ import { renderWardManager, renderEventManager } from './editors/ward-event-mana
 import { renderMapBuilder } from './map-builder/index.js';
 import { renderHudBuilder } from './hud-builder/index.js';
 import { renderLevelEditor } from './editors/level-editor.js';
+import { renderLicenseEditor } from './editors/license-editor.js';
 
-type Page = 'dashboard' | 'players' | 'spells' | 'levels' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
+type Page = 'dashboard' | 'players' | 'spells' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
 
 const NAV: { id: Page; label: string; perm?: string }[] = [
   { id: 'dashboard', label: 'Dashboard', perm: 'dashboard.view' },
   { id: 'players', label: 'Player Manager', perm: 'player.view' },
   { id: 'spells', label: 'Spell Editor', perm: 'content.spell.view' },
   { id: 'levels', label: 'Level Editor', perm: 'content.spell.view' },
+  { id: 'licenses', label: 'License Editor', perm: 'content.spell.view' },
   { id: 'recipes', label: 'Recipe Manager', perm: 'content.item.view' },
   { id: 'items', label: 'Item Editor', perm: 'content.item.view' },
   { id: 'npcs', label: 'NPC Builder', perm: 'content.npc.view' },
@@ -124,6 +126,8 @@ async function loadPage(): Promise<void> {
       return renderSpellList(el, (id) => { editSpellId = id; void loadPage(); });
     case 'levels':
       return renderLevelEditor(el);
+    case 'licenses':
+      return renderLicenseEditor(el);
     case 'recipes':
       return renderRecipeManager(el);
     case 'items':
