@@ -235,3 +235,38 @@ export function applyMoralityGossip(
   const result = applyReputationSource(stats, 'public', sourceId);
   return { stats: result.stats, applied: result.applied, sourceId: result.source ? sourceId : null };
 }
+
+/** Fractional game-days between two instants (24h wall-clock = 1 game day). */
+export function gameDaysBetween(from: Date | number | null | undefined, to: Date | number = Date.now()): number {
+  if (from == null) return 0;
+  const start = typeof from === 'number' ? from : from.getTime();
+  const end = typeof to === 'number' ? to : to.getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return (end - start) / (24 * 60 * 60 * 1000);
+}
+
+/**
+ * Drift each reputation track toward its content `decay.toward` by
+ * `decay.perGameDay * gameDays`. Never overshoots the toward value.
+ */
+export function applyReputationDecay(stats: PlayerStats, gameDays: number): PlayerStats {
+  if (!Number.isFinite(gameDays) || gameDays <= 0) return stats;
+  let next = stats;
+  for (const track of ['public', 'spiritual'] as const) {
+    const cfg = getReputationConfig(track);
+    const perDay = cfg.decay?.perGameDay;
+    if (perDay == null || !Number.isFinite(perDay) || perDay === 0) continue;
+    const toward = cfg.decay?.toward ?? 0;
+    const current = getReputation(next, track);
+    const maxStep = Math.abs(perDay) * gameDays;
+    if (maxStep <= 0) continue;
+    const delta =
+      current > toward
+        ? -Math.min(maxStep, current - toward)
+        : current < toward
+          ? Math.min(maxStep, toward - current)
+          : 0;
+    if (delta !== 0) next = applyReputationDelta(next, track, delta);
+  }
+  return next;
+}

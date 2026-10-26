@@ -1,6 +1,6 @@
 import type { MagicTradition, PlayerStats } from '../types/index.js';
 import { playerLevel } from '../types/index.js';
-import { clampPlayerStatValue, toFiniteNumber } from '../constants/index.js';
+import { clampMagicalEnergy, clampPlayerStatValue, toFiniteNumber } from '../constants/index.js';
 import { syncLevelDerivedStats } from '../balance/index.js';
 import type { PlayerProgression } from './index.js';
 import { grantSkillXp, resolveTechnicalSkillKey, type TechnicalSkillKey } from './skill-xp.js';
@@ -261,6 +261,10 @@ export function grantExperience(
   }
 
   nextStats = syncLevelDerivedStats(nextStats);
+  nextStats = {
+    ...nextStats,
+    magicalEnergy: clampMagicalEnergy(nextStats.magicalEnergy, nextStats.experience ?? 0),
+  };
 
   if (granted > 0) {
     nextProgression = pushRecent(nextProgression, {
