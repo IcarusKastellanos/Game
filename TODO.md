@@ -29,7 +29,7 @@
 ### Phase 1 — Milestone B (next)
 
 5. ~~Recognition tiers + licenses + dialogue/vendor gates~~ — done (`recognition-tiers.json` + `evaluateRecognition`)
-6. **Licensure Marks & credentialed practice** — see §1.3b (spell/spirit/NPC/place gates, examiner NPC, vows, council discipline)
+6. ~~Licensure Marks & credentialed practice~~ — done (`licenses.json` + examiner NPC + vow/marks gates)
 7. Character sheet UI (full sheet)
 8. Then Milestone C — Grimoire
 
@@ -287,43 +287,40 @@ Recognition is **what the magical establishment acknowledges you as** — distin
 
 
 
-### 1.3b Licensure Marks & Magical Council credentials (planned)
+### 1.3b Licensure Marks & Magical Council credentials
 
 Formal credentials (Licensed Exorcist, Certified Healer, Certified Seer, Licensed Warder, hex/cursecraft credentials, etc.) are **stronger than recognition tiers**. A license gates content that only credentialed practitioners may use, and binds the holder to a professional vow enforced by Licensure Marks and the Magical Council.
 
 #### Credential issuance (examiner NPC)
 
-- [ ] Content: examiner / Magical Council clerk NPC(s) who **scan the player holistically** (level, recognition, spiritual rep, relevant skills, morality, prior vows)
-- [ ] Exam flow: charge **money**, require a **vow** that binds the player’s reputation to that skill set (stored on progression)
-- [ ] On pass: grant license id + initialize that license’s **Licensure Marks** pool; unlock credential story flags
-- [ ] Content file e.g. `content/progression/licenses.json` — per license: `{ id, label, examNpcId, fee, vowId, requirements{}, markCapacity, warnAtMarks, revokeAtMarks, forbids[], allows[], unlocks: { spellIds[], spiritIds[], npcIds[], placeIds[] } }`
+- [x] Content: examiner / Magical Council clerk NPC (`npc_council_clerk` / Clerk Maris Vale) who **scans the player holistically** (level, recognition, spiritual rep, relevant skills, morality)
+- [x] Exam flow: charge **money**, require a **vow** that binds the player’s reputation to that skill set (`progression.activeVows`)
+- [x] On pass: grant license id + initialize that license’s **Licensure Marks** pool; unlock credential story flags
+- [x] Content file `content/progression/licenses.json` — per license: `{ id, label, examNpcId, fee, vowId, requirements{}, markCapacity, warnAtMarks, revokeAtMarks, forbids, allows, unlocks }`
 
 #### Content gates (credential-only)
 
-- [ ] Spells: `{ requiresLicense: "certified_healer" }` (and/or `requiresAnyLicense[]`) — cast blocked without credential; altar UI treats like level-gate (visible, not selectable, tip explains license)
-- [ ] Spirits: license-specific spirit contacts / offerings only for that credential
-- [ ] NPCs: teachers, temple staff, council clerks gated by license
-- [ ] Places / map zones: healer **office or temple**, seer **psychic tent**, warder **seal yard**, etc. (`requiresLicense` on interactables / map zones)
+- [x] Spells: `{ requiresLicense }` / unlock spell ids — cast blocked without credential; altar UI treats like level-gate (visible, not selectable, tip explains license)
+- [x] Spirits: `content/spirits.json` + license-specific spirit ids gated via `licenseUnlocksSpirit`
+- [x] NPCs: temple healer / seal yard / psychic tent staff gated by license unlock lists
+- [x] Places: healer office, psychic tent, seal yard interactables with `requiresLicense` / `placeId`
 
 #### Professional vows & practice limits
 
-- [ ] Each license defines practice rules, e.g.:
-  - **Healers** must not harm (baneful / high malevolent moralDelta forbidden or heavily punished)
-  - **Hex / curse workers** have **weak or blocked heals**
-  - Seers / exorcists / warders: content-defined allow/forbid spell categories and effect tags
-- [ ] Server enforces vow on cast / craft / spirit work (not only UI)
+- [x] Each license defines practice rules (healers forbid baneful/binding; hexworkers weak heals via `healingPotencyMultiplier`)
+- [x] Server enforces vow on cast (mark penalties + healing potency); craft/spirit work deeper hooks deferred with full spirit system (§1.7)
 
 #### Licensure Marks & Magical Council discipline
 
-- [ ] Persist `progression.licensureMarks: Record<licenseId, { marks, markCapacity, status: 'good'|'warned'|'revoked' }>`
-- [ ] Going against your license **consumes Licensure Marks** (content-defined cost per violation)
-- [ ] At `warnAtMarks`: Magical Council **warning** (notification + dialogue / letter)
-- [ ] At `revokeAtMarks` (or marks exhausted): **license revoked** — lose credential gates until re-examination; spiritual / public reputation hit
-- [ ] Optional: marks slowly recover with clean practice or council restitution quests
+- [x] Persist `progression.licensureMarks: Record<licenseId, { marks, markCapacity, status: 'good'|'warned'|'revoked' }>`
+- [x] Going against your license **consumes Licensure Marks** (content-defined cost per violation)
+- [x] At `warnAtMarks`: Magical Council **warning** notification
+- [x] At `revokeAtMarks` (or marks exhausted): **license revoked** — lose credential gates until re-examination; spiritual / public reputation hit
+- [x] Marks slowly recover with clean practice in allowed categories
 
 #### UI / admin (when built)
 
-- [ ] Character sheet: licenses held, marks remaining, vow text, council standing
+- [x] HUD tooltip: licenses held + marks remaining (full character sheet still open)
 - [ ] Admin: license editor + examiner quest wiring
 
 
@@ -533,7 +530,8 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 - [x] `content/progression/xp-sources.json`
 - [x] `content/progression/level-curve.json` (max Level 10)
 - [x] `content/progression/recognition-tiers.json`
-- [ ] `content/progression/licenses.json` (exams, vows, Licensure Marks, credential unlocks — §1.3b)
+- [x] `content/progression/licenses.json` (exams, vows, Licensure Marks, credential unlocks — §1.3b)
+- [x] `content/spirits.json` (license-gated contacts; full spirit rep system still §1.7)
 - [x] `content/progression/reputation-public.json` (+ `reputation-spiritual.json`)
 - [x] `content/progression/reputation-spiritual.json`
 - [ ] `content/progression/reputation-coven.json` (stub)
@@ -579,8 +577,8 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 **Milestone B — Recognition & gates**  
 4. ~~Recognition tiers + license flags~~  
 5. ~~Wire gates into shops, dialogues, quests (vendor unlocks + dialogue requiresRecognition/requiresLicense)~~  
-6. **Licensure Marks & Magical Council** (§1.3b) — examiner NPC, vows, spell/spirit/NPC/place gates, marks → warn → revoke  
-7. Character sheet UI (full sheet still open; HUD shows recognition + specialty)  
+6. ~~Licensure Marks & Magical Council~~ (§1.3b) — done  
+7. Character sheet UI (full sheet still open; HUD shows recognition + specialty + credentials/marks)  
 
 **Milestone C — Grimoire**  
 8. Grimoire state + auto-record hooks  

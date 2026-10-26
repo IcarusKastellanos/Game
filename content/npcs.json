@@ -5,22 +5,35 @@
     "role": "Metaphysical Shopkeeper",
     "locationId": "metaphysical_shop",
     "schedule": [
-      { "hour": 9, "locationId": "metaphysical_shop" },
-      { "hour": 20, "locationId": "apartment_building" }
+      {
+        "hour": 9,
+        "locationId": "metaphysical_shop"
+      },
+      {
+        "hour": 20,
+        "locationId": "apartment_building"
+      }
     ],
     "relationshipLevel": 0,
     "magicalKnowledge": 75,
     "dialogueTreeId": "mara_intro",
     "shopId": "metaphysical_shop",
     "faction": "occult_merchants",
-    "secrets": ["knows_old_coven_site"]
+    "secrets": [
+      "knows_old_coven_site"
+    ]
   },
   {
     "id": "npc_tom",
     "name": "Tom Baker",
     "role": "Grocer",
     "locationId": "grocery",
-    "schedule": [{ "hour": 7, "locationId": "grocery" }],
+    "schedule": [
+      {
+        "hour": 7,
+        "locationId": "grocery"
+      }
+    ],
     "relationshipLevel": 0,
     "magicalKnowledge": 5,
     "dialogueTreeId": "tom_greeting",
@@ -31,7 +44,12 @@
     "name": "Dr. Elena Cross",
     "role": "Pharmacist",
     "locationId": "pharmacy",
-    "schedule": [{ "hour": 8, "locationId": "pharmacy" }],
+    "schedule": [
+      {
+        "hour": 8,
+        "locationId": "pharmacy"
+      }
+    ],
     "relationshipLevel": 0,
     "magicalKnowledge": 15,
     "dialogueTreeId": "elena_greeting",
@@ -42,18 +60,30 @@
     "name": "Agatha Reed",
     "role": "Archivist",
     "locationId": "library",
-    "schedule": [{ "hour": 10, "locationId": "library" }],
+    "schedule": [
+      {
+        "hour": 10,
+        "locationId": "library"
+      }
+    ],
     "relationshipLevel": 0,
     "magicalKnowledge": 60,
     "dialogueTreeId": "agatha_archive",
-    "secrets": ["hidden_grimoire_index"]
+    "secrets": [
+      "hidden_grimoire_index"
+    ]
   },
   {
     "id": "npc_cafe_owner",
     "name": "Silas Moore",
-    "role": "Café Owner",
+    "role": "Caf\u00e9 Owner",
     "locationId": "cafe",
-    "schedule": [{ "hour": 6, "locationId": "cafe" }],
+    "schedule": [
+      {
+        "hour": 6,
+        "locationId": "cafe"
+      }
+    ],
     "relationshipLevel": 0,
     "magicalKnowledge": 20,
     "dialogueTreeId": "silas_cafe"
@@ -63,10 +93,82 @@
     "name": "Rowan Ash",
     "role": "Study Circle Facilitator",
     "locationId": "study_circle",
-    "schedule": [{ "hour": 18, "locationId": "study_circle" }],
+    "schedule": [
+      {
+        "hour": 18,
+        "locationId": "study_circle"
+      }
+    ],
     "relationshipLevel": 0,
     "magicalKnowledge": 85,
     "dialogueTreeId": "rowan_circle",
     "faction": "occult_study_circle"
+  },
+  {
+    "id": "npc_council_clerk",
+    "name": "Clerk Maris Vale",
+    "role": "Magical Council Examiner",
+    "locationId": "study_circle",
+    "schedule": [
+      {
+        "hour": 10,
+        "locationId": "study_circle"
+      }
+    ],
+    "relationshipLevel": 0,
+    "magicalKnowledge": 90,
+    "dialogueTreeId": "council_exam",
+    "faction": "magical_council",
+    "secrets": [
+      "keeps_licensure_ledgers"
+    ]
+  },
+  {
+    "id": "npc_temple_healer",
+    "name": "Sister Brenna",
+    "role": "Temple Healer",
+    "locationId": "study_circle",
+    "schedule": [
+      {
+        "hour": 9,
+        "locationId": "study_circle"
+      }
+    ],
+    "relationshipLevel": 0,
+    "magicalKnowledge": 80,
+    "dialogueTreeId": "temple_healer",
+    "faction": "magical_council"
+  },
+  {
+    "id": "npc_seal_yard_foreman",
+    "name": "Gareth Flint",
+    "role": "Seal Yard Foreman",
+    "locationId": "study_circle",
+    "schedule": [
+      {
+        "hour": 8,
+        "locationId": "study_circle"
+      }
+    ],
+    "relationshipLevel": 0,
+    "magicalKnowledge": 70,
+    "dialogueTreeId": "seal_yard",
+    "faction": "magical_council"
+  },
+  {
+    "id": "npc_psychic_tent_reader",
+    "name": "Madame Ilya",
+    "role": "Psychic Tent Reader",
+    "locationId": "study_circle",
+    "schedule": [
+      {
+        "hour": 12,
+        "locationId": "study_circle"
+      }
+    ],
+    "relationshipLevel": 0,
+    "magicalKnowledge": 75,
+    "dialogueTreeId": "psychic_tent",
+    "faction": "occult_merchants"
   }
 ]

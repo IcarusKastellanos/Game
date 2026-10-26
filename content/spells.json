@@ -774,7 +774,8 @@
       "revealIncomingMagic": true
     },
     "description": "A self-cast pocket rite that sharpens second sight and reveals incoming magic.",
-    "minLevel": 2
+    "minLevel": 2,
+    "requiresLicense": "seer_license"
   },
   {
     "id": "pocket_divination_veil",
@@ -811,7 +812,8 @@
       "weakenIntuition": 8
     },
     "description": "A veiling hex that clouds the target's divination and dulls their intuition.",
-    "minLevel": 4
+    "minLevel": 4,
+    "requiresLicense": "seer_license"
   },
   {
     "id": "pocket_silencing_touch",
@@ -849,5 +851,187 @@
     },
     "description": "A brief speech-binding charm that ties the tongue and saps a little magical energy.",
     "minLevel": 3
+  },
+  {
+    "id": "certified_healing_rite",
+    "name": "Certified Healing Rite",
+    "tradition": "traditional_european",
+    "category": "healing",
+    "targetType": "self",
+    "ingredients": [
+      {
+        "itemId": "bay_leaf",
+        "quantity": 3
+      },
+      {
+        "itemId": "white_candle",
+        "quantity": 1
+      },
+      {
+        "itemId": "salt",
+        "quantity": 1
+      }
+    ],
+    "requiredTools": [
+      "charm_bag"
+    ],
+    "castingTime": 35,
+    "duration": 2400,
+    "difficulty": 18,
+    "basePotency": 28,
+    "maintenanceCost": 4,
+    "counterspellTags": [],
+    "moralEffect": 5,
+    "gameplayEffect": {
+      "healthRestore": 40,
+      "blessing": "council_healing"
+    },
+    "description": "Council-certified restorative rite taught only to credentialed healers.",
+    "minLevel": 3,
+    "requiresLicense": "healer_license"
+  },
+  {
+    "id": "licensed_threshold_seal",
+    "name": "Licensed Threshold Seal",
+    "tradition": "traditional_european",
+    "category": "warding",
+    "targetType": "area",
+    "ingredients": [
+      {
+        "itemId": "salt",
+        "quantity": 3
+      },
+      {
+        "itemId": "iron_nail",
+        "quantity": 1
+      },
+      {
+        "itemId": "horseshoe",
+        "quantity": 1
+      }
+    ],
+    "requiredTools": [],
+    "castingTime": 40,
+    "duration": 3600,
+    "difficulty": 20,
+    "basePotency": 30,
+    "maintenanceCost": 5,
+    "counterspellTags": [],
+    "moralEffect": 2,
+    "gameplayEffect": {
+      "wardStrength": 25,
+      "blessing": "threshold_seal"
+    },
+    "description": "A Magical Council seal for doorways \u2014 illegal to sell without a Warder license.",
+    "minLevel": 3,
+    "requiresLicense": "warder_license"
+  },
+  {
+    "id": "certified_scrying_glass",
+    "name": "Certified Scrying Glass",
+    "tradition": "traditional_european",
+    "category": "divination",
+    "targetType": "self",
+    "ingredients": [
+      {
+        "itemId": "bay_leaf",
+        "quantity": 2
+      },
+      {
+        "itemId": "written_petition",
+        "quantity": 1
+      }
+    ],
+    "requiredTools": [],
+    "castingTime": 30,
+    "duration": 900,
+    "difficulty": 22,
+    "basePotency": 24,
+    "maintenanceCost": 4,
+    "counterspellTags": [],
+    "moralEffect": 0,
+    "gameplayEffect": {
+      "insight": 20,
+      "blessing": "certified_sight"
+    },
+    "description": "Formal scrying method reserved for Certified Seers.",
+    "minLevel": 4,
+    "requiresLicense": "seer_license"
+  },
+  {
+    "id": "licensed_exorcism_rite",
+    "name": "Licensed Exorcism Rite",
+    "tradition": "traditional_european",
+    "category": "cleansing",
+    "targetType": "other_player",
+    "ingredients": [
+      {
+        "itemId": "salt",
+        "quantity": 4
+      },
+      {
+        "itemId": "white_candle",
+        "quantity": 2
+      },
+      {
+        "itemId": "iron_nail",
+        "quantity": 1
+      }
+    ],
+    "requiredTools": [],
+    "castingTime": 50,
+    "duration": 600,
+    "difficulty": 26,
+    "basePotency": 35,
+    "maintenanceCost": 8,
+    "counterspellTags": [],
+    "moralEffect": 4,
+    "gameplayEffect": {
+      "cleanse": 40,
+      "blessing": "exorcism"
+    },
+    "description": "Council-licensed banishing of clinging spirits and hitchhikers.",
+    "minLevel": 5,
+    "requiresLicense": "exorcist_license"
+  },
+  {
+    "id": "licensed_binding_pin",
+    "name": "Licensed Binding Pin",
+    "tradition": "traditional_european",
+    "category": "binding",
+    "targetType": "other_player",
+    "ingredients": [
+      {
+        "itemId": "iron_nail",
+        "quantity": 2
+      },
+      {
+        "itemId": "black_candle",
+        "quantity": 1
+      },
+      {
+        "itemId": "poppet_cloth",
+        "quantity": 1
+      }
+    ],
+    "requiredTools": [],
+    "taglockRequirement": [
+      "hair",
+      "written_name",
+      "personal_item"
+    ],
+    "castingTime": 45,
+    "duration": 1800,
+    "difficulty": 24,
+    "basePotency": 32,
+    "maintenanceCost": 6,
+    "counterspellTags": [],
+    "moralEffect": -5,
+    "gameplayEffect": {
+      "bind": 30
+    },
+    "description": "Credentialed hexwork binding \u2014 only Licensed Hexworkers may work this pin.",
+    "minLevel": 4,
+    "requiresLicense": "hex_license"
   }
 ]

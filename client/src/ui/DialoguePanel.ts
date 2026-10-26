@@ -7,6 +7,7 @@ type DialogueChoiceRow = {
   label: string;
   requiresRecognition?: string;
   requiresLicense?: string;
+  requiresAnyLicense?: string[];
 };
 
 type DialogueNodeRow = {
@@ -15,6 +16,7 @@ type DialogueNodeRow = {
   choices: DialogueChoiceRow[];
   requiresRecognition?: string;
   requiresLicense?: string;
+  requiresAnyLicense?: string[];
 };
 
 type DialogueTreeRow = {

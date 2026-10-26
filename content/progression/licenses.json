@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "note": "Magical Council credentials — stronger than recognition tiers. Exams charge a fee, bind a vow, and open credential-only content. Violations spend Licensure Marks.",
+  "vows": [
+    {
+      "id": "vow_healer",
+      "label": "Healer's Vow",
+      "text": "I will not knowingly harm through my craft. My hands are for mending; baneful work is forbidden while I hold this seal."
+    },
+    {
+      "id": "vow_warder",
+      "label": "Warder's Vow",
+      "text": "I keep thresholds honest. I will not sell false seals or abandon a ward I have accepted payment to maintain."
+    },
+    {
+      "id": "vow_seer",
+      "label": "Seer's Vow",
+      "text": "I will not invent omens for coin, nor pry where consent is refused. Sight is a trust."
+    },
+    {
+      "id": "vow_exorcist",
+      "label": "Exorcist's Vow",
+      "text": "I confront what clings. I will not bargain spirits into households for spectacle or spite."
+    },
+    {
+      "id": "vow_hex",
+      "label": "Hexworker's Compact",
+      "text": "I accept that healing is not my path. Baneful craft is my trade; restorative work is weak in my hands and stays so by choice."
+    }
+  ],
+  "licenses": [
+    {
+      "id": "healer_license",
+      "label": "Certified Healer",
+      "examNpcId": "npc_council_clerk",
+      "fee": 80,
+      "vowId": "vow_healer",
+      "requirements": {
+        "minLevel": 3,
+        "minSpiritualRep": 10,
+        "minRecognition": "registered_practitioner",
+        "minSkills": { "healing": 12 },
+        "moralityMin": 0
+      },
+      "markCapacity": 10,
+      "warnAtMarks": 4,
+      "revokeAtMarks": 0,
+      "violationMarkCost": 2,
+      "forbids": {
+        "categories": ["baneful", "binding"],
+        "minMoralEffect": 0
+      },
+      "allows": {
+        "categories": ["healing", "cleansing", "protection"]
+      },
+      "unlocks": {
+        "spellIds": ["certified_healing_rite"],
+        "spiritIds": ["spirit_temple_attendant"],
+        "npcIds": ["npc_temple_healer"],
+        "placeIds": ["place_healer_office"],
+        "storyFlags": ["license_healer"]
+      }
+    },
+    {
+      "id": "warder_license",
+      "label": "Licensed Warder",
+      "examNpcId": "npc_council_clerk",
+      "fee": 75,
+      "vowId": "vow_warder",
+      "requirements": {
+        "minLevel": 3,
+        "minSpiritualRep": 10,
+        "minRecognition": "registered_practitioner",
+        "minSkills": { "warding": 12, "protection": 10 }
+      },
+      "markCapacity": 10,
+      "warnAtMarks": 4,
+      "revokeAtMarks": 0,
+      "violationMarkCost": 2,
+      "forbids": {
+        "categories": ["baneful"]
+      },
+      "allows": {
+        "categories": ["protection", "warding", "cleansing"]
+      },
+      "unlocks": {
+        "spellIds": ["licensed_threshold_seal"],
+        "spiritIds": ["spirit_threshold_guardian"],
+        "npcIds": ["npc_seal_yard_foreman"],
+        "placeIds": ["place_seal_yard"],
+        "storyFlags": ["license_warder"]
+      }
+    },
+    {
+      "id": "seer_license",
+      "label": "Certified Seer",
+      "examNpcId": "npc_council_clerk",
+      "fee": 90,
+      "vowId": "vow_seer",
+      "requirements": {
+        "minLevel": 4,
+        "minSpiritualRep": 15,
+        "minRecognition": "registered_practitioner",
+        "minSkills": { "divinationSkill": 12, "intuition": 15 }
+      },
+      "markCapacity": 10,
+      "warnAtMarks": 4,
+      "revokeAtMarks": 0,
+      "violationMarkCost": 2,
+      "forbids": {
+        "categories": ["baneful"]
+      },
+      "allows": {
+        "categories": ["divination", "cleansing"]
+      },
+      "unlocks": {
+        "spellIds": ["certified_scrying_glass"],
+        "spiritIds": ["spirit_veil_whisper"],
+        "npcIds": ["npc_psychic_tent_reader"],
+        "placeIds": ["place_psychic_tent"],
+        "storyFlags": ["license_seer"]
+      }
+    },
+    {
+      "id": "exorcist_license",
+      "label": "Licensed Exorcist",
+      "examNpcId": "npc_council_clerk",
+      "fee": 110,
+      "vowId": "vow_exorcist",
+      "requirements": {
+        "minLevel": 5,
+        "minSpiritualRep": 20,
+        "minRecognition": "registered_practitioner",
+        "minSkills": { "spiritualAwareness": 18, "willpower": 15 },
+        "moralityMin": -10
+      },
+      "markCapacity": 8,
+      "warnAtMarks": 3,
+      "revokeAtMarks": 0,
+      "violationMarkCost": 2,
+      "forbids": {
+        "categories": ["baneful"]
+      },
+      "allows": {
+        "categories": ["cleansing", "protection", "warding"]
+      },
+      "unlocks": {
+        "spellIds": ["licensed_exorcism_rite"],
+        "spiritIds": ["spirit_banishing_choir"],
+        "npcIds": ["npc_temple_healer"],
+        "placeIds": ["place_healer_office"],
+        "storyFlags": ["license_exorcist"]
+      }
+    },
+    {
+      "id": "hex_license",
+      "label": "Licensed Hexworker",
+      "examNpcId": "npc_council_clerk",
+      "fee": 95,
+      "vowId": "vow_hex",
+      "requirements": {
+        "minLevel": 4,
+        "minSpiritualRep": 5,
+        "minRecognition": "registered_practitioner",
+        "minSkills": { "cursecraft": 12 },
+        "moralityMax": 20
+      },
+      "markCapacity": 10,
+      "warnAtMarks": 4,
+      "revokeAtMarks": 0,
+      "violationMarkCost": 2,
+      "forbids": {
+        "categories": []
+      },
+      "allows": {
+        "categories": ["baneful", "binding"]
+      },
+      "healingPotencyMultiplier": 0.25,
+      "unlocks": {
+        "spellIds": ["licensed_binding_pin"],
+        "spiritIds": ["spirit_spite_mote"],
+        "npcIds": [],
+        "placeIds": [],
+        "storyFlags": ["license_hex"]
+      }
+    }
+  ]
+}

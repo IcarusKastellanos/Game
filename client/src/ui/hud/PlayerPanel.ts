@@ -135,6 +135,19 @@ export class PlayerPanel {
         ? getPractitionerType(stats, gameState.progression?.recognitionTierLabel ?? 'Initiate')
         : 'Practitioner',
       `Public rep ${publicRep} · Spiritual rep ${spiritualRep}`,
+      (() => {
+        const licenses = gameState.progression?.earnedLicenses ?? [];
+        const marks = gameState.progression?.licensureMarks ?? {};
+        if (!licenses.length) return 'Credentials: none';
+        return `Credentials: ${licenses
+          .map((id) => {
+            const m = marks[id];
+            const status = m?.status === 'warned' ? '⚠' : m?.status === 'revoked' ? '✕' : '●';
+            const left = m ? `${m.marks}/${m.markCapacity}` : '?';
+            return `${status}${id.replace(/_license$/, '')} ${left}`;
+          })
+          .join(' · ')}`;
+      })(),
       recentLine,
       '<em>Press X for Aura &amp; Wards (full stats)</em>',
     ].filter(Boolean).join('<br/>');

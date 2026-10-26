@@ -1,5 +1,6 @@
 import type { MagicTradition } from '../types/index.js';
 import { getAllBookContent, getBookContent } from './progression-content.js';
+import { parseActiveVows, parseLicensureMarks } from './licenses.js';
 
 export const SPECIALTY_AFFINITY_THRESHOLD = 25;
 export const MAX_POCKET_SPELLS = 3;
@@ -83,6 +84,10 @@ export interface PlayerProgression {
   recognitionTierLabel?: string;
   /** Formal licenses earned via quests / content (warder, healer, seer, …). */
   earnedLicenses?: string[];
+  /** Licensure Marks pools + Magical Council standing per credential. */
+  licensureMarks?: Record<string, import('./licenses.js').LicensureMarkState>;
+  /** Active professional vows keyed by license id. */
+  activeVows?: Record<string, import('./licenses.js').ActiveVowState>;
   /** Story / recognition flags unlocked by tiers and content. */
   storyFlags?: string[];
 }
@@ -230,6 +235,8 @@ export function defaultProgression(): PlayerProgression {
     recognitionTierId: 'initiate',
     recognitionTierLabel: 'Initiate',
     earnedLicenses: [],
+    licensureMarks: {},
+    activeVows: {},
     storyFlags: [],
   };
 }
@@ -287,6 +294,8 @@ export function parseProgression(raw: unknown): PlayerProgression {
     earnedLicenses: Array.isArray(o.earnedLicenses)
       ? [...new Set((o.earnedLicenses as unknown[]).filter((id): id is string => typeof id === 'string'))]
       : [],
+    licensureMarks: parseLicensureMarks(o.licensureMarks),
+    activeVows: parseActiveVows(o.activeVows),
     storyFlags: Array.isArray(o.storyFlags)
       ? [...new Set((o.storyFlags as unknown[]).filter((id): id is string => typeof id === 'string'))]
       : [],

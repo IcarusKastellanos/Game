@@ -2,6 +2,7 @@ import type {
   AltarState,
   ContentSpell,
   InventorySlot,
+  PlayerProgression,
   PlayerStats,
   TaglockSelection,
   TaglockType,
@@ -18,6 +19,11 @@ import {
   meetsMinLevel,
   levelGateMessage,
   playerLevel,
+  meetsSpellLicenseGate,
+  licenseGateMessage,
+  licenseUnlocksSpell,
+  licenseHealingPotencyMultiplier,
+  defaultProgression,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { EVERWEED_INIT_ME_COST, EVERWEED_ITEM_ID, ritualHasEverweed } from './ward-feeding.js';
@@ -41,12 +47,14 @@ export interface CastContext {
   timing?: string;
   /** Added to focus difficulty from binding hexes on the caster. */
   bindingPenalty?: number;
+  progression?: PlayerProgression;
 }
 
 export interface CastDiagnostics {
   code:
     | 'unknown_spell'
     | 'level_gate'
+    | 'license_gate'
     | 'pentacle_overflow'
     | 'missing_ingredient'
     | 'insufficient_me'
@@ -89,6 +97,12 @@ export class SpellEngine {
         levelGateMessage(spell.name, spell.minLevel ?? 1, current),
         'level_gate'
       );
+    }
+
+    const progression = ctx.progression ?? defaultProgression();
+    if (!meetsSpellLicenseGate(spell, progression) || !licenseUnlocksSpell(spell.id, progression)) {
+      const need = spell.requiresLicense ?? spell.requiresAnyLicense?.[0] ?? 'credential';
+      return this.fail(licenseGateMessage(need), 'license_gate');
     }
 
     const consumed: { itemId: string; quantity: number }[] = [];
@@ -216,6 +230,7 @@ export class SpellEngine {
       ctx.targetProtection !== undefined && ctx.casterStats.intuition < (ctx.targetProtection ?? 0);
 
     potency = scalePotencyByLevel(potency, ctx.casterStats.experience);
+    potency *= licenseHealingPotencyMultiplier(progression, spell.category);
 
     const effects = {
       ...spell.gameplayEffect,

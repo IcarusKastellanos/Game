@@ -9,6 +9,12 @@ import {
   totalItemQuantity,
   playerLevel,
   meetsMinLevel,
+  meetsSpellLicenseGate,
+  licenseUnlocksSpell,
+  licenseGateMessage,
+  getLicense,
+  defaultProgression,
+  type PlayerProgression,
 } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
@@ -148,8 +154,35 @@ export class AltarPanel {
     return playerLevel(this.getPlayerExperience());
   }
 
+  private getProgression(): PlayerProgression {
+    return (gameState.progression as PlayerProgression | undefined) ?? defaultProgression();
+  }
+
   private isSpellUnlocked(spell: ContentSpell): boolean {
-    return meetsMinLevel(this.getPlayerExperience(), spell.minLevel);
+    if (!meetsMinLevel(this.getPlayerExperience(), spell.minLevel)) return false;
+    const progression = this.getProgression();
+    if (!meetsSpellLicenseGate(spell, progression)) return false;
+    if (!licenseUnlocksSpell(spell.id, progression)) return false;
+    return true;
+  }
+
+  private spellLockReason(spell: ContentSpell): string {
+    if (!meetsMinLevel(this.getPlayerExperience(), spell.minLevel)) {
+      const need = spell.minLevel ?? 1;
+      return `Level gated — requires Practitioner Level ${need} (you are ${this.getPlayerLevel()})`;
+    }
+    const progression = this.getProgression();
+    if (!meetsSpellLicenseGate(spell, progression) || !licenseUnlocksSpell(spell.id, progression)) {
+      const need = spell.requiresLicense ?? spell.requiresAnyLicense?.[0];
+      if (need) {
+        const label = getLicense(need)?.label;
+        return label
+          ? `Credential gated — requires ${label}`
+          : `Credential gated — ${licenseGateMessage(need)}`;
+      }
+      return 'Credential gated — Magical Council license required';
+    }
+    return '';
   }
 
   private canSeeSpellInsight(spell: ContentSpell): boolean {
@@ -487,7 +520,6 @@ export class AltarPanel {
     const label = selected
       ? `${selected.name} · ME ${selected.maintenanceCost}`
       : 'Select a working…';
-    const level = this.getPlayerLevel();
     return `<div class="altar-spell-picker">
       <button type="button" id="altar-spell-trigger" class="altar-spell-trigger">
         <span>${label}</span>
@@ -497,11 +529,10 @@ export class AltarPanel {
         ${spells.map((s) => {
           const unlocked = this.isSpellUnlocked(s);
           const sel = this.selectedSpellId === s.id && unlocked;
-          const need = s.minLevel ?? 1;
           const lockedCls = unlocked ? '' : ' locked';
           const meta = unlocked
             ? `ME ${s.maintenanceCost} · focus ${s.difficulty} · ${s.category.replace(/_/g, ' ')}`
-            : `Requires Practitioner Level ${need} (you are ${level})`;
+            : this.spellLockReason(s).replace(/^Level gated — /i, '').replace(/^Credential gated — /i, '');
           return `<button type="button" class="altar-spell-option${sel ? ' selected' : ''}${lockedCls}" data-id="${s.id}" data-locked="${unlocked ? '0' : '1'}" ${unlocked ? '' : 'aria-disabled="true"'}>
             ${s.name}${unlocked ? '' : ' <span class="altar-spell-lock">Locked</span>'}
             <span class="altar-spell-me">${meta}</span>
@@ -513,21 +544,23 @@ export class AltarPanel {
 
   private buildSpellTooltip(spell: ContentSpell): string {
     const unlocked = this.isSpellUnlocked(spell);
-    const need = spell.minLevel ?? 1;
-    const level = this.getPlayerLevel();
     const effectKeys = Object.keys(spell.gameplayEffect ?? {})
       .slice(0, 4)
       .map((k) => k.replace(/([A-Z])/g, ' $1').trim())
       .join(', ');
 
     if (!unlocked) {
+      const reason = this.spellLockReason(spell);
+      const sealedHint = reason.startsWith('Credential')
+        ? 'Ingredients and preparation details stay sealed until you hold the required Magical Council credential.'
+        : `Ingredients and preparation details stay sealed until you reach Level ${spell.minLevel ?? 1}.`;
       return `
       <div class="altar-tip-title">${spell.name}</div>
-      <div class="altar-tip-gate">Level gated — requires Practitioner Level ${need} (you are ${level})</div>
+      <div class="altar-tip-gate">${reason}</div>
       <div class="altar-tip-desc">${spell.description}</div>
       <div class="altar-tip-row"><span>Effect</span> ${effectKeys || spell.category.replace(/_/g, ' ')}</div>
       <div class="altar-tip-row"><span>Target</span> ${spell.targetType.replace(/_/g, ' ')} · ${Math.round(spell.duration / 60)} min duration</div>
-      <div class="altar-tip-muted">Ingredients and preparation details stay sealed until you reach Level ${need}.</div>
+      <div class="altar-tip-muted">${sealedHint}</div>
     `;
     }
 
@@ -1192,7 +1225,7 @@ export class AltarPanel {
     const spell = gameState.getSpells().find((s) => s.id === this.selectedSpellId);
     if (spell && !this.isSpellUnlocked(spell)) {
       if (msg) {
-        msg.textContent = `Requires Practitioner Level ${spell.minLevel ?? 1} (you are ${this.getPlayerLevel()}).`;
+        msg.textContent = this.spellLockReason(spell) || 'This working is locked.';
         msg.style.color = '#f88';
       }
       this.selectedSpellId = null;
