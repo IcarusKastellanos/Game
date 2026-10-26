@@ -26,6 +26,12 @@
 3. ~~XP source registry + central `grantExperience()`~~ — done (`content/progression/xp-sources.json` + shared `grantExperience`)
 4. ~~Practitioner Level curve (max 10) + `minLevel` gates~~ — done (`level-curve.json`)
 
+### Phase 1 — Milestone B (next)
+
+5. ~~Recognition tiers + licenses + dialogue/vendor gates~~ — done (`recognition-tiers.json` + `evaluateRecognition`)
+6. Character sheet UI (full sheet)
+7. Then Milestone C — Grimoire
+
 See **Phase 1** below for the full practitioner framework roadmap.
 
 ---
