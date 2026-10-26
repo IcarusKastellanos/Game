@@ -14,6 +14,7 @@ import './ui/hud/hud-theme.css';
 import './ui/workbench-panels.css';
 import './ui/friends-panel.css';
 import './ui/aura-panel.css';
+import './ui/character-sheet.css';
 import './ui/aura/aura-visualization.css';
 
 /** Phaser game bootstrap — 16-bit pixel scale */

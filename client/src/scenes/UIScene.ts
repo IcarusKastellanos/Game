@@ -5,6 +5,7 @@ import { AltarPanel } from '../ui/AltarPanel';
 import { InventoryPanel } from '../ui/InventoryPanel';
 import { ShopPanel } from '../ui/ShopPanel';
 import { AuraPanel } from '../ui/AuraPanel';
+import { CharacterSheet } from '../ui/CharacterSheet';
 import { FamiliarPanel } from '../ui/FamiliarPanel';
 import { DialoguePanel } from '../ui/DialoguePanel';
 import { HUD } from '../ui/HUD';
@@ -26,6 +27,7 @@ export class UIScene extends Phaser.Scene {
   private inventoryPanel!: InventoryPanel;
   private shopPanel!: ShopPanel;
   private auraPanel!: AuraPanel;
+  private characterSheet!: CharacterSheet;
   private familiarPanel!: FamiliarPanel;
   private dialoguePanel!: DialoguePanel;
   private hud!: HUD;
@@ -44,6 +46,7 @@ export class UIScene extends Phaser.Scene {
     this.inventoryPanel = new InventoryPanel(this);
     this.shopPanel = new ShopPanel(this);
     this.auraPanel = new AuraPanel(this);
+    this.characterSheet = new CharacterSheet(this);
     this.familiarPanel = new FamiliarPanel(this);
     this.dialoguePanel = new DialoguePanel(this);
     this.hud = new HUD(this);
@@ -117,6 +120,8 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-M', guard(() => this.openHudWindow('map')));
     this.input.keyboard?.on('keydown-P', guard(() => { this.closeAll(); friendsPanel.show(); }));
     this.input.keyboard?.on('keydown-X', guard(() => this.togglePanel('aura')));
+    this.input.keyboard?.on('keydown-Y', guard(() => this.toggleLedger()));
+    window.addEventListener('game:open-character-sheet', () => this.toggleLedger());
     this.input.keyboard?.on('keydown-F', guard(() => this.togglePanel('familiar')));
     this.input.keyboard?.on('keydown-J', guard(() => {
       progressionPanels.toggleJournal();
@@ -240,6 +245,16 @@ export class UIScene extends Phaser.Scene {
     return ids.some((id) => hudWindows.get(id)?.isOpen());
   }
 
+  private toggleLedger(): void {
+    const already = gameState.activeUI === 'ledger';
+    this.targetPanel.hide();
+    friendsPanel.hide();
+    this.closeAll();
+    if (already) return;
+    gameState.activeUI = 'ledger';
+    this.characterSheet.show();
+  }
+
   private togglePanel(panel: 'inventory' | 'aura' | 'familiar'): void {
     const alreadyOpen =
       (panel === 'inventory' && gameState.activeUI === 'inventory') ||
@@ -269,6 +284,7 @@ export class UIScene extends Phaser.Scene {
     this.inventoryPanel.hide();
     this.shopPanel.hide();
     this.auraPanel.hide();
+    this.characterSheet.hide();
     this.familiarPanel.hide();
     this.dialoguePanel.hide();
     this.targetPanel.hide();

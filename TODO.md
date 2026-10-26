@@ -30,7 +30,7 @@
 
 5. ~~Recognition tiers + licenses + dialogue/vendor gates~~ — done (`recognition-tiers.json` + `evaluateRecognition`)
 6. ~~Licensure Marks & credentialed practice~~ — done (`licenses.json` + examiner NPC + vow/marks gates)
-7. Character sheet UI (full sheet)
+7. ~~Character sheet UI (full sheet)~~ — done (ledger on Y / click name; Aura unchanged)
 8. Then Milestone C — Grimoire
 
 See **Phase 1** below for the full practitioner framework roadmap.
@@ -558,7 +558,7 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 
 ### 6.3 UI surfaces
 
-- [ ] Character sheet (stats, affinities, recognition, reputations)
+- [x] Character sheet (stats, affinities, recognition, reputations, licenses) — practitioner ledger [Y]
 - [ ] Grimoire panel (replaces journal)
 - [ ] Recognition / license notification toasts → chatbox (match hexagram message style)
 - [ ] Target inspect shows public vs spiritual reputation (gated by Intuition/Awareness)
@@ -579,7 +579,7 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 4. ~~Recognition tiers + license flags~~  
 5. ~~Wire gates into shops, dialogues, quests (vendor unlocks + dialogue requiresRecognition/requiresLicense)~~  
 6. ~~Licensure Marks & Magical Council~~ (§1.3b) — done  
-7. Character sheet UI (full sheet still open; HUD shows recognition + specialty + credentials/marks)  
+7. ~~Character sheet UI~~ — practitioner ledger [Y]; HUD still shows recognition + specialty + credentials/marks  
 
 **Milestone C — Grimoire**  
 8. Grimoire state + auto-record hooks  
