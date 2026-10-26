@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "note": "Practitioner Level curve. Tunable without code changes. Max level is 10 for the current prototype.",
+  "maxLevel": 10,
+  "xpPerLevel": 100,
+  "power": {
+    "minMultiplier": 0.12,
+    "maxMultiplier": 2.5,
+    "note": "Spell output / focus scale from L1→L10 (retuned from the old L100 apex)."
+  },
+  "meCap": {
+    "base": 55,
+    "perLevel": 4,
+    "apexScale": 35,
+    "apexExponent": 1.8
+  },
+  "protection": {
+    "base": 10,
+    "perLevel": 1.5
+  },
+  "onLevelUp": [
+    {
+      "atLevel": 2,
+      "eventId": "level_up_2",
+      "message": "Your practice deepens — new charms and mild workings open to you."
+    },
+    {
+      "atLevel": 3,
+      "eventId": "level_up_3",
+      "message": "Household wards and beginner pocket preparations are within reach."
+    },
+    {
+      "atLevel": 4,
+      "eventId": "level_up_4",
+      "message": "You can now attempt milder hexes and enchanting-table knots."
+    },
+    {
+      "atLevel": 5,
+      "eventId": "level_up_5",
+      "message": "Mid-tier baneful pocket workings unlock."
+    },
+    {
+      "atLevel": 6,
+      "eventId": "level_up_6",
+      "message": "Binding touches and shield-breaking rites become available."
+    },
+    {
+      "atLevel": 7,
+      "eventId": "level_up_7",
+      "message": "Advanced binding spells open — handle them carefully."
+    },
+    {
+      "atLevel": 8,
+      "eventId": "level_up_8",
+      "message": "Serious hex work (poppet bindings) is now within your grade."
+    },
+    {
+      "atLevel": 9,
+      "eventId": "level_up_9",
+      "message": "Curse-breaking and other master-tier reversals unlock."
+    },
+    {
+      "atLevel": 10,
+      "eventId": "level_up_10",
+      "message": "You have reached the current Practitioner apex (Level 10)."
+    }
+  ]
+}

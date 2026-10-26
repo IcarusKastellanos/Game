@@ -24,6 +24,7 @@
 1. ~~Stats expansion + migration (`stamina`, mental stats)~~ — done (`extendedStats` + load-time backfill)
 2. ~~Reputation split (`publicReputation` / `spiritualReputation`) + content files~~ — done
 3. ~~XP source registry + central `grantExperience()`~~ — done (`content/progression/xp-sources.json` + shared `grantExperience`)
+4. ~~Practitioner Level curve (max 10) + `minLevel` gates~~ — done (`level-curve.json`)
 
 See **Phase 1** below for the full practitioner framework roadmap.
 
@@ -258,10 +259,10 @@ Each track has: **current value**, **tier/level label**, **history log** (option
 
 ### 1.2 Character level (Practitioner Level)
 
-- [ ] Keep formula in `shared/src/balance/index.ts` but expose curve in `content/progression/level-curve.json` for admin tuning
-- [ ] Level-up hook: fire `onLevelUp` content events (ME cap sync already via `syncLevelDerivedStats`)
-- [ ] Level gates: `{ minLevel }` on spells, recipes, vendors, quests, map zones (validate in content loader)
-- [ ] Level-up notification + optional stat point allocation if we add manual growth (otherwise keep auto-derived protection)
+- [x] Keep formula in `shared/src/balance/index.ts` but expose curve in `content/progression/level-curve.json` for admin tuning (**max Level 10**)
+- [x] Level-up hook: fire `onLevelUp` content events (ME cap sync already via `syncLevelDerivedStats`)
+- [x] Level gates: `{ minLevel }` on spells, recipes, hexagrams, vendors, quests (validated in content loader; map zones deferred)
+- [x] Level-up notification + auto-derived protection (no manual stat-point allocation yet)
 
 
 
@@ -482,10 +483,10 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 ### 6.1 New content files
 
 - [x] `content/progression/xp-sources.json`
-- [ ] `content/progression/level-curve.json`
+- [x] `content/progression/level-curve.json` (max Level 10)
 - [ ] `content/progression/recognition-tiers.json`
 - [x] `content/progression/reputation-public.json` (+ `reputation-spiritual.json`)
-- [ ] `content/progression/reputation-spiritual.json`
+- [x] `content/progression/reputation-spiritual.json`
 - [ ] `content/progression/reputation-coven.json` (stub)
 - [ ] `content/progression/affinity-rules.json`
 - [ ] `content/progression/stats.json`

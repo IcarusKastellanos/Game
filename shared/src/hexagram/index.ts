@@ -78,6 +78,8 @@ export interface ContentHexagramRecipe {
   declarationTemplates: string[];
   difficulty: number;
   meCost: number;
+  /** Minimum Practitioner Level required to enchant. */
+  minLevel?: number;
   powerTier: number;
   preparedUses: number;
   activationMethod: string;

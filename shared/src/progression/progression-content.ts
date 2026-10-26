@@ -2,6 +2,7 @@ import type { MagicTradition, PlayerStats } from '../types/index.js';
 import { resolveStatValue, type StatDisplayKey } from './stats-catalog.js';
 import { setReputationContent } from './reputation.js';
 import { setXpSourcesContent } from './xp-sources.js';
+import { setLevelCurveContent } from './level-curve.js';
 
 export interface HungerDebuffBand {
   belowHunger: number;
@@ -189,7 +190,11 @@ export function setProgressionContent(partial: {
   reputationPublicJson?: unknown;
   reputationSpiritualJson?: unknown;
   xpSourcesJson?: unknown;
+  levelCurveJson?: unknown;
 }): void {
+  if (partial.levelCurveJson !== undefined) {
+    setLevelCurveContent(partial.levelCurveJson);
+  }
   if (partial.reputationPublicJson !== undefined || partial.reputationSpiritualJson !== undefined) {
     setReputationContent({
       publicJson: partial.reputationPublicJson,

@@ -18,6 +18,7 @@ export * from './progression/progression-content.js';
 export * from './progression/skill-xp.js';
 export * from './progression/reputation.js';
 export * from './progression/xp-sources.js';
+export * from './progression/level-curve.js';
 export * from './hexagram/index.js';
 export * from './pocket-spell/index.js';
 export * from './cleanser/index.js';

@@ -14,7 +14,10 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "healing", "min": 5 },
+    "requiredSkill": {
+      "stat": "healing",
+      "min": 5
+    },
     "effect": "pocket_spell",
     "spellId": "healing_charm",
     "visualTheme": "healing",
@@ -23,15 +26,51 @@
     "soundTheme": "soft_bell",
     "animationSet": "golden_pulse",
     "sockets": [
-      { "socket": "core", "itemIds": ["white_candle"], "label": "Flame of mending" },
-      { "socket": "power", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
-      { "socket": "offering", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "white_candle"
+        ],
+        "label": "Flame of mending"
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "offering",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "rosemary", "stability": 5, "potency": 2, "visualHint": "healing" },
-      { "itemId": "frankincense", "stability": 8, "visualHint": "spirit" },
-      { "itemId": "myrrh", "stability": 6, "backlash": -3 }
-    ]
+      {
+        "itemId": "rosemary",
+        "stability": 5,
+        "potency": 2,
+        "visualHint": "healing"
+      },
+      {
+        "itemId": "frankincense",
+        "stability": 8,
+        "visualHint": "spirit"
+      },
+      {
+        "itemId": "myrrh",
+        "stability": 6,
+        "backlash": -3
+      }
+    ],
+    "minLevel": 2
   },
   {
     "id": "recipe_pocket_evil_eye_removal",
@@ -48,22 +87,64 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "ritualSkill", "min": 8 },
+    "requiredSkill": {
+      "stat": "ritualSkill",
+      "min": 8
+    },
     "effect": "pocket_spell",
     "spellId": "evil_eye_removal",
     "visualTheme": "protection",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["evil_eye_bead"] },
-      { "socket": "protection", "itemIds": ["salt"], "categories": ["minerals"] },
-      { "socket": "binding", "itemIds": ["sage"], "categories": ["herbs"] },
-      { "socket": "power", "itemIds": ["sage"], "categories": ["herbs"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "evil_eye_bead"
+        ]
+      },
+      {
+        "socket": "protection",
+        "itemIds": [
+          "salt"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      },
+      {
+        "socket": "binding",
+        "itemIds": [
+          "sage"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "sage"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "salt", "stability": 6, "power": 3, "visualHint": "protection" },
-      { "itemId": "frankincense", "stability": 5, "visualHint": "spirit" }
-    ]
+      {
+        "itemId": "salt",
+        "stability": 6,
+        "power": 3,
+        "visualHint": "protection"
+      },
+      {
+        "itemId": "frankincense",
+        "stability": 5,
+        "visualHint": "spirit"
+      }
+    ],
+    "minLevel": 2
   },
   {
     "id": "recipe_pocket_protection_candle",
@@ -86,14 +167,47 @@
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
-      { "socket": "protection", "itemIds": ["salt"], "categories": ["minerals"] },
-      { "socket": "power", "itemIds": ["rosemary"], "categories": ["herbs"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "black_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      },
+      {
+        "socket": "protection",
+        "itemIds": [
+          "salt"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "rosemary"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "rosemary", "power": 2, "stability": 4 },
-      { "itemId": "myrrh", "stability": 8, "backlash": -2 }
-    ]
+      {
+        "itemId": "rosemary",
+        "power": 2,
+        "stability": 4
+      },
+      {
+        "itemId": "myrrh",
+        "stability": 8,
+        "backlash": -2
+      }
+    ],
+    "minLevel": 2
   },
   {
     "id": "recipe_pocket_weakening_hex",
@@ -110,21 +224,57 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "cursecraft", "min": 8 },
+    "requiredSkill": {
+      "stat": "cursecraft",
+      "min": 8
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_weakening_hex",
     "visualTheme": "baneful",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["poppet_cloth"], "categories": ["poppets"] },
-      { "socket": "power", "itemIds": ["black_candle"], "categories": ["candles"] },
-      { "socket": "influence", "itemIds": ["iron_nail"], "categories": ["minerals"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "poppet_cloth"
+        ],
+        "categories": [
+          "poppets"
+        ]
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "black_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      },
+      {
+        "socket": "influence",
+        "itemIds": [
+          "iron_nail"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "myrrh", "stability": 5, "potency": 2 },
-      { "itemId": "salt", "stability": 4, "visualHint": "protection" }
-    ]
+      {
+        "itemId": "myrrh",
+        "stability": 5,
+        "potency": 2
+      },
+      {
+        "itemId": "salt",
+        "stability": 4,
+        "visualHint": "protection"
+      }
+    ],
+    "minLevel": 4
   },
   {
     "id": "recipe_pocket_sleep_charm",
@@ -141,21 +291,57 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "ritualSkill", "min": 7 },
+    "requiredSkill": {
+      "stat": "ritualSkill",
+      "min": 7
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_sleep_charm",
     "visualTheme": "dream",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
-      { "socket": "binding", "itemIds": ["white_candle"], "categories": ["candles"] },
-      { "socket": "offering", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "binding",
+        "itemIds": [
+          "white_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      },
+      {
+        "socket": "offering",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "frankincense", "stability": 6, "visualHint": "spirit" },
-      { "itemId": "myrrh", "stability": 5, "duration": 4 }
-    ]
+      {
+        "itemId": "frankincense",
+        "stability": 6,
+        "visualHint": "spirit"
+      },
+      {
+        "itemId": "myrrh",
+        "stability": 5,
+        "duration": 4
+      }
+    ],
+    "minLevel": 3
   },
   {
     "id": "recipe_pocket_fear_working",
@@ -172,21 +358,57 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "cursecraft", "min": 10 },
+    "requiredSkill": {
+      "stat": "cursecraft",
+      "min": 10
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_fear_working",
     "visualTheme": "baneful",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
-      { "socket": "power", "itemIds": ["iron_nail"], "categories": ["minerals"] },
-      { "socket": "influence", "itemIds": ["poppet_cloth"], "categories": ["poppets"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "black_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "iron_nail"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      },
+      {
+        "socket": "influence",
+        "itemIds": [
+          "poppet_cloth"
+        ],
+        "categories": [
+          "poppets"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "salt", "stability": 4, "backlash": -2 },
-      { "itemId": "myrrh", "potency": 3, "stability": 4 }
-    ]
+      {
+        "itemId": "salt",
+        "stability": 4,
+        "backlash": -2
+      },
+      {
+        "itemId": "myrrh",
+        "potency": 3,
+        "stability": 4
+      }
+    ],
+    "minLevel": 5
   },
   {
     "id": "recipe_pocket_pain_touch",
@@ -203,21 +425,58 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "cursecraft", "min": 12 },
+    "requiredSkill": {
+      "stat": "cursecraft",
+      "min": 12
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_pain_touch",
     "visualTheme": "baneful",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["poppet_cloth"], "categories": ["poppets"] },
-      { "socket": "binding", "itemIds": ["iron_nail"], "categories": ["minerals"] },
-      { "socket": "power", "itemIds": ["black_candle"], "categories": ["candles"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "poppet_cloth"
+        ],
+        "categories": [
+          "poppets"
+        ]
+      },
+      {
+        "socket": "binding",
+        "itemIds": [
+          "iron_nail"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "black_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "myrrh", "stability": 4, "potency": 4, "backlash": 3 },
-      { "itemId": "salt", "stability": 5, "backlash": -2 }
-    ]
+      {
+        "itemId": "myrrh",
+        "stability": 4,
+        "potency": 4,
+        "backlash": 3
+      },
+      {
+        "itemId": "salt",
+        "stability": 5,
+        "backlash": -2
+      }
+    ],
+    "minLevel": 5
   },
   {
     "id": "recipe_pocket_binding_touch",
@@ -234,21 +493,57 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "ritualSkill", "min": 10 },
+    "requiredSkill": {
+      "stat": "ritualSkill",
+      "min": 10
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_binding_touch",
     "visualTheme": "binding",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["written_petition"], "categories": ["written_petitions"] },
-      { "socket": "binding", "itemIds": ["iron_nail"], "categories": ["minerals"] },
-      { "socket": "offering", "itemIds": ["black_candle"], "categories": ["candles"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "written_petition"
+        ],
+        "categories": [
+          "written_petitions"
+        ]
+      },
+      {
+        "socket": "binding",
+        "itemIds": [
+          "iron_nail"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      },
+      {
+        "socket": "offering",
+        "itemIds": [
+          "black_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "salt", "power": 3, "stability": 5, "visualHint": "binding" },
-      { "itemId": "frankincense", "stability": 4 }
-    ]
+      {
+        "itemId": "salt",
+        "power": 3,
+        "stability": 5,
+        "visualHint": "binding"
+      },
+      {
+        "itemId": "frankincense",
+        "stability": 4
+      }
+    ],
+    "minLevel": 6
   },
   {
     "id": "recipe_pocket_misfortune_hex",
@@ -265,21 +560,56 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "cursecraft", "min": 6 },
+    "requiredSkill": {
+      "stat": "cursecraft",
+      "min": 6
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_misfortune_hex",
     "visualTheme": "baneful",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
-      { "socket": "influence", "itemIds": ["salt"], "categories": ["minerals"] },
-      { "socket": "offering", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "black_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      },
+      {
+        "socket": "influence",
+        "itemIds": [
+          "salt"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      },
+      {
+        "socket": "offering",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "rosemary", "potency": 2, "stability": 3 },
-      { "itemId": "myrrh", "stability": 6 }
-    ]
+      {
+        "itemId": "rosemary",
+        "potency": 2,
+        "stability": 3
+      },
+      {
+        "itemId": "myrrh",
+        "stability": 6
+      }
+    ],
+    "minLevel": 3
   },
   {
     "id": "recipe_pocket_divination_lens",
@@ -296,21 +626,57 @@
     "preparedUses": 1,
     "activationMethod": "Touch self or ally — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "divinationSkill", "min": 6 },
+    "requiredSkill": {
+      "stat": "divinationSkill",
+      "min": 6
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_divination_lens",
     "visualTheme": "spirit",
     "stationType": "enchanting_table",
     "discoverOnCraft": true,
     "sockets": [
-      { "socket": "core", "itemIds": ["white_candle"], "categories": ["candles"] },
-      { "socket": "communication", "itemIds": ["frankincense"], "categories": ["incense"] },
-      { "socket": "power", "itemIds": ["bay_leaf"], "categories": ["herbs"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "white_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      },
+      {
+        "socket": "communication",
+        "itemIds": [
+          "frankincense"
+        ],
+        "categories": [
+          "incense"
+        ]
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "frankincense", "potency": 3, "stability": 5, "visualHint": "spirit" },
-      { "itemId": "rosemary", "stability": 4 }
-    ]
+      {
+        "itemId": "frankincense",
+        "potency": 3,
+        "stability": 5,
+        "visualHint": "spirit"
+      },
+      {
+        "itemId": "rosemary",
+        "stability": 4
+      }
+    ],
+    "minLevel": 2
   },
   {
     "id": "recipe_pocket_divination_veil",
@@ -327,21 +693,57 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "cursecraft", "min": 8 },
+    "requiredSkill": {
+      "stat": "cursecraft",
+      "min": 8
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_divination_veil",
     "visualTheme": "dream",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["black_candle"], "categories": ["candles"] },
-      { "socket": "communication", "itemIds": ["myrrh"], "categories": ["incense"] },
-      { "socket": "influence", "itemIds": ["salt"], "categories": ["minerals"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "black_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      },
+      {
+        "socket": "communication",
+        "itemIds": [
+          "myrrh"
+        ],
+        "categories": [
+          "incense"
+        ]
+      },
+      {
+        "socket": "influence",
+        "itemIds": [
+          "salt"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "myrrh", "potency": 3, "stability": 5 },
-      { "itemId": "frankincense", "stability": 4, "visualHint": "spirit" }
-    ]
+      {
+        "itemId": "myrrh",
+        "potency": 3,
+        "stability": 5
+      },
+      {
+        "itemId": "frankincense",
+        "stability": 4,
+        "visualHint": "spirit"
+      }
+    ],
+    "minLevel": 4
   },
   {
     "id": "recipe_pocket_silencing_touch",
@@ -358,21 +760,57 @@
     "preparedUses": 1,
     "activationMethod": "Touch target — instant release",
     "durationLabel": "Single use",
-    "requiredSkill": { "stat": "ritualSkill", "min": 7 },
+    "requiredSkill": {
+      "stat": "ritualSkill",
+      "min": 7
+    },
     "effect": "pocket_spell",
     "spellId": "pocket_silencing_touch",
     "visualTheme": "binding",
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["written_petition"], "categories": ["written_petitions"] },
-      { "socket": "binding", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
-      { "socket": "communication", "itemIds": ["frankincense"], "categories": ["incense"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "written_petition"
+        ],
+        "categories": [
+          "written_petitions"
+        ]
+      },
+      {
+        "socket": "binding",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "communication",
+        "itemIds": [
+          "frankincense"
+        ],
+        "categories": [
+          "incense"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "salt", "stability": 5, "visualHint": "binding" },
-      { "itemId": "myrrh", "stability": 4, "backlash": -2 }
-    ]
+      {
+        "itemId": "salt",
+        "stability": 5,
+        "visualHint": "binding"
+      },
+      {
+        "itemId": "myrrh",
+        "stability": 4,
+        "backlash": -2
+      }
+    ],
+    "minLevel": 3
   },
   {
     "id": "recipe_enchant_knot_protection",
@@ -395,14 +833,45 @@
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["familiar_knot"] },
-      { "socket": "protection", "itemIds": ["salt"], "categories": ["minerals"] },
-      { "socket": "binding", "itemIds": ["rosemary"], "categories": ["herbs"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "familiar_knot"
+        ]
+      },
+      {
+        "socket": "protection",
+        "itemIds": [
+          "salt"
+        ],
+        "categories": [
+          "minerals"
+        ]
+      },
+      {
+        "socket": "binding",
+        "itemIds": [
+          "rosemary"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "salt", "power": 4, "stability": 6, "visualHint": "protection" },
-      { "itemId": "frankincense", "stability": 5, "visualHint": "spirit" }
-    ]
+      {
+        "itemId": "salt",
+        "power": 4,
+        "stability": 6,
+        "visualHint": "protection"
+      },
+      {
+        "itemId": "frankincense",
+        "stability": 5,
+        "visualHint": "spirit"
+      }
+    ],
+    "minLevel": 4
   },
   {
     "id": "recipe_enchant_knot_longevity",
@@ -425,14 +894,44 @@
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["familiar_knot"] },
-      { "socket": "influence", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
-      { "socket": "offering", "itemIds": ["white_candle"], "categories": ["candles"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "familiar_knot"
+        ]
+      },
+      {
+        "socket": "influence",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "offering",
+        "itemIds": [
+          "white_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "myrrh", "duration": 12, "stability": 8 },
-      { "itemId": "frankincense", "stability": 6, "visualHint": "spirit" }
-    ]
+      {
+        "itemId": "myrrh",
+        "duration": 12,
+        "stability": 8
+      },
+      {
+        "itemId": "frankincense",
+        "stability": 6,
+        "visualHint": "spirit"
+      }
+    ],
+    "minLevel": 4
   },
   {
     "id": "recipe_enchant_knot_ward",
@@ -454,14 +953,44 @@
     "stationType": "enchanting_table",
     "discoverOnCraft": false,
     "sockets": [
-      { "socket": "core", "itemIds": ["familiar_knot"] },
-      { "socket": "power", "itemIds": ["rosemary"], "categories": ["herbs"] },
-      { "socket": "communication", "itemIds": ["frankincense"], "categories": ["incense"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "familiar_knot"
+        ]
+      },
+      {
+        "socket": "power",
+        "itemIds": [
+          "rosemary"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "communication",
+        "itemIds": [
+          "frankincense"
+        ],
+        "categories": [
+          "incense"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "frankincense", "potency": 4, "stability": 5 },
-      { "itemId": "salt", "power": 3, "visualHint": "protection" }
-    ]
+      {
+        "itemId": "frankincense",
+        "potency": 4,
+        "stability": 5
+      },
+      {
+        "itemId": "salt",
+        "power": 3,
+        "visualHint": "protection"
+      }
+    ],
+    "minLevel": 5
   },
   {
     "id": "hex_charm_good_fortune",
@@ -479,17 +1008,49 @@
     "activationMethod": "Carried — passive",
     "durationLabel": "Until uses exhausted",
     "effect": "item",
-    "output": { "itemId": "evil_eye_bead", "quantity": 1 },
+    "output": {
+      "itemId": "evil_eye_bead",
+      "quantity": 1
+    },
     "visualTheme": "healing",
     "stationType": "enchanting_table",
     "discoverOnCraft": true,
     "sockets": [
-      { "socket": "core", "itemIds": ["bay_leaf"], "categories": ["herbs"] },
-      { "socket": "influence", "itemIds": ["rosemary"], "categories": ["herbs"] },
-      { "socket": "offering", "itemIds": ["white_candle"], "categories": ["candles"] }
+      {
+        "socket": "core",
+        "itemIds": [
+          "bay_leaf"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "influence",
+        "itemIds": [
+          "rosemary"
+        ],
+        "categories": [
+          "herbs"
+        ]
+      },
+      {
+        "socket": "offering",
+        "itemIds": [
+          "white_candle"
+        ],
+        "categories": [
+          "candles"
+        ]
+      }
     ],
     "augmentations": [
-      { "itemId": "rosemary", "potency": 3, "stability": 4 }
-    ]
+      {
+        "itemId": "rosemary",
+        "potency": 3,
+        "stability": 4
+      }
+    ],
+    "minLevel": 1
   }
 ]

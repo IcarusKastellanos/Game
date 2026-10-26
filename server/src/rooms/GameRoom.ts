@@ -1153,6 +1153,19 @@ export class GameRoom extends Room<GameRoomState> {
               : `+${xp.granted} XP — ${xp.source?.label ?? 'Working'}`,
             level: xp.leveledUp ? 'success' : 'info',
           });
+          for (const event of xp.levelUpEvents) {
+            client.send('notification', {
+              type: 'notification',
+              message: event.message,
+              level: 'success',
+            });
+            client.send('level_up', {
+              type: 'level_up',
+              eventId: event.eventId,
+              message: event.message,
+              level: xp.levelAfter,
+            });
+          }
         }
         // Blatant magic in town hurts public standing; witnessed workings raise spiritual.
         if (player.scene === 'town') {

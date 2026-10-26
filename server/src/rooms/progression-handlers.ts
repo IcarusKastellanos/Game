@@ -53,6 +53,21 @@ function notifyXp(ctx: HandlerCtx, granted: number, leveledUp: boolean, levelAft
   });
 }
 
+function notifyLevelUpEvents(ctx: HandlerCtx, events: { message: string; eventId: string }[]): void {
+  for (const event of events) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: event.message,
+      level: 'success',
+    });
+    ctx.client.send('level_up', {
+      type: 'level_up',
+      eventId: event.eventId,
+      message: event.message,
+    });
+  }
+}
+
 function grantXp(
   ctx: HandlerCtx,
   sourceId: string,
@@ -65,6 +80,7 @@ function grantXp(
   if (result.granted > 0) {
     ctx.sendProgression(ctx.client, ctx.data.progression);
     notifyXp(ctx, result.granted, result.leveledUp, result.levelAfter, result.source?.label ?? sourceId);
+    notifyLevelUpEvents(ctx, result.levelUpEvents);
   }
   return result;
 }
@@ -120,8 +136,11 @@ export function handleDialogueProgression(
   }
 
   if (resolvedNpcId === 'npc_mara' && !data.progression.questProgress.quest_first_steps) {
-    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps');
-    grantXp(ctx, 'quest_stage');
+    const before = data.progression.questProgress.quest_first_steps;
+    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps', player.stats);
+    if (!before && data.progression.questProgress.quest_first_steps) {
+      grantXp(ctx, 'quest_stage');
+    }
   }
 
   ctx.sendProgression(ctx.client, data.progression);

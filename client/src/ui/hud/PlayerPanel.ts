@@ -2,6 +2,8 @@ import {
   getPractitionerType,
   magicalEnergyCap,
   playerLevel,
+  practitionerXpProgress,
+  getMaxPlayerLevel,
   type PlayerStats,
 } from '@witchcraft/shared';
 import { gameState } from '../../data/game-state.js';
@@ -39,10 +41,11 @@ function resolveMorality(stats: PlayerStats | null): number {
 }
 
 function rankLabel(level: number): string {
-  if (level >= 80) return 'Rank IX';
-  if (level >= 60) return 'Rank VII';
-  if (level >= 40) return 'Rank V';
-  if (level >= 20) return 'Rank III';
+  // Tuned for max Practitioner Level 10.
+  if (level >= 10) return 'Rank V';
+  if (level >= 7) return 'Rank IV';
+  if (level >= 5) return 'Rank III';
+  if (level >= 3) return 'Rank II';
   return 'Rank I';
 }
 
@@ -81,10 +84,13 @@ export class PlayerPanel {
     const me = Math.round(stats?.magicalEnergy ?? 0);
     const meMax = magicalEnergyCap(stats?.experience ?? 0);
     const xp = stats?.experience ?? 0;
-    const xpInLevel = xp % 100;
+    const progress = practitionerXpProgress(xp);
     const hpPct = Math.max(0, Math.min(100, (hp / HEALTH_MAX) * 100));
     const mePct = meMax > 0 ? Math.max(0, Math.min(100, (me / meMax) * 100)) : 0;
-    const xpPct = Math.max(0, Math.min(100, xpInLevel));
+    const xpPct = Math.max(0, Math.min(100, progress.ratio * 100));
+    const xpLabel = progress.isMaxLevel
+      ? `Lv ${progress.level}/${getMaxPlayerLevel()} MAX`
+      : `${Math.round(progress.xpIntoLevel)} / ${progress.xpToNext}`;
 
     this.root.innerHTML = `
       <img class="hud-player-panel__chrome" src="${hudSprites.player.frame}" alt="" draggable="false" />
@@ -96,7 +102,7 @@ export class PlayerPanel {
       <div class="hud-player-panel__bars">
         ${barRow('hp', hpPct, `${hp} / ${HEALTH_MAX}`)}
         ${barRow('me', mePct, `${me} / ${meMax}`)}
-        ${barRow('xp', xpPct, `${Math.round(xpInLevel)} / 100`)}
+        ${barRow('xp', xpPct, xpLabel)}
       </div>`;
 
     // Re-mount the persistent morality gauge (innerHTML wiped its slot) and
@@ -113,8 +119,7 @@ export class PlayerPanel {
   private tooltipHtml(): string {
     const stats = parseStats();
     const level = playerLevel(stats?.experience ?? 0);
-    const xp = stats?.experience ?? 0;
-    const xpInLevel = xp % 100;
+    const progress = practitionerXpProgress(stats?.experience ?? 0);
     const publicRep = Math.round(stats?.publicReputation ?? stats?.reputation ?? 0);
     const spiritualRep = Math.round(stats?.spiritualReputation ?? 0);
     const recent = (gameState.progression?.recentXp ?? []).slice(-3).reverse();
@@ -122,9 +127,12 @@ export class PlayerPanel {
       recent.length > 0
         ? `Recent XP: ${recent.map((r) => `+${r.amount} ${r.label}`).join(' · ')}`
         : 'Recent XP: —';
+    const xpLine = progress.isMaxLevel
+      ? `Practitioner Level ${level}/${getMaxPlayerLevel()} (max)`
+      : `Practitioner Level ${level}/${getMaxPlayerLevel()} · ${progress.xpIntoLevel}/${progress.xpToNext} XP`;
     return [
       `<strong>${gameState.displayName ?? 'Practitioner'}</strong>`,
-      `Practitioner Level ${level} · ${xpInLevel}/100 XP`,
+      xpLine,
       stats ? getPractitionerType(stats) : 'Practitioner',
       `Public rep ${publicRep} · Spiritual rep ${spiritualRep}`,
       recentLine,

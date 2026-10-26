@@ -15,7 +15,7 @@ import type {
   ContentHexagramRecipe,
   MagicTradition,
 } from '@witchcraft/shared';
-import { setProgressionContent } from '@witchcraft/shared';
+import { setProgressionContent, getMaxPlayerLevel } from '@witchcraft/shared';
 import { dialogueSystem, type DialogueTree } from '../systems/dialogue-system.js';
 import { craftingSystem } from '../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
@@ -105,11 +105,33 @@ export class ContentRegistry {
       reputationPublicJson: loadJsonFile('progression/reputation-public.json'),
       reputationSpiritualJson: loadJsonFile('progression/reputation-spiritual.json'),
       xpSourcesJson: loadJsonFile('progression/xp-sources.json'),
+      levelCurveJson: loadJsonFile('progression/level-curve.json'),
     });
+
+    this.validateLevelGates();
 
     console.log(
       `[ContentRegistry] Loaded ${this.spells.size} spells, ${this.ingredients.size} ingredients, ${this.maps.size} maps, ${this.dialogues.size} dialogues, ${craftingSystem.recipes.size} recipes, ${hexagramEnchantSystem.recipes.size} hexagram recipes, ${questSystem.quests.size} quests`
     );
+  }
+
+  /** Warn on missing/out-of-range minLevel fields so content stays gateable. */
+  private validateLevelGates(): void {
+    const max = getMaxPlayerLevel();
+    const warn = (kind: string, id: string, minLevel: number | undefined) => {
+      if (minLevel == null) {
+        console.warn(`[ContentRegistry] ${kind} ${id} has no minLevel — defaulting to open (Level 1).`);
+        return;
+      }
+      if (minLevel < 1 || minLevel > max) {
+        console.warn(`[ContentRegistry] ${kind} ${id} minLevel=${minLevel} outside 1…${max}`);
+      }
+    };
+    for (const spell of this.spells.values()) warn('spell', spell.id, spell.minLevel);
+    for (const recipe of craftingSystem.recipes.values()) warn('recipe', recipe.id, recipe.minLevel);
+    for (const recipe of hexagramEnchantSystem.recipes.values()) {
+      warn('hexagram', recipe.id, recipe.minLevel);
+    }
   }
 
   /** Overlay DB-published maps, then restore canonical town/apartment templates. */

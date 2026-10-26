@@ -3,29 +3,32 @@ import {
   getSurvivalConfig,
   hungerRegenMultiplierFromContent,
 } from '../progression/progression-content.js';
+import {
+  getMaxPlayerLevel,
+  levelPowerMultiplierFromCurve,
+  magicalEnergyCapFromCurve,
+  protectionSkillFromCurve,
+  clampPlayerLevelValue,
+} from '../progression/level-curve.js';
 
-export const MAX_PLAYER_LEVEL = 100;
+/** @deprecated Prefer getMaxPlayerLevel() — kept as a live getter for importers. */
+export const MAX_PLAYER_LEVEL = 10;
 
 export function clampPlayerLevel(level: number): number {
-  return Math.max(1, Math.min(MAX_PLAYER_LEVEL, level));
+  return clampPlayerLevelValue(level);
 }
 
 /**
  * Exponential power curve for spell output and ME scaling.
- * Level 1 ≈ 0.12 · Level 50 ≈ 1.0 · Level 100 ≈ 10
+ * Tuned via content/progression/level-curve.json (default max Level 10).
  */
 export function levelPowerMultiplier(experience: number): number {
-  const level = clampPlayerLevel(playerLevel(experience));
-  const t = (level - 1) / (MAX_PLAYER_LEVEL - 1);
-  return 0.12 * Math.pow(10 / 0.12, t);
+  return levelPowerMultiplierFromCurve(experience);
 }
 
-/** Max ME pool — weak at low level, vast at apex */
+/** Max ME pool — scales with practitioner level from the content curve. */
 export function magicalEnergyCapForLevel(experience: number): number {
-  const level = playerLevel(experience);
-  const linear = 55 + level * 2.5;
-  const apex = Math.pow(level / MAX_PLAYER_LEVEL, 2.2) * 200;
-  return Math.round(linear + apex);
+  return magicalEnergyCapFromCurve(experience);
 }
 
 /** ME restored each regen tick (server applies on ~30s interval) */
@@ -45,10 +48,9 @@ export function levelFocusBonus(experience: number): number {
   return levelPowerMultiplier(experience) * 2.5;
 }
 
-/** Personal protection skill — 10 at L1, +0.25 per level (~34 at L100). Not spell layers. */
+/** Personal protection skill — content curve (default 10 at L1, +1.5/level). */
 export function protectionSkillFromLevel(experience: number): number {
-  const level = playerLevel(experience);
-  return Math.round(10 + (level - 1) * 0.25);
+  return protectionSkillFromCurve(experience);
 }
 
 /** Recompute stats that scale purely with practitioner level. */
@@ -58,6 +60,9 @@ export function syncLevelDerivedStats(stats: PlayerStats): PlayerStats {
     protection: protectionSkillFromLevel(stats.experience),
   };
 }
+
+// Re-export live max for call sites that previously imported the constant.
+export { getMaxPlayerLevel };
 
 // ── Survival (hunger / stamina) ─────────────────────────────────────────────
 // Rates default from progression-content (hydrated from content/progression/stats.json on server boot).

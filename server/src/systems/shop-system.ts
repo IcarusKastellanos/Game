@@ -4,6 +4,9 @@ import {
   getPublicReputation,
   getSpiritualReputation,
   meetsSpiritualGate,
+  meetsMinLevel,
+  levelGateMessage,
+  playerLevel,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { inventorySystem } from './inventory-ward-aura.js';
@@ -51,6 +54,12 @@ export class ShopSystem {
         message: 'They only sell to practitioners of standing in the circles.',
       };
     }
+    if (stats && shop.minLevel != null && !meetsMinLevel(stats.experience ?? 0, shop.minLevel)) {
+      return {
+        success: false,
+        message: levelGateMessage(shop.name, shop.minLevel, playerLevel(stats.experience ?? 0)),
+      };
+    }
 
     const listing = shop.inventory.find((i) => i.itemId === itemId);
     if (!listing) {
@@ -87,6 +96,16 @@ export class ShopSystem {
         return {
           success: false,
           message: 'Everweed is reserved for practitioners trusted in the circles.',
+        };
+      }
+      if (listing.minLevel != null && !meetsMinLevel(stats.experience ?? 0, listing.minLevel)) {
+        return {
+          success: false,
+          message: levelGateMessage(
+            itemDef?.name ?? itemId,
+            listing.minLevel,
+            playerLevel(stats.experience ?? 0)
+          ),
         };
       }
     }

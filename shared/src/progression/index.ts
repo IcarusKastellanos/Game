@@ -94,6 +94,8 @@ export interface ContentRecipe {
   meCost?: number;
   discoverOnCraft?: boolean;
   description?: string;
+  /** Minimum Practitioner Level required to craft. */
+  minLevel?: number;
 }
 
 /** Admin Player Manager grouping: enchants, potions, pocket spells vs other station crafts. */
@@ -166,6 +168,8 @@ export interface ContentQuest {
   npcId?: string;
   startStage: string;
   nodes: ContentQuestNode[];
+  /** Minimum Practitioner Level to accept / complete this quest. */
+  minLevel?: number;
   rewards?: {
     items?: { itemId: string; quantity: number }[];
     stats?: Record<string, number>;

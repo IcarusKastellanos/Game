@@ -215,7 +215,7 @@ async function showPlayer(id: string): Promise<void> {
     }
     return 'crafts';
   };
-  const playerLevel = 1 + Math.floor((stats.experience ?? 0) / 100);
+  const playerLevel = Math.min(10, 1 + Math.floor((stats.experience ?? 0) / 100));
   const statFields = ['health', 'hunger', 'stamina', 'magicalEnergy', 'protection', 'intuition', 'spiritualAwareness', 'ritualSkill', 'experience', 'reputation', 'publicReputation', 'spiritualReputation', 'morality', 'divinationSkill', 'herbalism', 'cursecraft', 'warding', 'healing', 'willpower', 'memory', 'presence', 'authority', 'mediumship', 'potionMaking', 'spiritNegotiation'];
   const el = document.getElementById('content')!;
   el.innerHTML = `

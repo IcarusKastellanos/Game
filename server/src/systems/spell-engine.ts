@@ -6,7 +6,19 @@ import type {
   TaglockSelection,
   TaglockType,
 } from '@witchcraft/shared';
-import { HEX_INTENTS, TAGLOCK_STRENGTH, totalItemQuantity, levelFocusBonus, scalePotencyByLevel, calculateSpellFocus, getFocusWeights, getStatLabel } from '@witchcraft/shared';
+import {
+  HEX_INTENTS,
+  TAGLOCK_STRENGTH,
+  totalItemQuantity,
+  levelFocusBonus,
+  scalePotencyByLevel,
+  calculateSpellFocus,
+  getFocusWeights,
+  getStatLabel,
+  meetsMinLevel,
+  levelGateMessage,
+  playerLevel,
+} from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { EVERWEED_INIT_ME_COST, EVERWEED_ITEM_ID, ritualHasEverweed } from './ward-feeding.js';
 
@@ -34,6 +46,7 @@ export interface CastContext {
 export interface CastDiagnostics {
   code:
     | 'unknown_spell'
+    | 'level_gate'
     | 'pentacle_overflow'
     | 'missing_ingredient'
     | 'insufficient_me'
@@ -69,6 +82,14 @@ export class SpellEngine {
   cast(spellId: string, ctx: CastContext): CastResult {
     const spell = contentRegistry.spells.get(spellId);
     if (!spell) return this.fail('Unknown spell.', 'unknown_spell');
+
+    if (!meetsMinLevel(ctx.casterStats.experience ?? 0, spell.minLevel)) {
+      const current = playerLevel(ctx.casterStats.experience ?? 0);
+      return this.fail(
+        levelGateMessage(spell.name, spell.minLevel ?? 1, current),
+        'level_gate'
+      );
+    }
 
     const consumed: { itemId: string; quantity: number }[] = [];
 
