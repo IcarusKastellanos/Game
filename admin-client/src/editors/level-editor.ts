@@ -8,7 +8,6 @@ type Catalog = {
   hexagrams: Named[];
   items: Named[];
   npcs: { id: string; name: string; role?: string }[];
-  familiars: { id: string; name: string; species?: string }[];
   quests: Named[];
   statKeys: string[];
   traditions: string[];
@@ -34,7 +33,6 @@ type LevelProfile = {
   hexagramIds: string[];
   shopItemIds: string[];
   npcIds: string[];
-  familiarIds: string[];
   questIds: string[];
   spiritRange: SpiritRange;
   statFloors: Record<string, number>;
@@ -47,8 +45,8 @@ type LevelDocument = {
   levels: LevelProfile[];
 };
 
-type UnlockBucket = 'spellIds' | 'recipeIds' | 'hexagramIds' | 'shopItemIds' | 'npcIds' | 'familiarIds' | 'questIds';
-type CatalogListKey = 'spells' | 'recipes' | 'hexagrams' | 'items' | 'npcs' | 'familiars' | 'quests';
+type UnlockBucket = 'spellIds' | 'recipeIds' | 'hexagramIds' | 'shopItemIds' | 'npcIds' | 'questIds';
+type CatalogListKey = 'spells' | 'recipes' | 'hexagrams' | 'items' | 'npcs' | 'quests';
 
 const BUCKETS: { key: UnlockBucket; label: string; catalog: CatalogListKey; hint: string }[] = [
   { key: 'spellIds', label: 'Spells that unlock here', catalog: 'spells', hint: 'Checking a spell moves its unlock to this level and updates its minLevel on save.' },
@@ -56,7 +54,6 @@ const BUCKETS: { key: UnlockBucket; label: string; catalog: CatalogListKey; hint
   { key: 'hexagramIds', label: 'Hexagram enchantments', catalog: 'hexagrams', hint: 'Enchanting-table workings.' },
   { key: 'shopItemIds', label: 'Shop listings', catalog: 'items', hint: 'Items that require this level to buy.' },
   { key: 'npcIds', label: 'NPCs who will speak', catalog: 'npcs', hint: 'Left unchecked, an NPC stays open to every level.' },
-  { key: 'familiarIds', label: 'Familiars', catalog: 'familiars', hint: 'Species the practitioner can bond at this level.' },
   { key: 'questIds', label: 'Quests', catalog: 'quests', hint: 'Quests that can be started at this level.' },
 ];
 
@@ -135,7 +132,6 @@ function resizeLevels(maxLevel: number): void {
         hexagramIds: [],
         shopItemIds: [],
         npcIds: [],
-        familiarIds: [],
         questIds: [],
         spiritRange: { label: '', minPower: 0, maxPower: 10, traditions: [], notes: '' },
         statFloors: {},
@@ -165,7 +161,7 @@ function paint(el: HTMLElement): void {
   el.innerHTML = `
     <div class="card">
       <h2>Practitioner levels</h2>
-      <p class="muted-text">Each level owns a title, the spells and entities that unlock there, a spirit band, and stat floors. Saving writes <code>content/progression/levels.json</code> and updates minLevel on spells, recipes, hexagrams, shops, and quests.</p>
+      <p class="muted-text">Each level owns a title, the spells and entities that unlock there, a spirit band, and stat floors. Saving writes <code>content/progression/levels.json</code> and updates minLevel on spells, recipes, hexagrams, shops, and quests. Familiars are not level-gated — every implemented species is available at character start.</p>
       <div class="form-grid">
         <label class="form-field"><span class="form-label">Max level</span><input id="lvl-max" type="number" min="1" max="50" value="${levelsDoc.maxLevel}" /></label>
         <label class="form-field"><span class="form-label">XP per level</span><input id="lvl-xp" type="number" min="1" value="${levelsDoc.xpPerLevel}" /></label>

@@ -32,3 +32,9 @@ test('craft and shop panels hide ingredients / block purchase when level gated',
   assert.match(shop, /meetsMinLevel/);
   assert.match(shop, /if \(unlocked\)/);
 });
+
+test('familiar chooser lists every content familiar with no level filter', () => {
+  const panel = readFileSync(join(root, 'src/ui/FamiliarPanel.ts'), 'utf8');
+  assert.match(panel, /gameState\.content\?\.familiars/);
+  assert.doesNotMatch(panel, /minLevel|meetsMinLevel|assignedUnlockLevel|familiarIds/);
+});

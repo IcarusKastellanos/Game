@@ -47,7 +47,6 @@ export interface PractitionerLevelProfile {
   hexagramIds: string[];
   shopItemIds: string[];
   npcIds: string[];
-  familiarIds: string[];
   questIds: string[];
   spiritRange: SpiritRangeDef;
   /** Minimum stat values once this level is reached (raises only). */
@@ -123,7 +122,6 @@ function blankProfile(level: number): PractitionerLevelProfile {
     hexagramIds: [],
     shopItemIds: [],
     npcIds: [],
-    familiarIds: [],
     questIds: [],
     spiritRange: EMPTY_RANGE(),
     statFloors: {},
@@ -147,7 +145,6 @@ function parseProfile(raw: unknown, fallbackLevel: number): PractitionerLevelPro
     hexagramIds: asStringList(o.hexagramIds),
     shopItemIds: asStringList(o.shopItemIds),
     npcIds: asStringList(o.npcIds),
-    familiarIds: asStringList(o.familiarIds),
     questIds: asStringList(o.questIds),
     spiritRange: parseSpiritRange(o.spiritRange),
     statFloors: parseFloors(o.statFloors),
@@ -175,7 +172,6 @@ function exclusiveBuckets(levels: PractitionerLevelProfile[]): PractitionerLevel
       hexagramIds: take('hex', level.hexagramIds),
       shopItemIds: take('shop', level.shopItemIds),
       npcIds: take('npc', level.npcIds),
-      familiarIds: take('familiar', level.familiarIds),
       questIds: take('quest', level.questIds),
     };
   });
@@ -237,7 +233,7 @@ export function spiritRangeForLevel(level: number): SpiritRangeDef {
   return getLevelProfile(level)?.spiritRange ?? EMPTY_RANGE();
 }
 
-type UnlockBucket = 'spellIds' | 'recipeIds' | 'hexagramIds' | 'shopItemIds' | 'npcIds' | 'familiarIds' | 'questIds';
+type UnlockBucket = 'spellIds' | 'recipeIds' | 'hexagramIds' | 'shopItemIds' | 'npcIds' | 'questIds';
 
 /** Level that unlocks this id, or null when it is not assigned (open to everyone). */
 export function assignedUnlockLevel(bucket: UnlockBucket, id: string): number | null {

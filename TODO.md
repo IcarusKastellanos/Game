@@ -261,7 +261,7 @@ Each track has: **current value**, **tier/level label**, **history log** (option
 
 - [x] Keep formula in `shared/src/balance/index.ts` but expose curve in `content/progression/level-curve.json` for admin tuning (**max Level 10**)
 - [x] Level-up hook: fire `onLevelUp` content events (ME cap sync already via `syncLevelDerivedStats`)
-- [x] Level gates: `{ minLevel }` on spells, recipes, hexagrams, vendors, quests (validated in content loader; map zones deferred)
+- [x] Level gates: `{ minLevel }` on spells, recipes, hexagrams, vendors, quests (validated in content loader; map zones deferred). Familiars are **not** level-gated — any implemented species can be chosen at start.
 - [x] Level-up notification + auto-derived protection (no manual stat-point allocation yet)
 
 

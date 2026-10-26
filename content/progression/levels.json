@@ -29,10 +29,6 @@
         "npc_elena",
         "npc_cafe_owner"
       ],
-      "familiarIds": [
-        "cat_familiar",
-        "rat_familiar"
-      ],
       "questIds": [
         "quest_first_steps"
       ],
@@ -56,7 +52,7 @@
       "level": 2,
       "title": "Seeker",
       "rankLabel": "Rank I",
-      "unlockMessage": "Your practice deepens — new charms and mild workings open to you.",
+      "unlockMessage": "Your practice deepens \u2014 new charms and mild workings open to you.",
       "notes": "",
       "meCapBonus": 0,
       "spellIds": [
@@ -80,9 +76,6 @@
         "book_folk_magic"
       ],
       "npcIds": [],
-      "familiarIds": [
-        "frog_familiar"
-      ],
       "questIds": [],
       "spiritRange": {
         "label": "Garden sprites",
@@ -125,7 +118,6 @@
         "npc_librarian",
         "npc_circle_leader"
       ],
-      "familiarIds": [],
       "questIds": [],
       "spiritRange": {
         "label": "Study-circle egregores",
@@ -164,9 +156,6 @@
       ],
       "shopItemIds": [],
       "npcIds": [],
-      "familiarIds": [
-        "owl_familiar"
-      ],
       "questIds": [],
       "spiritRange": {
         "label": "Knot-bound familiars",
@@ -205,7 +194,6 @@
         "everweed"
       ],
       "npcIds": [],
-      "familiarIds": [],
       "questIds": [],
       "spiritRange": {
         "label": "Crossroad shades",
@@ -241,7 +229,6 @@
         "poppet_cloth"
       ],
       "npcIds": [],
-      "familiarIds": [],
       "questIds": [],
       "spiritRange": {
         "label": "Binding spirits",
@@ -262,7 +249,7 @@
       "level": 7,
       "title": "Adept",
       "rankLabel": "Rank IV",
-      "unlockMessage": "Advanced binding spells open — handle them carefully.",
+      "unlockMessage": "Advanced binding spells open \u2014 handle them carefully.",
       "notes": "",
       "meCapBonus": 6,
       "spellIds": [
@@ -272,9 +259,6 @@
       "hexagramIds": [],
       "shopItemIds": [],
       "npcIds": [],
-      "familiarIds": [
-        "snake_familiar"
-      ],
       "questIds": [],
       "spiritRange": {
         "label": "Named genius loci",
@@ -306,7 +290,6 @@
       "hexagramIds": [],
       "shopItemIds": [],
       "npcIds": [],
-      "familiarIds": [],
       "questIds": [],
       "spiritRange": {
         "label": "Hex-answering shades",
@@ -338,7 +321,6 @@
       "hexagramIds": [],
       "shopItemIds": [],
       "npcIds": [],
-      "familiarIds": [],
       "questIds": [],
       "spiritRange": {
         "label": "Reversal patrons",
@@ -368,7 +350,6 @@
       "hexagramIds": [],
       "shopItemIds": [],
       "npcIds": [],
-      "familiarIds": [],
       "questIds": [],
       "spiritRange": {
         "label": "Apex patrons",

@@ -1841,16 +1841,6 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
 
-    const familiarLevel = assignedUnlockLevel('familiarIds', msg.templateId);
-    if (familiarLevel != null && !meetsAssignedUnlock('familiarIds', msg.templateId, player.stats.experience ?? 0)) {
-      client.send('notification', {
-        type: 'notification',
-        message: levelGateMessage('That familiar', familiarLevel, playerLevel(player.stats.experience ?? 0)),
-        level: 'warn',
-      });
-      return;
-    }
-
     const fam = familiarSystem.createFromTemplate(msg.templateId, player.dbPlayerId, msg.trueName.trim(), msg.publicName.trim());
     if (!fam) {
       client.send('notification', { type: 'notification', message: 'Invalid familiar type.', level: 'error' });

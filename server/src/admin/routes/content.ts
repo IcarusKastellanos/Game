@@ -499,7 +499,6 @@ function levelCatalog() {
     })),
     items: [...contentRegistry.ingredients.values()].map((i) => ({ id: i.id, name: i.name })),
     npcs: [...contentRegistry.npcs.values()].map((n) => ({ id: n.id, name: n.name, role: n.role })),
-    familiars: [...contentRegistry.familiars.values()].map((f) => ({ id: f.id, name: f.defaultPublicName, species: f.species })),
     quests: [...questSystem.quests.values()].map((q) => ({ id: q.id, name: q.name, minLevel: q.minLevel ?? 1 })),
     statKeys: LEVEL_STAT_FLOOR_KEYS,
     traditions: ['traditional_european', 'chaos_magic', 'vodou', 'nordic_seidr', 'greek_mageia'],

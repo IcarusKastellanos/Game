@@ -27,7 +27,10 @@ test('levels.json seeds titles, spirit bands, and spell unlocks', () => {
   assert.equal(assignedUnlockLevel('spellIds', 'poppet_hex'), 8);
   assert.equal(assignedUnlockLevel('spellIds', 'curse_breaking'), 9);
   assert.equal(assignedUnlockLevel('npcIds', 'npc_circle_leader'), 3);
-  assert.equal(assignedUnlockLevel('familiarIds', 'snake_familiar'), 7);
+  assert.ok(!('familiarIds' in (raw.levels?.[0] ?? {})));
+  for (const level of raw.levels ?? []) {
+    assert.equal(level.familiarIds, undefined);
+  }
   assert.equal(spiritRangeForLevel(1).label, 'Household wisps');
   assert.ok(spiritRangeForLevel(10).maxPower >= 100);
 });
@@ -63,4 +66,20 @@ test('a content id stays on the earliest level that lists it', () => {
   assert.deepEqual(doc.levels[1].spellIds, ['poppet_hex']);
   assert.equal(assignedUnlockLevel('spellIds', 'healing_charm'), 1);
   setLevelProfiles(JSON.parse(readFileSync(join(root, 'content/progression/levels.json'), 'utf8')));
+});
+
+test('legacy familiarIds unlock lists are ignored — familiars are not level-gated', () => {
+  const doc = normalizeLevelDocument({
+    maxLevel: 2,
+    xpPerLevel: 100,
+    levels: [
+      { level: 1, familiarIds: ['cat_familiar'], spellIds: ['healing_charm'] },
+      { level: 2, familiarIds: ['snake_familiar'] },
+    ],
+  });
+  for (const level of doc.levels) {
+    assert.equal('familiarIds' in level, false);
+  }
+  setLevelProfiles(doc);
+  assert.equal(assignedUnlockLevel('spellIds', 'healing_charm'), 1);
 });
