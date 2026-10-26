@@ -1,6 +1,7 @@
 import type { ContentShop, InventorySlot, PlayerStats } from '@witchcraft/shared';
 import {
   canTradePublicly,
+  defaultProgression,
   getPublicReputation,
   getSpiritualReputation,
   meetsSpiritualGate,
@@ -18,6 +19,10 @@ export interface PurchaseResult {
   message: string;
   inventory?: InventorySlot[];
   cost?: number;
+  /** Updated per-player progression when stock changed. */
+  progression?: PlayerProgression;
+  /** Effective shelf counts for this shop after the purchase. */
+  stock?: { itemId: string; stock: number }[];
 }
 
 export type ShopStockSnapshot = {
@@ -25,9 +30,13 @@ export type ShopStockSnapshot = {
   inventory: { itemId: string; stock: number }[];
 }[];
 
-/** Shop transactions — inventory driven from content registry */
+function localDayKey(date = new Date()): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+/** Shop transactions — content stock is the daily baseline; each player tracks their own shelves. */
 export class ShopSystem {
-  /** Baseline shelf counts from content (restored at noon each day). */
+  /** Baseline shelf counts from content (never mutated by purchases). */
   private baseStock = new Map<string, Map<string, number>>();
 
   /** Snapshot listing stock from current registry contents as the daily baseline. */
@@ -42,35 +51,66 @@ export class ShopSystem {
     }
   }
 
-  /** Restore every shop listing to its content baseline. Returns true if anything changed. */
-  resetDailyStock(): boolean {
-    if (this.baseStock.size === 0) {
-      this.captureBaselines();
-    }
-    let changed = false;
-    for (const shop of contentRegistry.shops.values()) {
-      const baseline = this.baseStock.get(shop.id);
-      if (!baseline) continue;
-      for (const listing of shop.inventory) {
-        const next = baseline.get(listing.itemId);
-        if (next == null) continue;
-        if (listing.stock !== next) {
-          listing.stock = next;
-          changed = true;
-        }
-      }
-    }
-    return changed;
+  baselineStock(shopId: string, itemId: string): number {
+    if (this.baseStock.size === 0) this.captureBaselines();
+    const fromCache = this.baseStock.get(shopId)?.get(itemId);
+    if (fromCache != null) return fromCache;
+    const listing = contentRegistry.shops.get(shopId)?.inventory.find((i) => i.itemId === itemId);
+    return listing?.stock ?? 0;
   }
 
-  /** Current stock for clients after a restock or purchase. */
-  stockSnapshot(): ShopStockSnapshot {
+  /** How many of this listing the player can still buy today. */
+  availableStock(progression: PlayerProgression | undefined, shopId: string, itemId: string): number {
+    const personal = progression?.shopStock?.[shopId]?.[itemId];
+    if (typeof personal === 'number' && Number.isFinite(personal)) {
+      return Math.max(0, Math.floor(personal));
+    }
+    return this.baselineStock(shopId, itemId);
+  }
+
+  /**
+   * Clear personal depletion so every listing falls back to content baseline.
+   * Records the restock day so noon only fires once per player per day.
+   */
+  restockPlayer(progression: PlayerProgression, dayKey = localDayKey()): PlayerProgression {
+    if (progression.shopStockDay === dayKey && (!progression.shopStock || Object.keys(progression.shopStock).length === 0)) {
+      return progression;
+    }
+    return {
+      ...progression,
+      shopStock: {},
+      shopStockDay: dayKey,
+    };
+  }
+
+  /** If local hour is past noon and this player has not restocked today, refill their shelves. */
+  ensureRestocked(progression: PlayerProgression, hour: number, dayKey = localDayKey()): PlayerProgression {
+    if (hour < 12) return progression;
+    if (progression.shopStockDay === dayKey) return progression;
+    return this.restockPlayer(progression, dayKey);
+  }
+
+  /** Effective stock for one player across all shops (for client sync). */
+  playerStockSnapshot(progression: PlayerProgression | undefined): ShopStockSnapshot {
+    if (this.baseStock.size === 0) this.captureBaselines();
     return [...contentRegistry.shops.values()].map((shop) => ({
       shopId: shop.id,
       inventory: shop.inventory.map((listing) => ({
         itemId: listing.itemId,
-        stock: listing.stock,
+        stock: this.availableStock(progression, shop.id, listing.itemId),
       })),
+    }));
+  }
+
+  shopStockForPlayer(
+    progression: PlayerProgression | undefined,
+    shopId: string
+  ): { itemId: string; stock: number }[] | undefined {
+    const shop = contentRegistry.shops.get(shopId);
+    if (!shop) return undefined;
+    return shop.inventory.map((listing) => ({
+      itemId: listing.itemId,
+      stock: this.availableStock(progression, shopId, listing.itemId),
     }));
   }
 
@@ -132,7 +172,9 @@ export class ShopSystem {
     if (itemDef?.adminOnly) {
       return { success: false, message: 'That item is not available for purchase.' };
     }
-    if (listing.stock < quantity) {
+
+    const available = this.availableStock(progression, shopId, itemId);
+    if (available < quantity) {
       return { success: false, message: 'Not enough stock.' };
     }
 
@@ -178,7 +220,20 @@ export class ShopSystem {
       return { success: false, message: 'Not enough coins.' };
     }
 
-    listing.stock -= quantity;
+    const remaining = available - quantity;
+    const baseProg = progression ?? defaultProgression();
+    const prevShop = baseProg.shopStock?.[shopId] ?? {};
+    const nextProgression: PlayerProgression = {
+      ...baseProg,
+      shopStock: {
+        ...(baseProg.shopStock ?? {}),
+        [shopId]: {
+          ...prevShop,
+          [itemId]: remaining,
+        },
+      },
+    };
+
     const inventory = inventorySystem.addItem(playerInventory, itemId, quantity);
     const item = contentRegistry.ingredients.get(itemId);
 
@@ -187,8 +242,12 @@ export class ShopSystem {
       message: `Purchased ${quantity}x ${item?.name ?? itemId}.`,
       inventory,
       cost,
+      progression: nextProgression,
+      stock: this.shopStockForPlayer(nextProgression, shopId),
     };
   }
 }
 
 export const shopSystem = new ShopSystem();
+
+export { localDayKey };

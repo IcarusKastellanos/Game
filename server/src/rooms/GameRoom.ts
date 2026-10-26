@@ -82,7 +82,7 @@ import {
 } from '../systems/player-presence.js';
 import type { SceneId } from '@witchcraft/shared';
 import { inventorySystem, auraSystem, wardSystem } from '../systems/inventory-ward-aura.js';
-import { shopSystem } from '../systems/shop-system.js';
+import { localDayKey, shopSystem } from '../systems/shop-system.js';
 import { applyNullificationPowder } from '../systems/nullification-powder.js';
 import { contentRegistry } from '../content/registry.js';
 import {
@@ -160,8 +160,6 @@ export class GameRoom extends Room<GameRoomState> {
   );
 
   private studyCircleNotifiedHour = -1;
-  /** Local calendar day key for the last noon shop restock (`YYYY-M-D`). */
-  private lastShopRestockDate = '';
 
   onCreate(options: { scene?: string; shard?: string }) {
     this.autoDispose = false;
@@ -279,6 +277,11 @@ export class GameRoom extends Room<GameRoomState> {
       player.familiarId = persisted.familiar.id;
     }
 
+    persisted.progression = shopSystem.ensureRestocked(
+      persisted.progression,
+      getWorldHour(),
+      localDayKey()
+    );
     this.playerData.set(client.sessionId, persisted);
     this.activeWards.set(client.sessionId, persisted.wards);
     this.state.players.set(client.sessionId, player);
@@ -324,6 +327,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.refreshWardWeb(client.sessionId);
     this.sendPlayerSync(client, player);
     client.send('progression_update', { progression: this.playerData.get(client.sessionId)?.progression });
+    this.syncPlayerShopStock(client);
 
     this.recordMetPlayers(client.sessionId);
 
@@ -1007,6 +1011,7 @@ export class GameRoom extends Room<GameRoomState> {
         client.send('open_ui', { ui: 'altar' });
         break;
       case 'shop':
+        this.syncPlayerShopStock(client);
         client.send('open_ui', { ui: 'shop', shopId: target.data?.shopId });
         break;
       case 'npc': {
@@ -1733,6 +1738,7 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private handleBuy(client: Client, player: PlayerSchema, shopId: string, itemId: string, quantity: number) {
+    const data = this.playerData.get(client.sessionId);
     const result = shopSystem.buy(
       shopId,
       itemId,
@@ -1741,39 +1747,55 @@ export class GameRoom extends Room<GameRoomState> {
       player.coins,
       shopPriceMultiplier(player.stats),
       player.stats,
-      this.playerData.get(client.sessionId)?.progression
+      data?.progression
     );
     if (result.success && result.inventory && result.cost !== undefined) {
       player.inventory = result.inventory;
       player.coins -= result.cost;
+      if (data && result.progression) {
+        data.progression = result.progression;
+        client.send('progression_update', { progression: data.progression });
+      }
     }
-    const shop = contentRegistry.shops.get(shopId);
     client.send('shop_result', {
       type: 'shop_result',
       success: result.success,
       message: result.message,
       shopId,
-      stock: shop?.inventory.map((listing) => ({ itemId: listing.itemId, stock: listing.stock })),
+      stock: result.stock ?? shopSystem.shopStockForPlayer(data?.progression, shopId),
     });
     if (result.success) this.sendPlayerSync(client, player);
   }
 
-  /** NPC shop shelves refill once per local day at noon (hour ≥ 12). */
+  /** Each player's NPC shelves refill once per local day at noon (hour ≥ 12). */
   private maybeRestockShopsAtNoon(hour: number): void {
     if (hour < 12) return;
-    const now = new Date();
-    const dayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-    if (this.lastShopRestockDate === dayKey) return;
-    this.lastShopRestockDate = dayKey;
-    shopSystem.resetDailyStock();
-    this.broadcast('shop_stock', {
-      reason: 'noon_restock',
-      shops: shopSystem.stockSnapshot(),
-    });
-    this.broadcast('notification', {
-      type: 'notification',
-      message: 'Shopkeepers restock their shelves for the day.',
-      level: 'info',
+    const dayKey = localDayKey();
+    for (const client of this.clients) {
+      const data = this.playerData.get(client.sessionId);
+      if (!data) continue;
+      if (data.progression.shopStockDay === dayKey) continue;
+      data.progression = shopSystem.restockPlayer(data.progression, dayKey);
+      client.send('progression_update', { progression: data.progression });
+      client.send('shop_stock', {
+        reason: 'noon_restock',
+        shops: shopSystem.playerStockSnapshot(data.progression),
+      });
+      client.send('notification', {
+        type: 'notification',
+        message: 'Shopkeepers restock their shelves for the day.',
+        level: 'info',
+      });
+    }
+  }
+
+  private syncPlayerShopStock(client: Client, reason: 'noon_restock' | 'sync' = 'sync'): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    data.progression = shopSystem.ensureRestocked(data.progression, getWorldHour(), localDayKey());
+    client.send('shop_stock', {
+      reason,
+      shops: shopSystem.playerStockSnapshot(data.progression),
     });
   }
 
