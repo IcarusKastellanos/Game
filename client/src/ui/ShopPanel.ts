@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { formatContentLabel } from '@witchcraft/shared';
+import { formatContentLabel, meetsMinLevel, playerLevel } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import { ambientAudio } from '../audio/AmbientAudio';
@@ -44,6 +44,15 @@ export class ShopPanel {
     ambientAudio.setScene(scene === 'town' ? 'town' : scene === 'apartment' ? 'apartment' : 'none');
   }
 
+  private getPlayerExperience(): number {
+    try {
+      const stats = JSON.parse(gameState.localPlayer?.statsJson ?? '{}');
+      return Number(stats.experience) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
   private renderShop(): void {
     this.itemTexts.forEach((t) => t.destroy());
     this.itemTexts = [];
@@ -51,22 +60,31 @@ export class ShopPanel {
     const shop = gameState.content?.shops.find((s) => s.id === this.shopId);
     if (!shop) return;
 
+    const xp = this.getPlayerExperience();
+    const level = playerLevel(xp);
     let y = 70;
     for (const item of shop.inventory.slice(0, 10)) {
       const ing = gameState.content?.ingredients.find((i) => i.id === item.itemId);
-      const label = `${ing?.name ?? formatContentLabel(item.itemId)} — ${item.price}c (stock: ${item.stock}) [BUY]`;
+      const name = ing?.name ?? formatContentLabel(item.itemId);
+      const unlocked = meetsMinLevel(xp, item.minLevel);
+      const need = item.minLevel ?? 1;
+      const label = unlocked
+        ? `${name} — ${item.price}c (stock: ${item.stock}) [BUY]`
+        : `${name} — Level gated (need ${need}, you are ${level})`;
       const txt = this.scene.add
         .text(40, y, label, {
           fontSize: '8px',
-          color: '#bbddff',
+          color: unlocked ? '#bbddff' : '#886644',
           fontFamily: 'monospace',
-          backgroundColor: '#223355',
+          backgroundColor: unlocked ? '#223355' : '#2a2218',
           padding: { x: 3, y: 1 },
         })
-        .setInteractive({ useHandCursor: true })
         .setScrollFactor(0)
-        .setDepth(2001)
-        .on('pointerdown', () => this.buy(item.itemId));
+        .setDepth(2001);
+
+      if (unlocked) {
+        txt.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.buy(item.itemId));
+      }
 
       this.itemTexts.push(txt);
       y += 16;

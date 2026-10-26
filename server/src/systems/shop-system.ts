@@ -4,6 +4,11 @@ import {
   getPublicReputation,
   getSpiritualReputation,
   meetsSpiritualGate,
+  meetsMinLevel,
+  levelGateMessage,
+  playerLevel,
+  recognitionUnlocksVendor,
+  type PlayerProgression,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { inventorySystem } from './inventory-ward-aura.js';
@@ -24,11 +29,19 @@ export class ShopSystem {
     playerInventory: InventorySlot[],
     playerMoney: number,
     priceMultiplier = 1,
-    stats?: PlayerStats
+    stats?: PlayerStats,
+    progression?: PlayerProgression
   ): PurchaseResult {
     const shop = contentRegistry.shops.get(shopId);
     if (!shop) {
       return { success: false, message: 'Shop not found.' };
+    }
+
+    if (progression && !recognitionUnlocksVendor(shopId, progression)) {
+      return {
+        success: false,
+        message: 'This vendor only deals with practitioners of higher recognition.',
+      };
     }
 
     if (stats && !canTradePublicly(stats)) {
@@ -49,6 +62,12 @@ export class ShopSystem {
       return {
         success: false,
         message: 'They only sell to practitioners of standing in the circles.',
+      };
+    }
+    if (stats && shop.minLevel != null && !meetsMinLevel(stats.experience ?? 0, shop.minLevel)) {
+      return {
+        success: false,
+        message: levelGateMessage(shop.name, shop.minLevel, playerLevel(stats.experience ?? 0)),
       };
     }
 
@@ -87,6 +106,16 @@ export class ShopSystem {
         return {
           success: false,
           message: 'Everweed is reserved for practitioners trusted in the circles.',
+        };
+      }
+      if (listing.minLevel != null && !meetsMinLevel(stats.experience ?? 0, listing.minLevel)) {
+        return {
+          success: false,
+          message: levelGateMessage(
+            itemDef?.name ?? itemId,
+            listing.minLevel,
+            playerLevel(stats.experience ?? 0)
+          ),
         };
       }
     }

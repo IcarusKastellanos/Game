@@ -51,6 +51,10 @@ import {
   applyReputationSource,
   applyMoralityGossip,
   defaultProgression,
+  meetsAssignedUnlock,
+  assignedUnlockLevel,
+  levelGateMessage,
+  playerLevel,
   type SurvivalActivity,
 } from '@witchcraft/shared';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
@@ -107,6 +111,7 @@ import {
   checkInteractAvailable,
   tickStudyCircleEvents,
   completeQuestRewards,
+  syncRecognition,
   type HandlerCtx,
 } from './progression-handlers.js';
 import { tickWorldClock, getWorldHour } from '../systems/world-clock.js';
@@ -291,6 +296,7 @@ export class GameRoom extends Room<GameRoomState> {
     });
 
     sendWorldState(client);
+    this.withProgression(client, player, (ctx) => syncRecognition(ctx, { notify: false }));
     if (!persisted.stats.specialty) {
       const eligible = eligibleSpecialtyTraditions(persisted.stats.affinities);
       if (eligible.length) {
@@ -301,6 +307,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.sendApartmentVisitState(client);
     this.refreshWardWeb(client.sessionId);
     this.sendPlayerSync(client, player);
+    client.send('progression_update', { progression: this.playerData.get(client.sessionId)?.progression });
 
     this.recordMetPlayers(client.sessionId);
 
@@ -970,6 +977,15 @@ export class GameRoom extends Room<GameRoomState> {
         const npcId = target.data?.npcId as string;
         const npc = contentRegistry.npcs.get(npcId);
         if (npc) {
+          const npcLevel = assignedUnlockLevel('npcIds', npcId);
+          if (npcLevel != null && !meetsAssignedUnlock('npcIds', npcId, player.stats.experience ?? 0)) {
+            client.send('notification', {
+              type: 'notification',
+              message: levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)),
+              level: 'warn',
+            });
+            break;
+          }
           client.send('open_ui', {
             ui: 'dialogue',
             npcId,
@@ -1153,6 +1169,19 @@ export class GameRoom extends Room<GameRoomState> {
               : `+${xp.granted} XP — ${xp.source?.label ?? 'Working'}`,
             level: xp.leveledUp ? 'success' : 'info',
           });
+          for (const event of xp.levelUpEvents) {
+            client.send('notification', {
+              type: 'notification',
+              message: event.message,
+              level: 'success',
+            });
+            client.send('level_up', {
+              type: 'level_up',
+              eventId: event.eventId,
+              message: event.message,
+              level: xp.levelAfter,
+            });
+          }
         }
         // Blatant magic in town hurts public standing; witnessed workings raise spiritual.
         if (player.scene === 'town') {
@@ -1562,13 +1591,22 @@ export class GameRoom extends Room<GameRoomState> {
     nodeId: string,
     choiceIndex: number
   ) {
+    const progression = this.playerData.get(client.sessionId)?.progression;
     const result = dialogueSystem.resolveChoice(
       dialogueTreeId,
       nodeId,
       choiceIndex,
-      player.inventory
+      player.inventory,
+      progression
     );
-    if (!result) return;
+    if (!result) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That path is closed to you yet — recognition or a license may be required.',
+        level: 'warn',
+      });
+      return;
+    }
 
     if (result.inventory) player.inventory = result.inventory;
     if (result.statBoost) {
@@ -1607,7 +1645,8 @@ export class GameRoom extends Room<GameRoomState> {
       player.inventory,
       player.coins,
       shopPriceMultiplier(player.stats),
-      player.stats
+      player.stats,
+      this.playerData.get(client.sessionId)?.progression
     );
     if (result.success && result.inventory && result.cost !== undefined) {
       player.inventory = result.inventory;

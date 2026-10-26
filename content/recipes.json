@@ -4,40 +4,73 @@
     "name": "Healing Herbal Tea",
     "stationType": "potion_shelf",
     "inputs": [
-      { "itemId": "rosemary", "quantity": 1 },
-      { "itemId": "sage", "quantity": 1 }
+      {
+        "itemId": "rosemary",
+        "quantity": 1
+      },
+      {
+        "itemId": "sage",
+        "quantity": 1
+      }
     ],
-    "output": { "itemId": "herbal_tea", "quantity": 2 },
+    "output": {
+      "itemId": "herbal_tea",
+      "quantity": 2
+    },
     "effect": "item",
     "discoverOnCraft": false,
-    "description": "Steep rosemary and sage for a restorative brew."
+    "description": "Steep rosemary and sage for a restorative brew.",
+    "minLevel": 1
   },
   {
     "id": "recipe_protection_bead",
     "name": "Warded Evil Eye Bead",
     "stationType": "potion_shelf",
     "inputs": [
-      { "itemId": "rosemary", "quantity": 1 },
-      { "itemId": "bay_leaf", "quantity": 1 },
-      { "itemId": "salt", "quantity": 1 }
+      {
+        "itemId": "rosemary",
+        "quantity": 1
+      },
+      {
+        "itemId": "bay_leaf",
+        "quantity": 1
+      },
+      {
+        "itemId": "salt",
+        "quantity": 1
+      }
     ],
-    "output": { "itemId": "evil_eye_bead", "quantity": 1 },
+    "output": {
+      "itemId": "evil_eye_bead",
+      "quantity": 1
+    },
     "effect": "item",
     "discoverOnCraft": true,
-    "description": "Salt and herbs charge a protective bead."
+    "description": "Salt and herbs charge a protective bead.",
+    "minLevel": 2
   },
   {
     "id": "recipe_divination_tea",
     "name": "Divination Tea",
     "stationType": "mirror",
     "inputs": [
-      { "itemId": "bay_leaf", "quantity": 1 },
-      { "itemId": "herbal_tea", "quantity": 1 }
+      {
+        "itemId": "bay_leaf",
+        "quantity": 1
+      },
+      {
+        "itemId": "herbal_tea",
+        "quantity": 1
+      }
     ],
-    "output": { "itemId": "herbal_tea", "quantity": 1 },
+    "output": {
+      "itemId": "herbal_tea",
+      "quantity": 1
+    },
     "effect": "item",
     "discoverOnCraft": true,
-    "description": "A focused brew for scrying sessions."
+    "description": "A focused brew for scrying sessions.",
+    "minLevel": 3
   },
   {
     "id": "recipe_pocket_healing_charm",
@@ -47,11 +80,18 @@
     "spellId": "healing_charm",
     "meCost": 5,
     "inputs": [
-      { "itemId": "bay_leaf", "quantity": 2 },
-      { "itemId": "white_candle", "quantity": 1 }
+      {
+        "itemId": "bay_leaf",
+        "quantity": 2
+      },
+      {
+        "itemId": "white_candle",
+        "quantity": 1
+      }
     ],
     "discoverOnCraft": false,
-    "description": "Condense a healing charm for instant release. Stores 5 ME."
+    "description": "Condense a healing charm for instant release. Stores 5 ME.",
+    "minLevel": 2
   },
   {
     "id": "recipe_pocket_evil_eye_removal",
@@ -61,12 +101,22 @@
     "spellId": "evil_eye_removal",
     "meCost": 10,
     "inputs": [
-      { "itemId": "salt", "quantity": 2 },
-      { "itemId": "sage", "quantity": 2 },
-      { "itemId": "evil_eye_bead", "quantity": 1 }
+      {
+        "itemId": "salt",
+        "quantity": 2
+      },
+      {
+        "itemId": "sage",
+        "quantity": 2
+      },
+      {
+        "itemId": "evil_eye_bead",
+        "quantity": 1
+      }
     ],
     "discoverOnCraft": false,
-    "description": "Bottle a cleansing working against the evil eye. Stores 10 ME."
+    "description": "Bottle a cleansing working against the evil eye. Stores 10 ME.",
+    "minLevel": 2
   },
   {
     "id": "recipe_pocket_protection_candle",
@@ -76,12 +126,22 @@
     "spellId": "protection_candle",
     "meCost": 8,
     "inputs": [
-      { "itemId": "black_candle", "quantity": 1 },
-      { "itemId": "rosemary", "quantity": 2 },
-      { "itemId": "salt", "quantity": 1 }
+      {
+        "itemId": "black_candle",
+        "quantity": 1
+      },
+      {
+        "itemId": "rosemary",
+        "quantity": 2
+      },
+      {
+        "itemId": "salt",
+        "quantity": 1
+      }
     ],
     "discoverOnCraft": false,
-    "description": "Seal protective flame-intent for quick casting. Stores 8 ME."
+    "description": "Seal protective flame-intent for quick casting. Stores 8 ME.",
+    "minLevel": 2
   },
   {
     "id": "recipe_enchant_knot_protection",
@@ -91,12 +151,22 @@
     "enchantIntent": "familiar_protection",
     "meCost": 8,
     "inputs": [
-      { "itemId": "familiar_knot", "quantity": 1 },
-      { "itemId": "rosemary", "quantity": 1 },
-      { "itemId": "salt", "quantity": 1 }
+      {
+        "itemId": "familiar_knot",
+        "quantity": 1
+      },
+      {
+        "itemId": "rosemary",
+        "quantity": 1
+      },
+      {
+        "itemId": "salt",
+        "quantity": 1
+      }
     ],
     "discoverOnCraft": false,
-    "description": "Weave a knot ward with heightened strength and duration."
+    "description": "Weave a knot ward with heightened strength and duration.",
+    "minLevel": 4
   },
   {
     "id": "recipe_enchant_knot_longevity",
@@ -106,12 +176,22 @@
     "enchantIntent": "longevity",
     "meCost": 8,
     "inputs": [
-      { "itemId": "familiar_knot", "quantity": 1 },
-      { "itemId": "bay_leaf", "quantity": 1 },
-      { "itemId": "white_candle", "quantity": 1 }
+      {
+        "itemId": "familiar_knot",
+        "quantity": 1
+      },
+      {
+        "itemId": "bay_leaf",
+        "quantity": 1
+      },
+      {
+        "itemId": "white_candle",
+        "quantity": 1
+      }
     ],
     "discoverOnCraft": false,
-    "description": "Extend how long the knot ward holds."
+    "description": "Extend how long the knot ward holds.",
+    "minLevel": 4
   },
   {
     "id": "recipe_enchant_knot_ward",
@@ -121,11 +201,21 @@
     "enchantIntent": "ward_strength",
     "meCost": 8,
     "inputs": [
-      { "itemId": "familiar_knot", "quantity": 1 },
-      { "itemId": "rosemary", "quantity": 1 },
-      { "itemId": "frankincense", "quantity": 1 }
+      {
+        "itemId": "familiar_knot",
+        "quantity": 1
+      },
+      {
+        "itemId": "rosemary",
+        "quantity": 1
+      },
+      {
+        "itemId": "frankincense",
+        "quantity": 1
+      }
     ],
     "discoverOnCraft": false,
-    "description": "Focus the knot's warding power."
+    "description": "Focus the knot's warding power.",
+    "minLevel": 5
   }
 ]

@@ -253,6 +253,34 @@
   color: var(--brass-bright, #e8c878);
 }
 
+#altar-panel .altar-spell-option.locked {
+  color: #8a7a6a;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+#altar-panel .altar-spell-option.locked:hover {
+  background: rgba(60, 40, 30, 0.45);
+  color: #c8b8a0;
+}
+
+#altar-panel .altar-spell-option.locked .altar-spell-me {
+  color: #c4845a;
+}
+
+#altar-panel .altar-spell-lock {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid rgba(196, 132, 90, 0.55);
+  color: #c4845a;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  opacity: 0.9;
+}
+
 #altar-panel .altar-spell-option .altar-spell-me {
   display: block;
   color: #8898c8;
@@ -314,6 +342,17 @@
   margin-top: 8px;
   color: #786858;
   font-style: italic;
+}
+
+#altar-spell-tooltip .altar-tip-gate {
+  margin-bottom: 8px;
+  padding: 4px 6px;
+  border: 1px solid rgba(196, 132, 90, 0.55);
+  background: rgba(80, 36, 20, 0.45);
+  color: #e8b080;
+  font-family: var(--hud-font-display, 'Cinzel', Georgia, serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
 }
 
 #altar-panel .altar-cast-row {

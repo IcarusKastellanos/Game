@@ -6,7 +6,7 @@
   "decay": {
     "perGameDay": 0.15,
     "toward": 0,
-    "note": "Slow drift toward neutrality when idle; not applied every login tick yet — reserved for world-day systems."
+    "note": "Slow drift toward neutrality while idle. Applied on world join from lastLoginAt (24h wall-clock = 1 game day)."
   },
   "shopPrice": {
     "note": "Final price multiplier = clamp(base + publicRep * perPoint, min, max).",

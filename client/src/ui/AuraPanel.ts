@@ -1,6 +1,12 @@
 import Phaser from 'phaser';
 import type { AuraState, StatDisplayKey } from '@witchcraft/shared';
-import { isActiveAuraEffect, playerLevel, practitionerXpProgress } from '@witchcraft/shared';
+import {
+  isActiveAuraEffect,
+  playerLevel,
+  practitionerXpProgress,
+  getMaxPlayerLevel,
+  getLevelTitle,
+} from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import {
@@ -292,7 +298,11 @@ export class AuraPanel {
     const xp = stats.experience ?? 0;
     const progress = practitionerXpProgress(xp);
     const level = playerLevel(xp);
-    return `<div class="aura-overview-values__progress"><span class="k">Practitioner Level</span> <span class="v accent">${level}</span> <span class="v">${progress.xpIntoLevel}/${progress.xpToNext} XP</span></div>`;
+    const max = getMaxPlayerLevel();
+    const xpText = progress.isMaxLevel
+      ? `MAX (${max})`
+      : `${progress.xpIntoLevel}/${progress.xpToNext} XP`;
+    return `<div class="aura-overview-values__progress"><span class="k">Practitioner Level</span> <span class="v accent">${level}/${max}</span> <span class="v">${esc(getLevelTitle(level))}</span> <span class="v">${xpText}</span></div>`;
   }
 
   private reputationOverviewHtml(): string {
