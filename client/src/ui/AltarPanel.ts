@@ -1,6 +1,15 @@
 import Phaser from 'phaser';
 import type { AltarState, ContentSpell, TaglockSelection, TaglockType } from '@witchcraft/shared';
-import { HEX_INTENTS, formatContentLabel, getTaglockTargetName, isEmptyInventorySlot, isTaglockItemId, totalItemQuantity } from '@witchcraft/shared';
+import {
+  HEX_INTENTS,
+  formatContentLabel,
+  getTaglockTargetName,
+  isEmptyInventorySlot,
+  isTaglockItemId,
+  totalItemQuantity,
+  playerLevel,
+  meetsMinLevel,
+} from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import { getItemIconUrl, iconImgHtml } from '../graphics/ItemIconGenerator';
@@ -124,6 +133,23 @@ export class AltarPanel {
     } catch {
       return 0;
     }
+  }
+
+  private getPlayerExperience(): number {
+    try {
+      const stats = JSON.parse(gameState.localPlayer?.statsJson ?? '{}');
+      return Number(stats.experience) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private getPlayerLevel(): number {
+    return playerLevel(this.getPlayerExperience());
+  }
+
+  private isSpellUnlocked(spell: ContentSpell): boolean {
+    return meetsMinLevel(this.getPlayerExperience(), spell.minLevel);
   }
 
   private canSeeSpellInsight(spell: ContentSpell): boolean {
@@ -456,10 +482,12 @@ export class AltarPanel {
   }
 
   private spellDropdownHtml(spells: ContentSpell[]): string {
-    const selected = spells.find((s) => s.id === this.selectedSpellId);
+    const selected = spells.find((s) => s.id === this.selectedSpellId && this.isSpellUnlocked(s));
+    if (this.selectedSpellId && !selected) this.selectedSpellId = null;
     const label = selected
       ? `${selected.name} · ME ${selected.maintenanceCost}`
       : 'Select a working…';
+    const level = this.getPlayerLevel();
     return `<div class="altar-spell-picker">
       <button type="button" id="altar-spell-trigger" class="altar-spell-trigger">
         <span>${label}</span>
@@ -467,10 +495,16 @@ export class AltarPanel {
       </button>
       <div id="altar-spell-menu" class="altar-spell-menu${this.spellDropdownOpen ? ' open' : ''}">
         ${spells.map((s) => {
-          const sel = this.selectedSpellId === s.id;
-          return `<button type="button" class="altar-spell-option${sel ? ' selected' : ''}" data-id="${s.id}">
-            ${s.name}
-            <span class="altar-spell-me">ME ${s.maintenanceCost} · focus ${s.difficulty} · ${s.category.replace(/_/g, ' ')}</span>
+          const unlocked = this.isSpellUnlocked(s);
+          const sel = this.selectedSpellId === s.id && unlocked;
+          const need = s.minLevel ?? 1;
+          const lockedCls = unlocked ? '' : ' locked';
+          const meta = unlocked
+            ? `ME ${s.maintenanceCost} · focus ${s.difficulty} · ${s.category.replace(/_/g, ' ')}`
+            : `Requires Practitioner Level ${need} (you are ${level})`;
+          return `<button type="button" class="altar-spell-option${sel ? ' selected' : ''}${lockedCls}" data-id="${s.id}" data-locked="${unlocked ? '0' : '1'}" ${unlocked ? '' : 'aria-disabled="true"'}>
+            ${s.name}${unlocked ? '' : ' <span class="altar-spell-lock">Locked</span>'}
+            <span class="altar-spell-me">${meta}</span>
           </button>`;
         }).join('')}
       </div>
@@ -478,6 +512,25 @@ export class AltarPanel {
   }
 
   private buildSpellTooltip(spell: ContentSpell): string {
+    const unlocked = this.isSpellUnlocked(spell);
+    const need = spell.minLevel ?? 1;
+    const level = this.getPlayerLevel();
+    const effectKeys = Object.keys(spell.gameplayEffect ?? {})
+      .slice(0, 4)
+      .map((k) => k.replace(/([A-Z])/g, ' $1').trim())
+      .join(', ');
+
+    if (!unlocked) {
+      return `
+      <div class="altar-tip-title">${spell.name}</div>
+      <div class="altar-tip-gate">Level gated — requires Practitioner Level ${need} (you are ${level})</div>
+      <div class="altar-tip-desc">${spell.description}</div>
+      <div class="altar-tip-row"><span>Effect</span> ${effectKeys || spell.category.replace(/_/g, ' ')}</div>
+      <div class="altar-tip-row"><span>Target</span> ${spell.targetType.replace(/_/g, ' ')} · ${Math.round(spell.duration / 60)} min duration</div>
+      <div class="altar-tip-muted">Ingredients and preparation details stay sealed until you reach Level ${need}.</div>
+    `;
+    }
+
     const intuition = this.getPlayerIntuition();
     const insight = this.canSeeSpellInsight(spell);
     const ingList = spell.ingredients
@@ -489,10 +542,6 @@ export class AltarPanel {
     const tagReq = spell.taglockRequirement?.length
       ? `<div class="altar-tip-row"><span>Taglock</span> ${spell.taglockRequirement.join(' or ')} (SELF bypasses)</div>`
       : '';
-    const effectKeys = Object.keys(spell.gameplayEffect ?? {})
-      .slice(0, 4)
-      .map((k) => k.replace(/([A-Z])/g, ' $1').trim())
-      .join(', ');
     const boosters =
       insight && spell.optionalBoosters?.length
         ? `<div class="altar-tip-boosters"><strong>Booster insight</strong> (Intuition ${intuition} ≥ ${spell.difficulty - 2})<ul>${spell.optionalBoosters
@@ -591,7 +640,12 @@ export class AltarPanel {
       });
       btn.addEventListener('mouseleave', () => this.hideSpellTooltip());
 
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!this.isSpellUnlocked(spell)) {
+          this.showSpellTooltip(spell, (e as MouseEvent).clientX, (e as MouseEvent).clientY);
+          return;
+        }
         this.selectedSpellId = spellId;
         this.hideSpellTooltip();
         closeMenu();
@@ -1136,6 +1190,15 @@ export class AltarPanel {
       return;
     }
     const spell = gameState.getSpells().find((s) => s.id === this.selectedSpellId);
+    if (spell && !this.isSpellUnlocked(spell)) {
+      if (msg) {
+        msg.textContent = `Requires Practitioner Level ${spell.minLevel ?? 1} (you are ${this.getPlayerLevel()}).`;
+        msg.style.color = '#f88';
+      }
+      this.selectedSpellId = null;
+      this.render();
+      return;
+    }
     let targetSelf = this.targetSelf;
     let targetPlayerId = this.targetId;
 

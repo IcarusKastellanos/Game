@@ -1,0 +1,394 @@
+{
+  "schemaVersion": 1,
+  "maxLevel": 10,
+  "xpPerLevel": 100,
+  "levels": [
+    {
+      "level": 1,
+      "title": "Novice",
+      "rankLabel": "Rank I",
+      "unlockMessage": "",
+      "notes": "Starter charms, tea, and town shopkeepers.",
+      "meCapBonus": 0,
+      "spellIds": [
+        "protection_candle",
+        "healing_charm",
+        "uncrossing_bath",
+        "luck_charm"
+      ],
+      "recipeIds": [
+        "recipe_healing_tea"
+      ],
+      "hexagramIds": [
+        "hex_charm_good_fortune"
+      ],
+      "shopItemIds": [],
+      "npcIds": [
+        "npc_mara",
+        "npc_tom",
+        "npc_elena",
+        "npc_cafe_owner"
+      ],
+      "familiarIds": [
+        "cat_familiar",
+        "rat_familiar"
+      ],
+      "questIds": [
+        "quest_first_steps"
+      ],
+      "spiritRange": {
+        "label": "Household wisps",
+        "minPower": 0,
+        "maxPower": 12,
+        "traditions": [
+          "traditional_european"
+        ],
+        "notes": "Only minor household spirits answer a new practitioner."
+      },
+      "statFloors": {
+        "protection": 10,
+        "ritualSkill": 2,
+        "intuition": 4,
+        "spiritualAwareness": 4
+      }
+    },
+    {
+      "level": 2,
+      "title": "Seeker",
+      "rankLabel": "Rank I",
+      "unlockMessage": "Your practice deepens — new charms and mild workings open to you.",
+      "notes": "",
+      "meCapBonus": 0,
+      "spellIds": [
+        "evil_eye_removal",
+        "road_opener",
+        "pocket_divination_lens"
+      ],
+      "recipeIds": [
+        "recipe_protection_bead",
+        "recipe_pocket_healing_charm",
+        "recipe_pocket_evil_eye_removal",
+        "recipe_pocket_protection_candle"
+      ],
+      "hexagramIds": [
+        "recipe_pocket_healing_charm",
+        "recipe_pocket_evil_eye_removal",
+        "recipe_pocket_protection_candle",
+        "recipe_pocket_divination_lens"
+      ],
+      "shopItemIds": [
+        "book_folk_magic"
+      ],
+      "npcIds": [],
+      "familiarIds": [
+        "frog_familiar"
+      ],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Garden sprites",
+        "minPower": 0,
+        "maxPower": 20,
+        "traditions": [
+          "traditional_european"
+        ],
+        "notes": "Small nature spirits tolerate brief contact."
+      },
+      "statFloors": {
+        "intuition": 6,
+        "ritualSkill": 3
+      }
+    },
+    {
+      "level": 3,
+      "title": "Charter",
+      "rankLabel": "Rank II",
+      "unlockMessage": "Household wards and beginner pocket preparations are within reach.",
+      "notes": "",
+      "meCapBonus": 2,
+      "spellIds": [
+        "household_ward",
+        "divination_candle",
+        "pocket_sleep_charm",
+        "pocket_misfortune_hex",
+        "pocket_silencing_touch"
+      ],
+      "recipeIds": [
+        "recipe_divination_tea"
+      ],
+      "hexagramIds": [
+        "recipe_pocket_sleep_charm",
+        "recipe_pocket_misfortune_hex",
+        "recipe_pocket_silencing_touch"
+      ],
+      "shopItemIds": [],
+      "npcIds": [
+        "npc_librarian",
+        "npc_circle_leader"
+      ],
+      "familiarIds": [],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Study-circle egregores",
+        "minPower": 5,
+        "maxPower": 28,
+        "traditions": [
+          "traditional_european"
+        ],
+        "notes": "Circle-born spirits will listen if invited politely."
+      },
+      "statFloors": {
+        "spiritualAwareness": 6,
+        "warding": 4
+      }
+    },
+    {
+      "level": 4,
+      "title": "Hex-touched",
+      "rankLabel": "Rank II",
+      "unlockMessage": "You can now attempt milder hexes and enchanting-table knots.",
+      "notes": "",
+      "meCapBonus": 0,
+      "spellIds": [
+        "pocket_weakening_hex",
+        "pocket_divination_veil"
+      ],
+      "recipeIds": [
+        "recipe_enchant_knot_protection",
+        "recipe_enchant_knot_longevity"
+      ],
+      "hexagramIds": [
+        "recipe_pocket_weakening_hex",
+        "recipe_pocket_divination_veil",
+        "recipe_enchant_knot_protection",
+        "recipe_enchant_knot_longevity"
+      ],
+      "shopItemIds": [],
+      "npcIds": [],
+      "familiarIds": [
+        "owl_familiar"
+      ],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Knot-bound familiars",
+        "minPower": 8,
+        "maxPower": 36,
+        "traditions": [
+          "traditional_european"
+        ],
+        "notes": "Spirits bound to knots and charms can be bargained with."
+      },
+      "statFloors": {
+        "cursecraft": 3,
+        "herbalism": 4
+      }
+    },
+    {
+      "level": 5,
+      "title": "Enchanter",
+      "rankLabel": "Rank III",
+      "unlockMessage": "Mid-tier baneful pocket workings unlock.",
+      "notes": "",
+      "meCapBonus": 4,
+      "spellIds": [
+        "pocket_fear_working",
+        "pocket_pain_touch"
+      ],
+      "recipeIds": [
+        "recipe_enchant_knot_ward"
+      ],
+      "hexagramIds": [
+        "recipe_pocket_fear_working",
+        "recipe_pocket_pain_touch",
+        "recipe_enchant_knot_ward"
+      ],
+      "shopItemIds": [
+        "everweed"
+      ],
+      "npcIds": [],
+      "familiarIds": [],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Crossroad shades",
+        "minPower": 10,
+        "maxPower": 48,
+        "traditions": [
+          "traditional_european",
+          "chaos_magic"
+        ],
+        "notes": "Shades at the edge of town will answer a prepared call."
+      },
+      "statFloors": {
+        "herbalism": 6,
+        "potionMaking": 4
+      }
+    },
+    {
+      "level": 6,
+      "title": "Binder",
+      "rankLabel": "Rank III",
+      "unlockMessage": "Binding touches and shield-breaking rites become available.",
+      "notes": "",
+      "meCapBonus": 0,
+      "spellIds": [
+        "shield_breaker",
+        "pocket_binding_touch"
+      ],
+      "recipeIds": [],
+      "hexagramIds": [
+        "recipe_pocket_binding_touch"
+      ],
+      "shopItemIds": [
+        "poppet_cloth"
+      ],
+      "npcIds": [],
+      "familiarIds": [],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Binding spirits",
+        "minPower": 15,
+        "maxPower": 58,
+        "traditions": [
+          "traditional_european",
+          "chaos_magic"
+        ],
+        "notes": "Spirits that accept chains and oaths enter your range."
+      },
+      "statFloors": {
+        "warding": 8,
+        "ritualSkill": 6
+      }
+    },
+    {
+      "level": 7,
+      "title": "Adept",
+      "rankLabel": "Rank IV",
+      "unlockMessage": "Advanced binding spells open — handle them carefully.",
+      "notes": "",
+      "meCapBonus": 6,
+      "spellIds": [
+        "binding_spell"
+      ],
+      "recipeIds": [],
+      "hexagramIds": [],
+      "shopItemIds": [],
+      "npcIds": [],
+      "familiarIds": [
+        "snake_familiar"
+      ],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Named genius loci",
+        "minPower": 20,
+        "maxPower": 70,
+        "traditions": [
+          "traditional_european",
+          "chaos_magic",
+          "nordic_seidr"
+        ],
+        "notes": "Place-spirits with names will treat with you."
+      },
+      "statFloors": {
+        "ritualSkill": 8,
+        "willpower": 4
+      }
+    },
+    {
+      "level": 8,
+      "title": "Hexwright",
+      "rankLabel": "Rank IV",
+      "unlockMessage": "Serious hex work (poppet bindings) is now within your grade.",
+      "notes": "",
+      "meCapBonus": 0,
+      "spellIds": [
+        "poppet_hex"
+      ],
+      "recipeIds": [],
+      "hexagramIds": [],
+      "shopItemIds": [],
+      "npcIds": [],
+      "familiarIds": [],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Hex-answering shades",
+        "minPower": 25,
+        "maxPower": 80,
+        "traditions": [
+          "traditional_european",
+          "chaos_magic",
+          "vodou"
+        ],
+        "notes": "Baneful spirits answer poppet and binding work."
+      },
+      "statFloors": {
+        "cursecraft": 8,
+        "authority": 4
+      }
+    },
+    {
+      "level": 9,
+      "title": "Breaker",
+      "rankLabel": "Rank V",
+      "unlockMessage": "Curse-breaking and other master-tier reversals unlock.",
+      "notes": "",
+      "meCapBonus": 8,
+      "spellIds": [
+        "curse_breaking"
+      ],
+      "recipeIds": [],
+      "hexagramIds": [],
+      "shopItemIds": [],
+      "npcIds": [],
+      "familiarIds": [],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Reversal patrons",
+        "minPower": 30,
+        "maxPower": 90,
+        "traditions": [
+          "traditional_european",
+          "vodou",
+          "greek_mageia"
+        ],
+        "notes": "Spirits of uncrossing and reversal will intervene."
+      },
+      "statFloors": {
+        "healing": 8,
+        "divinationSkill": 6
+      }
+    },
+    {
+      "level": 10,
+      "title": "Apex Practitioner",
+      "rankLabel": "Rank V",
+      "unlockMessage": "You have reached the current Practitioner apex (Level 10).",
+      "notes": "Current maximum practitioner grade.",
+      "meCapBonus": 10,
+      "spellIds": [],
+      "recipeIds": [],
+      "hexagramIds": [],
+      "shopItemIds": [],
+      "npcIds": [],
+      "familiarIds": [],
+      "questIds": [],
+      "spiritRange": {
+        "label": "Apex patrons",
+        "minPower": 40,
+        "maxPower": 100,
+        "traditions": [
+          "traditional_european",
+          "chaos_magic",
+          "vodou",
+          "nordic_seidr",
+          "greek_mageia"
+        ],
+        "notes": "The full spirit range currently in the world will hear you."
+      },
+      "statFloors": {
+        "protection": 24,
+        "ritualSkill": 12,
+        "intuition": 12,
+        "spiritNegotiation": 6
+      }
+    }
+  ]
+}

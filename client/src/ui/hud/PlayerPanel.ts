@@ -4,6 +4,9 @@ import {
   playerLevel,
   practitionerXpProgress,
   getMaxPlayerLevel,
+  getLevelTitle,
+  getLevelRankLabel,
+  spiritRangeForLevel,
   type PlayerStats,
 } from '@witchcraft/shared';
 import { gameState } from '../../data/game-state.js';
@@ -40,15 +43,6 @@ function resolveMorality(stats: PlayerStats | null): number {
   return Math.round(stats?.morality ?? 0);
 }
 
-function rankLabel(level: number): string {
-  // Tuned for max Practitioner Level 10.
-  if (level >= 10) return 'Rank V';
-  if (level >= 7) return 'Rank IV';
-  if (level >= 5) return 'Rank III';
-  if (level >= 3) return 'Rank II';
-  return 'Rank I';
-}
-
 /** Top-left portrait + status — always visible when HUD is ready */
 export class PlayerPanel {
   readonly root: HTMLDivElement;
@@ -77,7 +71,7 @@ export class PlayerPanel {
     const stats = parseStats();
     const name = gameState.displayName ?? 'Practitioner';
     const level = playerLevel(stats?.experience ?? 0);
-    const rank = rankLabel(level);
+    const rank = `${getLevelRankLabel(level)} · ${getLevelTitle(level)}`;
     const type = stats ? getPractitionerType(stats) : 'Practitioner';
     const morality = resolveMorality(stats);
     const hp = Math.round(stats?.health ?? HEALTH_MAX);
@@ -130,14 +124,17 @@ export class PlayerPanel {
     const xpLine = progress.isMaxLevel
       ? `Practitioner Level ${level}/${getMaxPlayerLevel()} (max)`
       : `Practitioner Level ${level}/${getMaxPlayerLevel()} · ${progress.xpIntoLevel}/${progress.xpToNext} XP`;
+    const spirits = spiritRangeForLevel(level);
     return [
       `<strong>${gameState.displayName ?? 'Practitioner'}</strong>`,
       xpLine,
+      `${getLevelRankLabel(level)} · ${getLevelTitle(level)}`,
+      spirits.label ? `Spirits: ${spirits.label} (${spirits.minPower}–${spirits.maxPower})` : '',
       stats ? getPractitionerType(stats) : 'Practitioner',
       `Public rep ${publicRep} · Spiritual rep ${spiritualRep}`,
       recentLine,
       '<em>Press X for Aura &amp; Wards (full stats)</em>',
-    ].join('<br/>');
+    ].filter(Boolean).join('<br/>');
   }
 }
 

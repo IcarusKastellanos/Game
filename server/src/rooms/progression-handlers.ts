@@ -449,6 +449,7 @@ export function handleInteractCrafting(
       output: r.output,
       effect: r.effect ?? 'item',
       meCost: r.meCost,
+      minLevel: r.minLevel ?? 1,
     })),
   });
 }
@@ -477,6 +478,7 @@ export function handleInteractHexagram(ctx: HandlerCtx, interactableId: string):
       effect: r.effect,
       spellId: r.spellId,
       visualTheme: r.visualTheme,
+      minLevel: r.minLevel ?? 1,
     })),
   });
 }

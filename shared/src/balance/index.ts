@@ -9,7 +9,9 @@ import {
   magicalEnergyCapFromCurve,
   protectionSkillFromCurve,
   clampPlayerLevelValue,
+  playerLevelFromExperience,
 } from '../progression/level-curve.js';
+import { applyLevelStatFloors, levelMeCapBonus } from '../progression/level-profiles.js';
 
 /** @deprecated Prefer getMaxPlayerLevel() — kept as a live getter for importers. */
 export const MAX_PLAYER_LEVEL = 10;
@@ -26,9 +28,10 @@ export function levelPowerMultiplier(experience: number): number {
   return levelPowerMultiplierFromCurve(experience);
 }
 
-/** Max ME pool — scales with practitioner level from the content curve. */
+/** Max ME pool — curve plus the admin per-level ME bonus. */
 export function magicalEnergyCapForLevel(experience: number): number {
-  return magicalEnergyCapFromCurve(experience);
+  const bonus = levelMeCapBonus(playerLevelFromExperience(experience));
+  return magicalEnergyCapFromCurve(experience) + Math.round(bonus);
 }
 
 /** ME restored each regen tick (server applies on ~30s interval) */
@@ -53,12 +56,12 @@ export function protectionSkillFromLevel(experience: number): number {
   return protectionSkillFromCurve(experience);
 }
 
-/** Recompute stats that scale purely with practitioner level. */
+/** Recompute stats that scale purely with practitioner level, then raise stat floors. */
 export function syncLevelDerivedStats(stats: PlayerStats): PlayerStats {
-  return {
+  return applyLevelStatFloors({
     ...stats,
     protection: protectionSkillFromLevel(stats.experience),
-  };
+  });
 }
 
 // Re-export live max for call sites that previously imported the constant.

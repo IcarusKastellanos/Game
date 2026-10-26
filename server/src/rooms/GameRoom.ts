@@ -51,6 +51,10 @@ import {
   applyReputationSource,
   applyMoralityGossip,
   defaultProgression,
+  meetsAssignedUnlock,
+  assignedUnlockLevel,
+  levelGateMessage,
+  playerLevel,
   type SurvivalActivity,
 } from '@witchcraft/shared';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
@@ -970,6 +974,15 @@ export class GameRoom extends Room<GameRoomState> {
         const npcId = target.data?.npcId as string;
         const npc = contentRegistry.npcs.get(npcId);
         if (npc) {
+          const npcLevel = assignedUnlockLevel('npcIds', npcId);
+          if (npcLevel != null && !meetsAssignedUnlock('npcIds', npcId, player.stats.experience ?? 0)) {
+            client.send('notification', {
+              type: 'notification',
+              message: levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)),
+              level: 'warn',
+            });
+            break;
+          }
           client.send('open_ui', {
             ui: 'dialogue',
             npcId,
@@ -1825,6 +1838,16 @@ export class GameRoom extends Room<GameRoomState> {
     }
     if (!/^[A-Za-z]+$/.test(msg.publicName.trim())) {
       client.send('notification', { type: 'notification', message: 'Faux Name must be one word, letters only.', level: 'error' });
+      return;
+    }
+
+    const familiarLevel = assignedUnlockLevel('familiarIds', msg.templateId);
+    if (familiarLevel != null && !meetsAssignedUnlock('familiarIds', msg.templateId, player.stats.experience ?? 0)) {
+      client.send('notification', {
+        type: 'notification',
+        message: levelGateMessage('That familiar', familiarLevel, playerLevel(player.stats.experience ?? 0)),
+        level: 'warn',
+      });
       return;
     }
 

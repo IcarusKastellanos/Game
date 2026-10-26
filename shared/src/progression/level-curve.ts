@@ -145,6 +145,21 @@ export function protectionSkillFromCurve(experience: number): number {
   return Math.round(curve.protection.base + (level - 1) * curve.protection.perLevel);
 }
 
+/** Replace only the level-up event list (profiles can drive messages). */
+export function setLevelUpEvents(events: LevelUpEventDef[]): void {
+  curve = { ...curve, onLevelUp: events.filter((e) => e.atLevel >= 1 && e.message && e.eventId) };
+}
+
+/** Patch max level / XP step without discarding power and ME curves. */
+export function patchLevelCurve(partial: { maxLevel?: number; xpPerLevel?: number }): void {
+  if (partial.maxLevel != null && Number.isFinite(partial.maxLevel)) {
+    curve = { ...curve, maxLevel: Math.max(1, Math.round(partial.maxLevel)) };
+  }
+  if (partial.xpPerLevel != null && Number.isFinite(partial.xpPerLevel)) {
+    curve = { ...curve, xpPerLevel: Math.max(1, Math.round(partial.xpPerLevel)) };
+  }
+}
+
 /** Content events fired when crossing into `levelAfter` (inclusive of multi-level jumps). */
 export function levelUpEventsBetween(levelBefore: number, levelAfter: number): LevelUpEventDef[] {
   if (levelAfter <= levelBefore) return [];

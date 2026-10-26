@@ -208,6 +208,7 @@ export class UIScene extends Phaser.Scene {
             inputs: { itemId: string; quantity: number }[];
             effect?: string;
             meCost?: number;
+            minLevel?: number;
           }[]) ?? []
         );
         break;

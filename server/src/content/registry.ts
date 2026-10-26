@@ -106,6 +106,7 @@ export class ContentRegistry {
       reputationSpiritualJson: loadJsonFile('progression/reputation-spiritual.json'),
       xpSourcesJson: loadJsonFile('progression/xp-sources.json'),
       levelCurveJson: loadJsonFile('progression/level-curve.json'),
+      levelProfilesJson: loadJsonFile('progression/levels.json'),
     });
 
     this.validateLevelGates();

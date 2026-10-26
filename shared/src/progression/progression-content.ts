@@ -3,6 +3,7 @@ import { resolveStatValue, type StatDisplayKey } from './stats-catalog.js';
 import { setReputationContent } from './reputation.js';
 import { setXpSourcesContent } from './xp-sources.js';
 import { setLevelCurveContent } from './level-curve.js';
+import { setLevelProfiles } from './level-profiles.js';
 
 export interface HungerDebuffBand {
   belowHunger: number;
@@ -191,9 +192,13 @@ export function setProgressionContent(partial: {
   reputationSpiritualJson?: unknown;
   xpSourcesJson?: unknown;
   levelCurveJson?: unknown;
+  levelProfilesJson?: unknown;
 }): void {
   if (partial.levelCurveJson !== undefined) {
     setLevelCurveContent(partial.levelCurveJson);
+  }
+  if (partial.levelProfilesJson !== undefined && partial.levelProfilesJson != null) {
+    setLevelProfiles(partial.levelProfilesJson);
   }
   if (partial.reputationPublicJson !== undefined || partial.reputationSpiritualJson !== undefined) {
     setReputationContent({

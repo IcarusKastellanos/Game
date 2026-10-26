@@ -8,8 +8,11 @@ import type { ContentIngredient, ContentNpc } from '@witchcraft/shared';
 import { hashIconPixels } from '@witchcraft/shared';
 import { craftingSystem } from '../../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../../systems/hexagram-enchant-system.js';
+import { questSystem } from '../../systems/quest-system.js';
 import { readContentJson, writeContentJson } from '../../content/json-persist.js';
+import { saveLevelDocument } from '../../content/level-sync.js';
 import type { ContentRecipe, ContentHexagramRecipe } from '@witchcraft/shared';
+import { LEVEL_STAT_FLOOR_KEYS, getLevelDocument } from '@witchcraft/shared';
 import { hydrateNpcSprite, npcToDb } from '../../content/npc-sprites.js';
 
 function hydrateItemIcon(item: ContentIngredient & { data?: { iconPixels?: string[] | null } }): ContentIngredient {
@@ -483,6 +486,41 @@ contentRouter.delete('/events/:id', requirePerm('content.event.edit'), async (re
     previousValue: before,
   });
   res.json({ ok: true });
+});
+
+function levelCatalog() {
+  return {
+    spells: [...contentRegistry.spells.values()].map((s) => ({ id: s.id, name: s.name, minLevel: s.minLevel ?? 1 })),
+    recipes: [...craftingSystem.recipes.values()].map((r) => ({ id: r.id, name: r.name, minLevel: r.minLevel ?? 1 })),
+    hexagrams: [...hexagramEnchantSystem.recipes.values()].map((r) => ({
+      id: r.id,
+      name: r.name,
+      minLevel: r.minLevel ?? 1,
+    })),
+    items: [...contentRegistry.ingredients.values()].map((i) => ({ id: i.id, name: i.name })),
+    npcs: [...contentRegistry.npcs.values()].map((n) => ({ id: n.id, name: n.name, role: n.role })),
+    familiars: [...contentRegistry.familiars.values()].map((f) => ({ id: f.id, name: f.defaultPublicName, species: f.species })),
+    quests: [...questSystem.quests.values()].map((q) => ({ id: q.id, name: q.name, minLevel: q.minLevel ?? 1 })),
+    statKeys: LEVEL_STAT_FLOOR_KEYS,
+    traditions: ['traditional_european', 'chaos_magic', 'vodou', 'nordic_seidr', 'greek_mageia'],
+  };
+}
+
+contentRouter.get('/levels', requirePerm('content.spell.view'), (_req, res) => {
+  res.json({ document: getLevelDocument(), catalog: levelCatalog() });
+});
+
+contentRouter.put('/levels', requirePerm('content.spell.edit'), async (req: AdminRequest, res) => {
+  const before = getLevelDocument();
+  const document = saveLevelDocument(req.body?.document ?? req.body);
+  await writeAuditLog(auditContext(req), {
+    action: 'content.levels.update',
+    objectType: 'level_document',
+    objectId: 'practitioner_levels',
+    previousValue: before,
+    newValue: document,
+  });
+  res.json({ document, catalog: levelCatalog() });
 });
 
 // --- Reload ---

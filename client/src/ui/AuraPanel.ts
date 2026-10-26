@@ -5,6 +5,7 @@ import {
   playerLevel,
   practitionerXpProgress,
   getMaxPlayerLevel,
+  getLevelTitle,
 } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
@@ -301,7 +302,7 @@ export class AuraPanel {
     const xpText = progress.isMaxLevel
       ? `MAX (${max})`
       : `${progress.xpIntoLevel}/${progress.xpToNext} XP`;
-    return `<div class="aura-overview-values__progress"><span class="k">Practitioner Level</span> <span class="v accent">${level}/${max}</span> <span class="v">${xpText}</span></div>`;
+    return `<div class="aura-overview-values__progress"><span class="k">Practitioner Level</span> <span class="v accent">${level}/${max}</span> <span class="v">${esc(getLevelTitle(level))}</span> <span class="v">${xpText}</span></div>`;
   }
 
   private reputationOverviewHtml(): string {

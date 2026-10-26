@@ -114,6 +114,16 @@ pre { background: var(--panel2); padding: 0.75rem; border-radius: 6px; overflow:
   padding: 0.25rem 0.55rem; font-size: 0.75rem;
 }
 .checkbox-chip input { width: auto; margin: 0; }
+.level-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.75rem; }
+.level-tabs button.active { background: var(--accent); color: #1a1204; }
+.unlock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.35rem;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
 .inspector {
   background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem;
 }
