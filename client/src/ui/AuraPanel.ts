@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { AuraState, StatDisplayKey } from '@witchcraft/shared';
-import { isActiveAuraEffect } from '@witchcraft/shared';
+import { isActiveAuraEffect, playerLevel, practitionerXpProgress } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import {
@@ -217,7 +217,7 @@ export class AuraPanel {
           </div>
 
           ${vm ? this.overviewValuesHtml(vm, isOther, overview) : ''}
-          ${vm ? this.statusMessageHtml(vm, status) : this.loadingStatusHtml(status)}
+          ${vm ? this.statusMessageHtml(vm, status, isOther) : this.loadingStatusHtml(status)}
           ${vm ? this.coreOverlaysHtml(vm) : ''}
           ${vm ? this.mentalOverlaysHtml(vm) : ''}
           ${vm ? this.technicalOverlaysHtml(vm) : ''}
@@ -266,35 +266,59 @@ export class AuraPanel {
       vm.familiarLink.linked && vm.familiarLink.state === 'linked' ? 'good' : '';
     const dmgClass = vm.energeticDamage > 0 ? 'bad' : '';
     const hexClass = vm.hexes > 0 ? 'bad' : '';
+    // Upper overview panel is only ~72px — keep Level + dual reputation first so they never clip.
     return `
       <div class="aura-zone aura-overview-values" style="${pos(zone)}">
-        <div><span class="k">Alignment:</span> <span class="v accent">${esc(vm.alignment.label)} (${vm.alignment.value})</span></div>
-        <div>
+        ${isOther ? '' : this.practitionerXpOverviewHtml()}
+        ${isOther ? '' : this.reputationOverviewHtml()}
+        <div><span class="k">Alignment:</span> <span class="v accent">${esc(vm.alignment.label)} (${vm.alignment.value})</span>
+          <span class="sep">•</span>
           <span class="k">Blessings:</span> <span class="v">${vm.blessings}</span>
           <span class="sep">•</span>
           <span class="k">Hexes:</span> <span class="v ${hexClass}">${vm.hexes}</span>
         </div>
         <div>
-          <span class="k">Protections:</span> <span class="v">${vm.activeProtections}</span>
+          <span class="k">Wards:</span> <span class="v">${vm.activeProtections}/${vm.wardLayers}</span>
           <span class="sep">•</span>
-          <span class="k">Ward layers:</span> <span class="v">${vm.wardLayers}</span>
-        </div>
-        <div>
-          <span class="k">Familiar:</span>
-          <span class="v ${famClass}">${familiarOverviewText(vm, isOther)}</span>
-        </div>
-        <div>
-          <span class="k">Energetic damage:</span>
-          <span class="v ${dmgClass}">${vm.energeticDamage}</span>
+          <span class="k">Familiar:</span> <span class="v ${famClass}">${familiarOverviewText(vm, isOther)}</span>
+          <span class="sep">•</span>
+          <span class="k">Damage:</span> <span class="v ${dmgClass}">${vm.energeticDamage}</span>
         </div>
       </div>`;
   }
 
-  private statusMessageHtml(vm: AuraScreenViewModel, zone: Rect): string {
+  private practitionerXpOverviewHtml(): string {
+    const stats = parseStats(gameState.localPlayer?.statsJson);
+    const xp = stats.experience ?? 0;
+    const progress = practitionerXpProgress(xp);
+    const level = playerLevel(xp);
+    return `<div class="aura-overview-values__progress"><span class="k">Practitioner Level</span> <span class="v accent">${level}</span> <span class="v">${progress.xpIntoLevel}/${progress.xpToNext} XP</span></div>`;
+  }
+
+  private reputationOverviewHtml(): string {
+    const stats = parseStats(gameState.localPlayer?.statsJson);
+    const pub = Math.round(stats.publicReputation ?? stats.reputation ?? 0);
+    const spi = Math.round(stats.spiritualReputation ?? 0);
+    const pubCls = pub < 0 ? 'bad' : pub > 0 ? 'good' : '';
+    const spiCls = spi < 0 ? 'bad' : spi > 0 ? 'good' : '';
+    return `<div class="aura-overview-values__progress"><span class="k">Public</span> <span class="v ${pubCls}">${pub >= 0 ? '+' : ''}${pub}</span> <span class="sep">·</span> <span class="k">Spiritual</span> <span class="v ${spiCls}">${spi >= 0 ? '+' : ''}${spi}</span></div>`;
+  }
+
+  private recentXpStatusLine(): string {
+    const recent = (gameState.progression?.recentXp ?? []).slice(-3).reverse();
+    if (!recent.length) return 'Recent XP: —';
+    return `Recent XP: ${recent
+      .map((e) => `+${e.amount} ${e.label}${e.levelAfter > e.levelBefore ? ' ▲' : ''}`)
+      .join(' · ')}`;
+  }
+
+  private statusMessageHtml(vm: AuraScreenViewModel, zone: Rect, isOther: boolean): string {
     const m = vm.statusMessage;
+    const recent = isOther ? '' : this.recentXpStatusLine();
+    const title = recent ? `${m.text} — ${recent}` : m.text;
     return `
-      <div class="aura-zone aura-status-message sev-${m.severity}" style="${pos(zone)}" title="${esc(m.text)}">
-        <span>${esc(m.text)}</span>
+      <div class="aura-zone aura-status-message sev-${m.severity}" style="${pos(zone)}" title="${esc(title)}">
+        <span>${esc(m.text)}${recent ? `<br/><span class="aura-status-recent">${esc(recent)}</span>` : ''}</span>
       </div>`;
   }
 

@@ -117,12 +117,19 @@ export async function updatePlayerStats(
   const before = await prisma.playerStats.findUnique({ where: { playerId } });
 
   // Extended attributes live in the extendedStats JSON column, not as columns.
-  const EXTENDED_KEYS = new Set<string>(EXTENDED_STAT_KEYS);
+  const EXTENDED_KEYS = new Set<string>([...EXTENDED_STAT_KEYS, 'publicReputation', 'spiritualReputation']);
   const columnUpdates: Record<string, number> = {};
   const extendedUpdates: Record<string, number> = {};
   for (const [key, value] of Object.entries(updates)) {
     if (EXTENDED_KEYS.has(key)) extendedUpdates[key] = value;
     else columnUpdates[key] = value;
+  }
+
+  // Keep legacy reputation column synchronized with publicReputation edits.
+  if (extendedUpdates.publicReputation != null) {
+    columnUpdates.reputation = extendedUpdates.publicReputation;
+  } else if (columnUpdates.reputation != null) {
+    extendedUpdates.publicReputation = columnUpdates.reputation;
   }
 
   const data: Record<string, unknown> = { ...columnUpdates };

@@ -102,6 +102,9 @@ export class ContentRegistry {
       statLabelsJson: loadJsonFile('progression/stat-labels.json'),
       focusWeightsJson: loadJsonFile('progression/focus-weights.json'),
       booksJson: loadJsonFile('books.json'),
+      reputationPublicJson: loadJsonFile('progression/reputation-public.json'),
+      reputationSpiritualJson: loadJsonFile('progression/reputation-spiritual.json'),
+      xpSourcesJson: loadJsonFile('progression/xp-sources.json'),
     });
 
     console.log(

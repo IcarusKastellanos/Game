@@ -22,8 +22,8 @@
 ### Phase 1 — Milestone A (foundation)
 
 1. ~~Stats expansion + migration (`stamina`, mental stats)~~ — done (`extendedStats` + load-time backfill)
-2. Reputation split (`publicReputation` / `spiritualReputation`) + content files
-3. XP source registry + central `grantExperience()` in `progression-handlers.ts`
+2. ~~Reputation split (`publicReputation` / `spiritualReputation`) + content files~~ — done
+3. ~~XP source registry + central `grantExperience()`~~ — done (`content/progression/xp-sources.json` + shared `grantExperience`)
 
 See **Phase 1** below for the full practitioner framework roadmap.
 
@@ -249,10 +249,10 @@ Each track has: **current value**, **tier/level label**, **history log** (option
 
 ### 1.1 Experience (technical skill)
 
-- [ ] Define `content/progression/xp-sources.json` — actions that grant XP (read book, successful cast, craft, experiment, quest, teach NPC, coven rite, dream journal entry, etc.) with `{ actionId, baseXp, skillTags[], tradition?, cooldown? }`
-- [ ] Server `progression-handlers.ts`: central `grantExperience(player, sourceId, context)` — no inline XP numbers in handlers
-- [ ] XP contributes to **Practitioner Level** (`playerLevel`) and optionally to **technical skill** sub-XP pools (see §3)
-- [ ] UI: HUD shows level + XP bar to next level; character sheet shows recent XP sources
+- [x] Define `content/progression/xp-sources.json` — actions that grant XP (read book, successful cast, craft, experiment, quest, teach NPC, coven rite, dream journal entry, etc.) with `{ actionId, baseXp, skillTags[], tradition?, cooldown? }`
+- [x] Server `progression-handlers.ts`: central `grantExperience(player, sourceId, context)` — no inline XP numbers in handlers
+- [x] XP contributes to **Practitioner Level** (`playerLevel`) and optionally to **technical skill** sub-XP pools (see §3)
+- [x] UI: HUD shows level + XP bar to next level; character sheet shows recent XP sources
 
 
 
@@ -283,11 +283,11 @@ Recognition is **what the magical establishment acknowledges you as** — distin
 
 How townspeople, shopkeepers, and authorities perceive you.
 
-- [ ] Split `stats.reputation` → `stats.publicReputation` (migrate existing value on load)
-- [ ] Sources: helping/harming NPCs, visible magic in town, quest outcomes, morality extremes, gossip events
-- [ ] Content: `content/progression/reputation-public.json` — per-NPC faction weights, decay rules, rumor events
-- [ ] Effects: shop prices, NPC willingness to talk, access to mundane jobs, police/curfew hooks (future)
-- [ ] High public rep ≠ trusted in occult circles (intentional tension)
+- [x] Split `stats.reputation` → `stats.publicReputation` (migrate existing value on load)
+- [x] Sources: helping/harming NPCs, visible magic in town, quest outcomes, morality extremes, gossip events
+- [x] Content: `content/progression/reputation-public.json` — per-NPC faction weights, decay rules, rumor events
+- [x] Effects: shop prices, refuse-trade at low public rep; access to mundane jobs / police/curfew hooks (future)
+- [x] High public rep ≠ trusted in occult circles (intentional tension)
 
 
 
@@ -295,10 +295,10 @@ How townspeople, shopkeepers, and authorities perceive you.
 
 Standing among practitioners, lodges, study circles, and temple networks.
 
-- [ ] Add `stats.spiritualReputation` (−100…100 or 0…100 — pick one schema, document in shared types)
-- [ ] Sources: study circle attendance, teaching, successful public workings, coven contribution, library donations, cleansing/helping other practitioners
-- [ ] Gates: advanced rituals, temple entry, rare ingredient vendors, mentor NPCs, certification exams
-- [ ] Rowan / study circle questline becomes first spiritual-rep arc
+- [x] Add `stats.spiritualReputation` (−100…100 — documented in shared types; stored in `extendedStats`)
+- [x] Sources: study circle / occult NPC dialogue, successful public workings, quest spiritual rewards, content sources for teaching/coven/library/cleanse
+- [x] Gates: `rareVendorAbove` gates Everweed; mentor/temple/advancedRitual thresholds in content (wired via `meetsSpiritualGate`)
+- [x] Rowan / study circle questline IDs award spiritual reputation on complete (heuristic + `rewards.spiritualReputation`)
 
 
 
@@ -481,10 +481,10 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 
 ### 6.1 New content files
 
-- [ ] `content/progression/xp-sources.json`
+- [x] `content/progression/xp-sources.json`
 - [ ] `content/progression/level-curve.json`
 - [ ] `content/progression/recognition-tiers.json`
-- [ ] `content/progression/reputation-public.json`
+- [x] `content/progression/reputation-public.json` (+ `reputation-spiritual.json`)
 - [ ] `content/progression/reputation-spiritual.json`
 - [ ] `content/progression/reputation-coven.json` (stub)
 - [ ] `content/progression/affinity-rules.json`
@@ -522,9 +522,9 @@ The Grimoire is the player’s **persistent magical knowledge base** — eventua
 
 **Milestone A — Foundation (data model)**  
 
-1. Stats expansion + migration
-2. Reputation split (public / spiritual) + content files
-3. XP source registry + central grant function
+1. ~~Stats expansion + migration~~
+2. ~~Reputation split (public / spiritual) + content files~~
+3. ~~XP source registry + central grant function~~
 
 **Milestone B — Recognition & gates**  
 4. Recognition tiers + license flags  

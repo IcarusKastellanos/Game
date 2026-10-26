@@ -95,11 +95,23 @@ export interface PlayerStats {
   healing: number;
   ritualSkill: number;
   experience: number;
+  /**
+   * Legacy single reputation column (−100…100). Kept in sync with
+   * {@link publicReputation} for DB persistence and older clients.
+   */
   reputation: number;
   morality: number;
   /** Affinity per magic tradition (0–100) */
   affinities: Record<MagicTradition, number>;
   specialty?: MagicTradition;
+
+  /**
+   * Mundane-world standing (−100…100). Migrated from legacy `reputation` on load.
+   * Optional so older saves still parse.
+   */
+  publicReputation?: number;
+  /** Occult-community standing (−100…100). Stored in extendedStats. */
+  spiritualReputation?: number;
 
   // ── Extended attributes (Aura & Wards screen). Optional so older saves load. ──
   /** Physical endurance — ritual stamina, travel, carrying. */
@@ -379,8 +391,20 @@ export interface ContentShop {
   name: string;
   locationId: MapLocationId;
   npcId?: string;
-  inventory: { itemId: string; price: number; stock: number }[];
+  inventory: {
+    itemId: string;
+    price: number;
+    stock: number;
+    /** Occult standing required to purchase this listing (spiritual reputation). */
+    minSpiritualReputation?: number;
+    /** Mundane standing required to purchase this listing (public reputation). */
+    minPublicReputation?: number;
+  }[];
   openHours?: { start: number; end: number };
+  /** Shop-wide occult standing gate (spiritual reputation). */
+  minSpiritualReputation?: number;
+  /** Shop-wide mundane standing gate (public reputation). */
+  minPublicReputation?: number;
 }
 
 export interface ContentNpc {

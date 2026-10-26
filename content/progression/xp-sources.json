@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "note": "Central XP registry. Handlers must call grantExperience(sourceId) — never hard-code XP amounts.",
+  "defaults": {
+    "cooldownMs": 0,
+    "skillXpFactor": 12
+  },
+  "sources": [
+    {
+      "actionId": "spell_cast_success",
+      "label": "Successful spell or altar working",
+      "baseXp": 5,
+      "skillTags": ["ritualSkill"],
+      "tradition": null,
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "spell_cast_focus_fail",
+      "label": "Attempted working that failed the focus check",
+      "baseXp": 1,
+      "skillTags": ["ritualSkill"],
+      "cooldownMs": 5000
+    },
+    {
+      "actionId": "read_book",
+      "label": "Finish studying a book",
+      "baseXp": 8,
+      "skillTags": ["memory"],
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "craft_success",
+      "label": "Craft a recipe at a station",
+      "baseXp": 6,
+      "skillTags": ["herbalism", "potionMaking"],
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "hexagram_enchant",
+      "label": "Complete a hexagram enchanting working",
+      "baseXp": 7,
+      "skillTags": ["ritualSkill"],
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "quest_complete",
+      "label": "Complete a quest",
+      "baseXp": 20,
+      "skillTags": [],
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "quest_stage",
+      "label": "Advance a quest stage",
+      "baseXp": 4,
+      "skillTags": [],
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "experiment_success",
+      "label": "Successful magical experiment",
+      "baseXp": 10,
+      "skillTags": ["ritualSkill"],
+      "cooldownMs": 60000
+    },
+    {
+      "actionId": "teach_npc",
+      "label": "Teach an NPC a correspondence or charm",
+      "baseXp": 12,
+      "skillTags": ["presence"],
+      "cooldownMs": 300000
+    },
+    {
+      "actionId": "coven_rite",
+      "label": "Participate in a coven rite",
+      "baseXp": 15,
+      "skillTags": ["ritualSkill"],
+      "tradition": "traditional_european",
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "dream_journal",
+      "label": "Record a dream journal entry",
+      "baseXp": 5,
+      "skillTags": ["divination", "memory"],
+      "cooldownMs": 3600000
+    },
+    {
+      "actionId": "discover_correspondence",
+      "label": "Discover a new correspondence",
+      "baseXp": 3,
+      "skillTags": ["herbalism"],
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "pocket_spell_prepare",
+      "label": "Prepare a pocket spell",
+      "baseXp": 4,
+      "skillTags": ["ritualSkill"],
+      "cooldownMs": 0
+    },
+    {
+      "actionId": "ward_place",
+      "label": "Place or reinforce a household ward",
+      "baseXp": 5,
+      "skillTags": ["protection"],
+      "cooldownMs": 10000
+    },
+    {
+      "actionId": "familiar_bond",
+      "label": "Deepen familiar bond",
+      "baseXp": 4,
+      "skillTags": ["spiritNegotiation"],
+      "cooldownMs": 60000
+    }
+  ]
+}
