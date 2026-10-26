@@ -252,6 +252,16 @@ body.hud-expanded #hud-resources {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  max-width: 100%;
+}
+.hud-player-panel__name:hover,
+.hud-player-panel__name:focus-visible {
+  color: #fff6d8;
+  outline: none;
 }
 
 .hud-player-panel__rank,

@@ -77,7 +77,7 @@ class GameState {
   username = '';
   displayName = '';
   currentScene: 'apartment' | 'town' = 'apartment';
-  activeUI: 'none' | 'altar' | 'hexagram' | 'inventory' | 'shop' | 'aura' | 'familiar' | 'dialogue' = 'none';
+  activeUI: 'none' | 'altar' | 'hexagram' | 'inventory' | 'shop' | 'aura' | 'familiar' | 'dialogue' | 'ledger' = 'none';
   activeShopId: string | null = null;
   lastSpellResult: string | null = null;
   nearbyPlayers: NearbyPlayer[] = [];

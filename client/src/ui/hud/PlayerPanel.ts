@@ -90,7 +90,7 @@ export class PlayerPanel {
     this.root.innerHTML = `
       <img class="hud-player-panel__chrome" src="${hudSprites.player.frame}" alt="" draggable="false" />
       <div class="hud-player-panel__header">
-        <div class="hud-player-panel__name" id="hud-player-name">${name}</div>
+        <button type="button" class="hud-player-panel__name" id="hud-player-name" title="Open practitioner ledger (Y)">${name}</button>
         <div class="hud-player-panel__rank" id="hud-player-rank">${rank} · ${type}</div>
         <div class="hud-player-panel__morality-slot" id="hud-morality-slot"></div>
       </div>
@@ -104,6 +104,12 @@ export class PlayerPanel {
     // bind it to live morality (-100..+100).
     this.root.querySelector('#hud-morality-slot')?.appendChild(this.morality.root);
     this.morality.setMorality(morality);
+
+    this.root.querySelector('#hud-player-name')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.dispatchEvent(new CustomEvent('game:open-character-sheet'));
+    });
 
     if (!this.intuitionSlot.parentElement) {
       this.root.appendChild(this.intuitionSlot);
@@ -149,7 +155,7 @@ export class PlayerPanel {
           .join(' · ')}`;
       })(),
       recentLine,
-      '<em>Press X for Aura &amp; Wards (full stats)</em>',
+      '<em>Click your name or press Y for the practitioner ledger. X opens Aura &amp; Wards.</em>',
     ].filter(Boolean).join('<br/>');
   }
 }
