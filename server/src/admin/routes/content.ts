@@ -9,6 +9,7 @@ import { hashIconPixels } from '@witchcraft/shared';
 import { craftingSystem } from '../../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../../systems/hexagram-enchant-system.js';
 import { questSystem } from '../../systems/quest-system.js';
+import { shopSystem } from '../../systems/shop-system.js';
 import { readContentJson, writeContentJson } from '../../content/json-persist.js';
 import { saveLevelDocument } from '../../content/level-sync.js';
 import { licenseEditorCatalog, loadLicensesDocumentFromDisk, saveLicensesDocument } from '../../content/license-sync.js';
@@ -385,6 +386,7 @@ contentRouter.get('/shops', requirePerm('content.shop.edit'), (_req, res) => {
 contentRouter.put('/shops/:id', requirePerm('content.shop.edit'), async (req: AdminRequest, res) => {
   const shop = { ...req.body, id: param(req, 'id') };
   contentRegistry.shops.set(shop.id, shop);
+  shopSystem.captureBaselines();
   await prisma.contentShop.upsert({
     where: { id: shop.id },
     create: shop as never,
