@@ -112,7 +112,7 @@ export async function renderTilesetSection(el: HTMLElement, perms: Set<string>):
   const render = async () => {
     let items: MapTileset[] = [];
     try {
-      items = await mapBuilderApi.listTilesets(showArchived);
+      items = (await mapBuilderApi.listTilesets(showArchived)) as MapTileset[];
     } catch (e) {
       showToast(String(e), 'error');
     }
@@ -299,10 +299,10 @@ export async function renderTileSection(el: HTMLElement, perms: Set<string>): Pr
     let items: MapTileDefinition[] = [];
     let tilesets: MapTileset[] = [];
     try {
-      [items, tilesets] = await Promise.all([
+      [items, tilesets] = (await Promise.all([
         mapBuilderApi.listTiles(showArchived),
         mapBuilderApi.listTilesets(showArchived),
-      ]);
+      ])) as [MapTileDefinition[], MapTileset[]];
     } catch (e) {
       showToast(String(e), 'error');
     }
@@ -469,7 +469,7 @@ export async function renderFurnitureSection(el: HTMLElement, perms: Set<string>
   const render = async () => {
     let items: MapFurnitureDefinition[] = [];
     try {
-      items = await mapBuilderApi.listFurniture(showArchived);
+      items = (await mapBuilderApi.listFurniture(showArchived)) as MapFurnitureDefinition[];
     } catch (e) {
       showToast(String(e), 'error');
     }
@@ -628,7 +628,7 @@ export async function renderDecorationSection(el: HTMLElement, perms: Set<string
   const render = async () => {
     let items: MapDecorationDefinition[] = [];
     try {
-      items = await mapBuilderApi.listDecorations(showArchived);
+      items = (await mapBuilderApi.listDecorations(showArchived)) as MapDecorationDefinition[];
     } catch (e) {
       showToast(String(e), 'error');
     }
