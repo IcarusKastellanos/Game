@@ -278,6 +278,9 @@ export function getPractitionerSpecialtyLabel(
     'specialty' | 'warding' | 'healing' | 'cursecraft' | 'divinationSkill' | 'herbalism' | 'ritualSkill'
   >
 ): string {
+  // TEMPORARY: tradition specialty titles are deactivated until tradition packs ship.
+  // Skill-focus subtitles (Warder, Healer, …) stay.
+  /*
   if (stats.specialty) {
     const labels: Record<string, string> = {
       traditional_european: 'Folk Witch',
@@ -288,6 +291,8 @@ export function getPractitionerSpecialtyLabel(
     };
     return labels[stats.specialty] ?? 'Practitioner';
   }
+  */
+  void stats.specialty;
   const ranked: [string, number][] = [
     ['Warder', stats.warding],
     ['Healer', stats.healing],
@@ -301,7 +306,8 @@ export function getPractitionerSpecialtyLabel(
 }
 
 /**
- * Display label: recognition tier when known, with optional specialty subtitle.
+ * Display label: recognition tier when known, with optional skill-focus subtitle.
+ * Tradition specialty titles are temporarily omitted (see getPractitionerSpecialtyLabel).
  * Pass `recognitionTierLabel` from progression content (keeps this module free of progression imports).
  */
 export function getPractitionerType(

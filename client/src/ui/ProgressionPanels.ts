@@ -116,11 +116,15 @@ export class ProgressionPanels {
     else this.hideJournal();
   }
 
-  showSpecialtyOffer(traditions: string[]): void {
+  /** TEMPORARY: tradition specialty choice is deactivated until tradition packs ship. */
+  showSpecialtyOffer(_traditions: string[]): void {
+    this.specialtyRoot.style.display = 'none';
+    return;
+    /*
     this.specialtyRoot.innerHTML = `
       <h3 style="color:#fc8;">Choose Your Specialty</h3>
       <p style="font-size:9px;color:#aaa;">Your affinity has crossed the threshold — claim a magical tradition.</p>
-      ${traditions.map((t) =>
+      ${_traditions.map((t) =>
         `<button class="spec-btn" data-t="${t}" style="display:block;width:100%;margin:6px 0;padding:8px;background:#221133;border:1px solid #868;color:#ddf;cursor:pointer;">${formatContentLabel(t)}</button>`
       ).join('')}
       <button id="spec-later" style="margin-top:8px;padding:4px 8px;background:#111;border:1px solid #444;color:#888;cursor:pointer;">Decide Later</button>`;
@@ -134,6 +138,7 @@ export class ProgressionPanels {
     this.specialtyRoot.querySelector('#spec-later')!.addEventListener('click', () => {
       this.specialtyRoot.style.display = 'none';
     });
+    */
   }
 
   private getPlayerExperience(): number {

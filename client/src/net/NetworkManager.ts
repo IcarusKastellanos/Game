@@ -742,9 +742,10 @@ class NetworkManager {
       window.dispatchEvent(new CustomEvent('game:world-state', { detail: data }));
     });
 
-    this.room.onMessage('specialty_offer', (data: { traditions: string[] }) => {
-      window.dispatchEvent(new CustomEvent('game:specialty-offer', { detail: data }));
-    });
+    // TEMPORARY: tradition specialty offers deactivated until tradition packs ship.
+    // this.room.onMessage('specialty_offer', (data: { traditions: string[] }) => {
+    //   window.dispatchEvent(new CustomEvent('game:specialty-offer', { detail: data }));
+    // });
 
     this.room.onMessage('book_open', (data: { bookId: string; pages: string[]; title?: string }) => {
       window.dispatchEvent(new CustomEvent('game:book-open', { detail: data }));

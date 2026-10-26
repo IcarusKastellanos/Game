@@ -122,7 +122,7 @@
       },
       {
         "id": "adept",
-        "text": "The adept shelves are open to you. Tradition notes, sealed correspondences \u2014 treat them with care.",
+        "text": "The adept shelves are open to you. Sealed correspondences and careful notes \u2014 treat them with care.",
         "requiresRecognition": "tradition_adept",
         "choices": [
           {

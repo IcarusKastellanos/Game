@@ -232,7 +232,9 @@ export class UIScene extends Phaser.Scene {
   };
 
   private onSpecialtyOffer = (e: CustomEvent<{ traditions: string[] }>): void => {
-    progressionPanels.showSpecialtyOffer(e.detail.traditions);
+    // TEMPORARY: tradition specialty choice deactivated until tradition packs ship.
+    void e;
+    // progressionPanels.showSpecialtyOffer(e.detail.traditions);
   };
 
   private openHudWindow(id: HUDWindowId): void {

@@ -4,7 +4,7 @@ import {
   BOOK_CONTENT,
   applyNpcRelationshipDelta,
   discoverCorrespondences,
-  eligibleSpecialtyTraditions,
+  // eligibleSpecialtyTraditions — TEMPORARY: tradition specialty offers deactivated
   clampPlayerStatValue,
   addItemToInventory,
   normalizePlayerStats,
@@ -110,12 +110,16 @@ function applyReputation(
   return applyReputationDelta(stats, track, delta);
 }
 
-function checkSpecialtyOffer(client: Client, stats: PlayerStats): void {
-  if (stats.specialty) return;
-  const eligible = eligibleSpecialtyTraditions(stats.affinities);
+function checkSpecialtyOffer(_client: Client, _stats: PlayerStats): void {
+  // TEMPORARY: tradition specialty offers deactivated until tradition packs ship.
+  return;
+  /*
+  if (_stats.specialty) return;
+  const eligible = eligibleSpecialtyTraditions(_stats.affinities);
   if (eligible.length) {
-    client.send('specialty_offer', { traditions: eligible });
+    _client.send('specialty_offer', { traditions: eligible });
   }
+  */
 }
 
 export function sendWorldState(client: Client): void {
@@ -260,6 +264,15 @@ export function handleReadBookComplete(ctx: HandlerCtx, bookId: string): void {
 }
 
 export function handleChooseSpecialty(ctx: HandlerCtx, specialty: MagicTradition): void {
+  // TEMPORARY: tradition specialty choice deactivated until tradition packs ship.
+  void specialty;
+  ctx.client.send('notification', {
+    type: 'notification',
+    message: 'Magical paths are not open yet.',
+    level: 'info',
+  });
+  return;
+  /*
   const { player, data } = ctx;
   if (player.stats.specialty) {
     ctx.client.send('notification', { type: 'notification', message: 'Specialty already chosen.', level: 'error' });
@@ -280,6 +293,7 @@ export function handleChooseSpecialty(ctx: HandlerCtx, specialty: MagicTradition
     message: `You have claimed the ${specialty.replace(/_/g, ' ')} path.`,
     level: 'success',
   });
+  */
 }
 
 export function handleCraftRecipe(ctx: HandlerCtx, recipeId: string): void {

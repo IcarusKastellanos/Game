@@ -71,7 +71,7 @@
     },
     {
       "id": "tradition_adept",
-      "label": "Tradition Adept",
+      "label": "Adept",
       "rank": 3,
       "requirements": {
         "minLevel": 5,

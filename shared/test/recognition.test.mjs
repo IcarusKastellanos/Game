@@ -106,12 +106,14 @@ test('dialogue gates honor recognition rank and licenses', () => {
   assert.equal(meetsDialogueRecognitionGate({ requiresLicense: 'warder_license' }, licensed), true);
 });
 
-test('getPractitionerType prefers recognition tier with specialty subtitle', () => {
+test('getPractitionerType uses recognition tier without tradition specialty titles', () => {
+  // Tradition specialty subtitles are temporarily deactivated.
   const label = getPractitionerType(
     { ...DEFAULT_STATS, specialty: 'traditional_european' },
     'Registered Practitioner'
   );
-  assert.equal(label, 'Registered Practitioner · Folk Witch');
+  assert.match(label, /^Registered Practitioner/);
+  assert.doesNotMatch(label, /Folk Witch/);
   const initiate = getPractitionerType(DEFAULT_STATS, 'Initiate');
   assert.match(initiate, /^Initiate/);
 });
