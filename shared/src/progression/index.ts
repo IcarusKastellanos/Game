@@ -90,6 +90,13 @@ export interface PlayerProgression {
   activeVows?: Record<string, import('./licenses.js').ActiveVowState>;
   /** Story / recognition flags unlocked by tiers and content. */
   storyFlags?: string[];
+  /**
+   * Per-player NPC shop shelf counts (`shopId → itemId → remaining`).
+   * Missing entries mean the content baseline stock. Refilled at local noon.
+   */
+  shopStock?: Record<string, Record<string, number>>;
+  /** Local calendar day key (`YYYY-M-D`) of the last noon shop restock for this player. */
+  shopStockDay?: string;
 }
 
 export interface ContentRecipe {
@@ -238,6 +245,8 @@ export function defaultProgression(): PlayerProgression {
     licensureMarks: {},
     activeVows: {},
     storyFlags: [],
+    shopStock: {},
+    shopStockDay: '',
   };
 }
 
@@ -299,7 +308,25 @@ export function parseProgression(raw: unknown): PlayerProgression {
     storyFlags: Array.isArray(o.storyFlags)
       ? [...new Set((o.storyFlags as unknown[]).filter((id): id is string => typeof id === 'string'))]
       : [],
+    shopStock: parseShopStock(o.shopStock),
+    shopStockDay: typeof o.shopStockDay === 'string' ? o.shopStockDay : '',
   };
+}
+
+function parseShopStock(raw: unknown): Record<string, Record<string, number>> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, Record<string, number>> = {};
+  for (const [shopId, items] of Object.entries(raw as Record<string, unknown>)) {
+    if (!items || typeof items !== 'object') continue;
+    const row: Record<string, number> = {};
+    for (const [itemId, stock] of Object.entries(items as Record<string, unknown>)) {
+      if (typeof stock === 'number' && Number.isFinite(stock) && stock >= 0) {
+        row[itemId] = Math.floor(stock);
+      }
+    }
+    out[shopId] = row;
+  }
+  return out;
 }
 
 export function getNpcRelationshipLevel(progression: PlayerProgression, npcId: string): number {
