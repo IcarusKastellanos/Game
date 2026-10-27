@@ -3,7 +3,7 @@ import * as Colyseus from 'colyseus.js';
 import { applyShopStock, gameState, type NearbyPlayer } from '../data/game-state';
 import { triggerScreenDistortion } from '../ui/screen-distortion';
 import type { ContentMapDefinition, NpcPublicPresence, WardState, PlayerProgression } from '@witchcraft/shared';
-import { migrateInventoryToGrid } from '@witchcraft/shared';
+import { migrateInventoryToGrid, shouldApplySeq } from '@witchcraft/shared';
 import { connectionMonitor } from './ConnectionMonitor';
 import { apartmentInvitePanel } from '../ui/ApartmentInvitePanel';
 
@@ -724,6 +724,9 @@ class NetworkManager {
       if (data.metPlayers) gameState.metPlayers = data.metPlayers as typeof gameState.metPlayers;
 
       if ((data as { progression?: PlayerProgression }).progression) {
+        // Fresh session bootstrap — reset sync cursors so reconnect cannot stall on old seq.
+        gameState.progressionSeq = 0;
+        gameState.worldStateSeq = 0;
         gameState.progression = (data as { progression: PlayerProgression }).progression;
       }
 
@@ -731,12 +734,21 @@ class NetworkManager {
 
     });
 
-    this.room.onMessage('progression_update', (data: { progression: PlayerProgression }) => {
+    this.room.onMessage('progression_update', (data: { progression: PlayerProgression; seq?: number }) => {
+      if (!shouldApplySeq(gameState.progressionSeq, data.seq)) return;
+      if (typeof data.seq === 'number') gameState.progressionSeq = data.seq;
       gameState.progression = data.progression;
       window.dispatchEvent(new CustomEvent('game:progression-update', { detail: data }));
     });
 
-    this.room.onMessage('world_state', (data: { hour: number; hiddenNpcIds?: string[]; npcPresences?: NpcPublicPresence[] }) => {
+    this.room.onMessage('world_state', (data: {
+      hour: number;
+      hiddenNpcIds?: string[];
+      npcPresences?: NpcPublicPresence[];
+      seq?: number;
+    }) => {
+      if (!shouldApplySeq(gameState.worldStateSeq, data.seq)) return;
+      if (typeof data.seq === 'number') gameState.worldStateSeq = data.seq;
       gameState.worldHour = data.hour;
       gameState.hiddenNpcIds = data.hiddenNpcIds ?? [];
       gameState.npcPresences = data.npcPresences ?? [];

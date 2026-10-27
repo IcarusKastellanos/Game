@@ -1,6 +1,7 @@
 import {
-  validateKnowledgeDocument,
+  validateKnowledgeAuthoring,
   validateLessonDocument,
+  validateSocialNpcProfile,
   setKnowledgeContent,
   setLessonContent,
   setSocialContent,
@@ -8,6 +9,8 @@ import {
   getKnowledgeDocument,
   getLessonDocument,
 } from '@witchcraft/shared';
+import { contentRegistry } from './registry.js';
+import { questSystem } from '../systems/quest-system.js';
 import { ContentSaveError, contentRevision, writeVersionedDocument } from './versioned-content.js';
 
 export function socialRevision(): number {
@@ -30,6 +33,11 @@ export async function saveSocialDocument(
   setSocialContent(value);
   const document = getSocialDocument();
   if (!document) throw new ContentSaveError('Social document failed validation.', 400);
+  const diagnostics = Object.entries(document.npcs).flatMap(([npcId, profile]) =>
+    validateSocialNpcProfile(npcId, profile)
+  );
+  const fatal = diagnostics.filter((row) => row.level === 'error');
+  if (fatal.length) throw new ContentSaveError(fatal.map((row) => row.message).join(' '), 400);
   const { revision } = writeVersionedDocument({
     filename: 'social.json',
     bucket: 'social',
@@ -44,8 +52,15 @@ export async function saveKnowledgeDocument(
   value: unknown,
   expectedRevision: number
 ): Promise<{ document: NonNullable<ReturnType<typeof getKnowledgeDocument>>; revision: number }> {
-  const parsed = validateKnowledgeDocument(value);
-  if (!parsed.ok) throw new ContentSaveError(parsed.error, 400);
+  const parsed = validateKnowledgeAuthoring(value, {
+    npcIds: new Set(contentRegistry.npcs.keys()),
+    questIds: new Set(questSystem.list().map((quest) => quest.id)),
+    lessonIds: new Set((getLessonDocument()?.lessons ?? []).map((lesson) => lesson.id)),
+  });
+  if (!parsed.ok || !parsed.document) {
+    const message = parsed.diagnostics.map((row) => row.message).join(' ') || 'Knowledge failed validation.';
+    throw new ContentSaveError(message, 400);
+  }
   setKnowledgeContent(parsed.document);
   const { revision } = writeVersionedDocument({
     filename: 'knowledge.json',

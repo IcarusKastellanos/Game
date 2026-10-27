@@ -382,14 +382,14 @@ contentRouter.get('/npcs', requirePerm('content.npc.view'), (_req, res) => {
 contentRouter.put('/npcs/:id', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
   const id = param(req, 'id');
   try {
-    const { npc, revision } = await saveNpcDefinition(req.body, id, revisionField(req.body));
+    const { npc, revision, diagnostics } = await saveNpcDefinition(req.body, id, revisionField(req.body));
     await writeAuditLog(auditContext(req), {
       action: 'content.npc.update',
       objectType: 'npc',
       objectId: id,
       newValue: npc,
     });
-    res.json({ ...hydrateNpcSprite(npc), revision });
+    res.json({ ...hydrateNpcSprite(npc), revision, ...(diagnostics ? { diagnostics } : {}) });
   } catch (error) {
     respondContentSaveError(res, error);
   }

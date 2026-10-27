@@ -122,9 +122,13 @@ class GameState {
   tradePartnerName = '';
   pendingApartmentInvite: { inviteId: string; hostName: string } | null = null;
   progression: PlayerProgression | null = null;
+  /** Last applied progression sync sequence (drop older updates). */
+  progressionSeq = 0;
   hiddenNpcIds: string[] = [];
   /** Server-published NPC presence. The client only interpolates it. */
   npcPresences: NpcPublicPresence[] = [];
+  /** Last applied world_state sequence. */
+  worldStateSeq = 0;
   worldHour = 12;
 
   async loadSession(): Promise<void> {

@@ -1,5 +1,5 @@
 import type { ContentNpc, DialogueTree } from '@witchcraft/shared';
-import { validateDialogueTree, validateNpcDefinition } from '@witchcraft/shared';
+import { validateDialogueTree, validateNpcAuthoring } from '@witchcraft/shared';
 import { contentRegistry } from './registry.js';
 import { dialogueSystem } from '../systems/dialogue-system.js';
 import { prisma } from '../services/db.js';
@@ -18,9 +18,23 @@ export async function saveNpcDefinition(
   value: unknown,
   id: string,
   expectedRevision: number
-): Promise<{ npc: ContentNpc; revision: number }> {
-  const parsed = validateNpcDefinition(value, id, [...contentRegistry.npcPlaces.keys()]);
-  if (!parsed.ok) throw new ContentSaveError(parsed.error, 400);
+): Promise<{ npc: ContentNpc; revision: number; diagnostics?: { level: string; path: string; message: string }[] }> {
+  const dialogue = contentRegistry.dialogues.get(
+    typeof (value as { dialogueTreeId?: string })?.dialogueTreeId === 'string'
+      ? (value as { dialogueTreeId: string }).dialogueTreeId
+      : id
+  );
+  const nodeIds = new Set((dialogue?.nodes ?? []).map((node) => node.id));
+  const parsed = validateNpcAuthoring(value, id, {
+    placeIds: [...contentRegistry.npcPlaces.keys()],
+    shopIds: new Set(contentRegistry.shops.keys()),
+    dialogueNodeIds: nodeIds,
+    dialogueTreeIds: new Set(contentRegistry.dialogues.keys()),
+  });
+  if (!parsed.ok || !parsed.npc) {
+    const message = parsed.diagnostics.map((row) => row.message).join(' ') || 'NPC failed validation.';
+    throw new ContentSaveError(message, 400);
+  }
   const npc = parsed.npc;
   const existing = await prisma.contentNpc.findUnique({ where: { id: npc.id } });
   const previous = [...contentRegistry.npcs.values()];
@@ -57,7 +71,11 @@ export async function saveNpcDefinition(
     throw new ContentSaveError(`The NPC file was restored because the database update failed. ${message}`, 500);
   }
 
-  return { npc, revision };
+  return {
+    npc,
+    revision,
+    diagnostics: parsed.diagnostics.length ? parsed.diagnostics : undefined,
+  };
 }
 
 export async function saveDialogueDefinition(

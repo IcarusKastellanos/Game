@@ -64,6 +64,23 @@ const PERSONALITY_TRAITS: (keyof Personality)[] = [
   'socialOpenness',
 ];
 
+type NpcCapability = {
+  action: string;
+  label?: string;
+  nodeId?: string;
+  shopId?: string;
+};
+
+type UiFeedback = {
+  showStage?: boolean;
+  showRegard?: boolean;
+  showDemeanor?: boolean;
+  showMilestones?: boolean;
+  showGiftSummary?: boolean;
+  showServices?: boolean;
+  showSchedule?: boolean;
+};
+
 type NpcRecord = {
   id: string;
   name: string;
@@ -81,8 +98,30 @@ type NpcRecord = {
   personality?: Personality;
   conversationPolicy?: string;
   biography?: string;
+  capabilities?: NpcCapability[];
   revision?: number;
 };
+
+const CAPABILITY_ACTIONS = [
+  'talk',
+  'trade',
+  'quests',
+  'gift',
+  'favor',
+  'train',
+  'rumors',
+  'goodbye',
+] as const;
+
+const UI_FEEDBACK_FLAGS: { key: keyof UiFeedback; label: string }[] = [
+  { key: 'showStage', label: 'Show relationship stage' },
+  { key: 'showRegard', label: 'Show regard lines' },
+  { key: 'showDemeanor', label: 'Show demeanor / body language' },
+  { key: 'showMilestones', label: 'Show milestones' },
+  { key: 'showGiftSummary', label: 'Show gift window summary' },
+  { key: 'showServices', label: 'Show services summary' },
+  { key: 'showSchedule', label: 'Show usual schedule on People page' },
+];
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const INTERACTION_OPTIONS = [
@@ -265,12 +304,19 @@ export async function renderNpcEditor(
           { value: 'shared_public', label: 'shared public' },
         ], npc.conversationPolicy ?? 'concurrent_personal'))}
         <h3 class="section-head mt">Personality (0–100)</h3>
-        <p class="muted-text">Traits color reactions and gift warmth. They never bypass quest, bond, or economy rules.</p>
+        <p class="muted-text">Traits color reactions and gift warmth. They never bypass quest, bond, or economy rules. Personality stays server-only and is stripped from client exports.</p>
         <div class="form-grid">
           ${PERSONALITY_TRAITS.map((trait) =>
             field(trait, numberInput(`npc-trait-${trait}`, npc.personality?.[trait] ?? 50))
           ).join('')}
         </div>
+        <h3 class="section-head mt">Services (capabilities)</h3>
+        <p class="muted-text">Leave empty to derive talk/trade/quests from dialogue, shop, and quests. Explicit rows override the defaults.</p>
+        <div id="npc-capabilities"></div>
+        <button type="button" class="btn secondary mt" id="add-capability">+ Capability</button>
+        <h3 class="section-head mt">Relationship feedback (player-facing)</h3>
+        <p class="muted-text">Stored on the social profile for this NPC. Affinity numbers stay hidden; these toggles only control visible signals.</p>
+        <div id="npc-ui-feedback" class="form-grid"></div>
         <div id="npc-routine"></div>
         <h3 class="section-head mt">Map sprite — paint here (16×16)</h3>
         <p class="muted-text">This is the picture drawn on the town map. Paint the pixels in this panel, or drop an image onto it. Save NPC writes the painting with the character.</p>
@@ -317,6 +363,101 @@ export async function renderNpcEditor(
     onError: (msg) => alert(msg),
   });
   updateNpcSpritePreview();
+
+  let capabilityRows: NpcCapability[] = (npc.capabilities ?? []).map((row) => ({ ...row }));
+  let uiFeedback: UiFeedback = {
+    showStage: true,
+    showRegard: true,
+    showDemeanor: true,
+    showMilestones: true,
+    showGiftSummary: true,
+    showServices: true,
+    showSchedule: true,
+  };
+  let socialRevision = 0;
+  let socialDocument: { npcs?: Record<string, Record<string, unknown>>; revision?: number } = { npcs: {} };
+
+  const renderCapabilities = (): void => {
+    const host = document.getElementById('npc-capabilities');
+    if (!host) return;
+    if (!capabilityRows.length) {
+      host.innerHTML = `<p class="muted-text">No explicit capabilities — services are derived at runtime.</p>`;
+      return;
+    }
+    host.innerHTML = capabilityRows
+      .map(
+        (row, index) => `<div class="card mt">
+        <div class="form-grid">
+          ${field('Action', selectInput(`cap-action-${index}`, CAPABILITY_ACTIONS.map((action) => ({ value: action, label: action })), row.action))}
+          ${field('Label', textInput(`cap-label-${index}`, row.label ?? ''))}
+          ${field('Node id', textInput(`cap-node-${index}`, row.nodeId ?? ''))}
+          ${field('Shop id', textInput(`cap-shop-${index}`, row.shopId ?? ''))}
+        </div>
+        <button type="button" class="btn secondary mt" data-remove-cap="${index}">Remove</button>
+      </div>`
+      )
+      .join('');
+    host.querySelectorAll<HTMLButtonElement>('[data-remove-cap]').forEach((button) => {
+      button.onclick = () => {
+        readCapabilitiesFromDom();
+        capabilityRows.splice(Number(button.dataset.removeCap), 1);
+        renderCapabilities();
+      };
+    });
+  };
+
+  const readCapabilitiesFromDom = (): void => {
+    capabilityRows = capabilityRows.map((_, index) => {
+      const action = (document.getElementById(`cap-action-${index}`) as HTMLSelectElement | null)?.value || 'talk';
+      const label = (document.getElementById(`cap-label-${index}`) as HTMLInputElement | null)?.value.trim();
+      const nodeId = (document.getElementById(`cap-node-${index}`) as HTMLInputElement | null)?.value.trim();
+      const shopId = (document.getElementById(`cap-shop-${index}`) as HTMLInputElement | null)?.value.trim();
+      return {
+        action,
+        ...(label ? { label } : {}),
+        ...(nodeId ? { nodeId } : {}),
+        ...(shopId ? { shopId } : {}),
+      };
+    });
+  };
+
+  const renderUiFeedback = (): void => {
+    const host = document.getElementById('npc-ui-feedback');
+    if (!host) return;
+    host.innerHTML = UI_FEEDBACK_FLAGS.map(
+      ({ key, label }) =>
+        `<label class="muted-text"><input type="checkbox" id="ui-feedback-${key}" ${uiFeedback[key] !== false ? 'checked' : ''}/> ${esc(label)}</label>`
+    ).join('');
+  };
+
+  const readUiFeedbackFromDom = (): UiFeedback => {
+    const next: UiFeedback = {};
+    for (const { key } of UI_FEEDBACK_FLAGS) {
+      const box = document.getElementById(`ui-feedback-${key}`) as HTMLInputElement | null;
+      next[key] = box ? box.checked : true;
+    }
+    return next;
+  };
+
+  document.getElementById('add-capability')!.onclick = () => {
+    readCapabilitiesFromDom();
+    capabilityRows.push({ action: 'talk' });
+    renderCapabilities();
+  };
+  renderCapabilities();
+  renderUiFeedback();
+
+  void api<{ npcs?: Record<string, Record<string, unknown>>; revision?: number }>('/content/social')
+    .then((social) => {
+      socialDocument = social ?? { npcs: {} };
+      socialRevision = social?.revision ?? 0;
+      const profile = social?.npcs?.[npcId] as { uiFeedback?: UiFeedback } | undefined;
+      if (profile?.uiFeedback) uiFeedback = { ...uiFeedback, ...profile.uiFeedback };
+      renderUiFeedback();
+    })
+    .catch(() => {
+      /* Social doc optional while editing identity. */
+    });
 
   let routineRows: ScheduleRow[] = (npc.schedule ?? []).map((row) => ({ ...row }));
   let routineOverride: ScheduleOverride = {
@@ -551,6 +692,8 @@ export async function renderNpcEditor(
   document.getElementById('save-npc')!.onclick = async () => {
     try {
       readRoutineFromDom();
+      readCapabilitiesFromDom();
+      const feedback = readUiFeedbackFromDom();
       const npcData: NpcRecord = {
         ...npc,
         id: (document.getElementById('npc-id') as HTMLInputElement).value.trim(),
@@ -574,6 +717,7 @@ export async function renderNpcEditor(
             return [trait, Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : 50];
           })
         ),
+        capabilities: capabilityRows.length ? capabilityRows : undefined,
         schedule: cleanRoutineRows(routineRows),
         scheduleOverride: cleanOverride(routineOverride),
         spritePixels: npcSpritePixels.length === NPC_SPRITE_PX * NPC_SPRITE_PX ? npcSpritePixels : undefined,
@@ -605,18 +749,42 @@ export async function renderNpcEditor(
         }),
       }));
 
-      const savedNpc = await api<{ revision: number }>(`/content/npcs/${npcId}`, {
+      const savedNpc = await api<{
+        revision: number;
+        diagnostics?: { level: string; path: string; message: string }[];
+      }>(`/content/npcs/${npcId}`, {
         method: 'PUT',
         body: JSON.stringify({ ...npcData, revision: npcRevision }),
       });
       npcRevision = savedNpc.revision ?? npcRevision;
+      const warnLines = (savedNpc.diagnostics ?? [])
+        .filter((row) => row.level === 'warn')
+        .map((row) => row.message);
       const savedDialogue = await api<{ revision: number }>(`/content/dialogues/${dlgData.id}`, {
         method: 'PUT',
         body: JSON.stringify({ ...dlgData, revision: dialogueRevision }),
       });
       dialogueRevision = savedDialogue.revision ?? dialogueRevision;
+      try {
+        const latestSocial = await api<{
+          npcs?: Record<string, Record<string, unknown>>;
+          revision?: number;
+          [key: string]: unknown;
+        }>('/content/social');
+        const npcs = { ...(latestSocial.npcs ?? {}) };
+        const prior = { ...(npcs[npcData.id] ?? {}) };
+        npcs[npcData.id] = { ...prior, uiFeedback: feedback };
+        const { revision: _drop, ...socialBody } = latestSocial;
+        const savedSocial = await api<{ revision: number }>('/content/social', {
+          method: 'PUT',
+          body: JSON.stringify({ ...socialBody, npcs, revision: latestSocial.revision ?? socialRevision }),
+        });
+        socialRevision = savedSocial.revision ?? socialRevision;
+      } catch (socialError) {
+        console.warn('NPC saved, but relationship feedback could not be stored.', socialError);
+      }
       await api('/content/reload', { method: 'POST', body: '{}' });
-      alert('Saved & reloaded');
+      alert(warnLines.length ? `Saved & reloaded\n\nNotes:\n- ${warnLines.join('\n- ')}` : 'Saved & reloaded');
       onBack();
     } catch (e) {
       alert(String(e));
