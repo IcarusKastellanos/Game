@@ -481,18 +481,57 @@ function paintPeople(section: Element, current: GrimoireState): void {
   }
   if (!current.npcs.some((row) => row.npcId === openId.npc)) openId.npc = current.npcs[0].npcId;
   const entry = current.npcs.find((row) => row.npcId === openId.npc) ?? current.npcs[0];
+  const contentNpc = gameState.content?.npcs.find((npc) => npc.id === entry.npcId);
+  const role = entry.role || contentNpc?.role || '';
+  const biography = entry.biography || contentNpc?.biography || '';
+  const portrait = npcPortraitMarkup(entry.npcId, contentNpc?.spritePixels);
+  const publicBits = [
+    role ? `<p class="hud-grimoire__meta">${escapeHtml(role)}</p>` : '',
+    biography ? `<p>${escapeHtml(biography)}</p>` : '',
+    proseBlock('npcs', entry.npcId, ''),
+  ]
+    .filter(Boolean)
+    .join('');
+  const discovered = [
+    listBlock('Known places', entry.knownLocations),
+    listBlock('Usual hours', entry.knownSchedule),
+    listBlock('Known likes', entry.knownLikes),
+    listBlock('Known dislikes', entry.knownDislikes),
+    listBlock('Services', entry.services),
+    listBlock('Rumors and clues', entry.discoveredRumors),
+    listBlock('Topics you have opened', entry.unlockedTopics),
+  ]
+    .filter(Boolean)
+    .join('');
+  const relationMeta = entry.stageLabel
+    ? escapeHtml(entry.stageLabel)
+    : `${escapeHtml(grimoireBondLabel(entry.relationship))}`;
+  const relationBody = entry.stageLabel
+    ? `${(entry.regard ?? []).map((line) => `<p>${escapeHtml(line)}</p>`).join('')}${(entry.memories ?? [])
+        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .join('')}<p>First written ${escapeHtml(writtenOn(entry.metAt) || 'when you spoke')}.</p>`
+    : `<p>${escapeHtml(bondSentence(entry.name, entry.relationship))} First written ${escapeHtml(
+        writtenOn(entry.metAt) || 'when you spoke'
+      )}.</p>`;
   section.innerHTML = `
     <h3>People</h3>
     <div class="hud-grimoire__index">
       ${current.npcs.map((row) => `<button type="button" class="hud-grimoire__index-btn${row.npcId === entry.npcId ? ' is-active' : ''}" data-npc="${escapeHtml(row.npcId)}">${escapeHtml(row.name)}</button>`).join('')}
     </div>
     <article class="hud-grimoire__entry">
-      <h4>${escapeHtml(entry.name)}</h4>
-      ${proseBlock('npcs', entry.npcId, '')}
-      <p class="hud-grimoire__meta">${entry.stageLabel ? escapeHtml(entry.stageLabel) : `${escapeHtml(grimoireBondLabel(entry.relationship))} · regard ${entry.relationship}`}</p>
-      ${entry.stageLabel
-        ? `${(entry.regard ?? []).map((line) => `<p>${escapeHtml(line)}</p>`).join('')}${(entry.memories ?? []).map((line) => `<p>${escapeHtml(line)}</p>`).join('')}<p>First written ${escapeHtml(writtenOn(entry.metAt) || 'when you spoke')}.</p>`
-        : `<p>${escapeHtml(bondSentence(entry.name, entry.relationship))} First written ${escapeHtml(writtenOn(entry.metAt) || 'when you spoke')}.</p>`}
+      <div class="hud-grimoire__person-head">
+        ${portrait}
+        <div>
+          <h4>${escapeHtml(entry.name)}</h4>
+          ${publicBits || '<p class="hud-muted">Public record is thin. What you learn will be written here.</p>'}
+        </div>
+      </div>
+      ${discovered ? `<div class="hud-grimoire__sub"><h5>What you have learned</h5>${discovered}</div>` : ''}
+      <div class="hud-grimoire__sub">
+        <h5>Between you</h5>
+        <p class="hud-grimoire__meta">${relationMeta}</p>
+        ${relationBody}
+      </div>
       <label class="hud-grimoire__field">What you want to remember
         <textarea id="grimoire-npc-note" class="hud-grimoire__margin" maxlength="280">${escapeHtml(entry.note ?? '')}</textarea>
       </label>
@@ -513,6 +552,44 @@ function paintPeople(section: Element, current: GrimoireState): void {
         publish('grimoire_write', { npcNote: { npcId, note: pending } }, setGrimoireNpcNote(book(), npcId, pending));
       });
     });
+  }
+}
+
+function listBlock(title: string, rows: string[] | undefined): string {
+  if (!rows?.length) return '';
+  return `<p class="hud-grimoire__label">${escapeHtml(title)}</p><ul class="hud-grimoire__list">${rows
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join('')}</ul>`;
+}
+
+function npcPortraitMarkup(npcId: string, spritePixels: string[] | undefined): string {
+  if (spritePixels?.length === 256) {
+    const dataUrl = pixelsToDataUrl(spritePixels, 16);
+    if (dataUrl) {
+      return `<img class="hud-grimoire__portrait" src="${dataUrl}" alt="" width="64" height="64" />`;
+    }
+  }
+  return `<div class="hud-grimoire__portrait hud-grimoire__portrait--empty" aria-hidden="true">${escapeHtml(
+    npcId.slice(0, 1).toUpperCase()
+  )}</div>`;
+}
+
+function pixelsToDataUrl(pixels: string[], size: number): string {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    for (let i = 0; i < pixels.length; i++) {
+      const color = pixels[i];
+      if (!color || color === 'transparent' || color === '#00000000') continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(i % size, Math.floor(i / size), 1, 1);
+    }
+    return canvas.toDataURL('image/png');
+  } catch {
+    return '';
   }
 }
 

@@ -14,6 +14,7 @@ import {
   clampMagicalEnergy,
   clampPlayerStatValue,
   normalizePlayerStats,
+  DEFAULT_STATS,
   magicalEnergyCap,
   NULLIFICATION_POWDER_ITEM_ID,
   syncLevelDerivedStats,
@@ -85,6 +86,10 @@ import {
   resolveNpcGift,
   resolveSocialAction,
   runExclusiveSocialOp,
+  buildNpcEncounterView,
+  buildPeopleDossierPatch,
+  npcPresenceTile,
+  interactRangeFromEdgePx,
   type GiftItemFacts,
   takeInventorySlot,
   withGrimoire,
@@ -170,11 +175,11 @@ import {
   isCraftingInteractable,
   TILE_SIZE,
   isWithinInteractRange,
-  buildNpcInteractionOffers,
   dialogueChoiceId,
   nearestNpcInteractable,
   type MagicTradition,
   type MapInteractable,
+  type NpcEncounterView,
 } from '@witchcraft/shared';
 // eligibleSpecialtyTraditions — TEMPORARY: tradition specialty offers deactivated
 
@@ -1910,10 +1915,10 @@ export class GameRoom extends Room<GameRoomState> {
     const contextShopId = present.type === 'shop' && typeof present.data?.shopId === 'string' ? present.data.shopId : undefined;
     const npc = contentRegistry.npcs.get(npcId)!;
     const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
-    const offers = this.npcActionOffers(npc, dialogue, contextShopId ?? npc.shopId, progression, player);
-    const offer = offers.find((entry) => entry.id === actionId);
-    if (!offer) {
-      this.warnPlayer(client, 'That is not something they will do right now.');
+    const encounter = this.buildEncounter(npc, dialogue, contextShopId ?? npc.shopId, progression, player);
+    const offer = encounter.options.find((entry) => entry.id === actionId);
+    if (!offer || offer.available === false) {
+      this.warnPlayer(client, offer?.requirement ?? 'That is not something they will do right now.');
       return;
     }
 
@@ -1939,36 +1944,6 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
     this.openNpcDialogue(client, player, npcId, offer.nodeId ?? 'start');
-  }
-
-  private npcActionOffers(
-    npc: NonNullable<ReturnType<typeof contentRegistry.npcs.get>>,
-    dialogue: ReturnType<typeof dialogueSystem.getTree>,
-    contextShopId: string | undefined,
-    progression: NonNullable<ReturnType<GameRoom['playerData']['get']>>['progression'],
-    player?: PlayerSchema
-  ) {
-    const gate = player
-      ? { stats: player.stats, coins: player.coins, inventory: player.inventory }
-      : {};
-    const quests = questSystem.list().filter((quest) => {
-      if ((quest.offer ?? 'on_talk') === 'event') return false;
-      const involved = quest.npcId === npc.id || (quest.npcIds ?? []).includes(npc.id);
-      if (!involved) return false;
-      const current = progression.questProgress[quest.id];
-      if (current?.completedAt || current?.failedAt || current?.abandonedAt) return false;
-      if (current) return true;
-      return questBlockReason(quest, progression, gate) == null;
-    });
-    return buildNpcInteractionOffers({
-      npc,
-      dialogue,
-      contextShopId,
-      quests,
-      questProgress: progression.questProgress,
-      acceptsGifts: npcAcceptsGifts(npc.id),
-      progression,
-    });
   }
 
   /** Record a quest signal for one player. The server decides whether it counts. */
@@ -2088,8 +2063,12 @@ export class GameRoom extends Room<GameRoomState> {
         player.inventory = result.inventory;
         player.stats = result.stats;
         data.stats = result.stats;
-        const name = contentRegistry.npcs.get(npcId)?.name ?? npcId;
-        data.progression = withBondJournal(result.progression, npcId, name);
+        const giftNpc = contentRegistry.npcs.get(npcId);
+        const name = giftNpc?.name ?? npcId;
+        const dossier = giftNpc
+          ? buildPeopleDossierPatch({ npc: giftNpc, progression: result.progression })
+          : undefined;
+        data.progression = withBondJournal(result.progression, npcId, name, dossier);
       } else if (!result.ok && result.progression !== data.progression) {
         data.progression = result.progression;
         data.stats = result.stats;
@@ -2138,18 +2117,13 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
     const progression = data.progression;
-    const offers = this.npcActionOffers(
-      contentRegistry.npcs.get(npcId)!,
-      contentRegistry.npcs.get(npcId)?.dialogueTreeId
-        ? dialogueSystem.getTree(contentRegistry.npcs.get(npcId)!.dialogueTreeId!)
-        : undefined,
-      contentRegistry.npcs.get(npcId)?.shopId,
-      progression,
-      player
-    );
+    const npc = contentRegistry.npcs.get(npcId)!;
+    const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
+    const encounter = this.buildEncounter(npc, dialogue, npc.shopId, progression, player);
     const socialId = actionId.startsWith('social:') ? actionId : `social:${actionId}`;
-    if (!offers.some((offer) => offer.id === socialId)) {
-      this.warnPlayer(client, 'They are not open to that just now.');
+    const socialOffer = encounter.options.find((offer) => offer.id === socialId);
+    if (!socialOffer || socialOffer.available === false) {
+      this.warnPlayer(client, socialOffer?.requirement ?? 'They are not open to that just now.');
       return;
     }
     const key = `${data.dbPlayerId || client.sessionId}:${npcId}:social`;
@@ -2163,8 +2137,12 @@ export class GameRoom extends Room<GameRoomState> {
       if (result.ok && !result.duplicate) {
         player.stats = result.stats;
         data.stats = result.stats;
-        const name = contentRegistry.npcs.get(npcId)?.name ?? npcId;
-        data.progression = withBondJournal(result.progression, npcId, name);
+        const socialNpc = contentRegistry.npcs.get(npcId);
+        const name = socialNpc?.name ?? npcId;
+        const dossier = socialNpc
+          ? buildPeopleDossierPatch({ npc: socialNpc, progression: result.progression })
+          : undefined;
+        data.progression = withBondJournal(result.progression, npcId, name, dossier);
       }
       return result;
     });
@@ -2187,17 +2165,65 @@ export class GameRoom extends Room<GameRoomState> {
     if (!this.npcMaySpeak(client, player, npcId)) return;
     const npc = contentRegistry.npcs.get(npcId);
     if (!npc) return;
-    const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
+    const data = this.playerData.get(client.sessionId);
+    const progression = data?.progression ?? defaultProgression();
     const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
-    const offers = this.npcActionOffers(npc, dialogue, contextShopId, progression, player);
     const notice = activityNoticeFor(npcId);
+    const encounter = this.buildEncounter(npc, dialogue, contextShopId, progression, player, notice);
+    const dossier = buildPeopleDossierPatch({ npc, progression });
+    if (data) {
+      data.progression = withBondJournal(progression, npcId, npc.name, dossier);
+      client.send('progression_update', { progression: data.progression });
+    }
     client.send('open_ui', {
       ui: 'npc_actions',
       npcId,
-      name: npc.name,
-      role: npc.role,
+      name: encounter.name,
+      role: encounter.role,
       shopId: contextShopId ?? npc.shopId,
-      options: offers,
+      options: encounter.options,
+      encounter,
+      ...(encounter.notice ? { notice: encounter.notice } : {}),
+    });
+  }
+
+  private buildEncounter(
+    npc: NonNullable<ReturnType<typeof contentRegistry.npcs.get>>,
+    dialogue: ReturnType<typeof dialogueSystem.getTree>,
+    contextShopId: string | undefined,
+    progression: NonNullable<ReturnType<GameRoom['playerData']['get']>>['progression'],
+    player?: PlayerSchema,
+    notice?: string
+  ): NpcEncounterView {
+    const quests = questSystem.list().filter((quest) => {
+      if ((quest.offer ?? 'on_talk') === 'event') return false;
+      const involved = quest.npcId === npc.id || (quest.npcIds ?? []).includes(npc.id);
+      if (!involved) return false;
+      const current = progression.questProgress[quest.id];
+      if (current?.completedAt || current?.failedAt || current?.abandonedAt) return false;
+      if (current) return true;
+      const gate = player
+        ? { stats: player.stats, coins: player.coins, inventory: player.inventory }
+        : {};
+      return questBlockReason(quest, progression, gate) == null;
+    });
+    const giftSlots = player
+      ? player.inventory.map((slot, slotIndex) => ({
+          slotIndex,
+          quantity: slot.quantity,
+          facts: this.giftFacts(slot),
+        }))
+      : [];
+    return buildNpcEncounterView({
+      npc,
+      dialogue,
+      progression,
+      stats: player?.stats ?? { ...DEFAULT_STATS },
+      inventory: player?.inventory ?? [],
+      coins: player?.coins ?? 0,
+      contextShopId,
+      quests,
+      giftSlots,
       ...(notice ? { notice } : {}),
     });
   }
@@ -2248,34 +2274,66 @@ export class GameRoom extends Room<GameRoomState> {
       ...(notice ? { notice } : {}),
     });
 
-    const next = withBondJournal(met.progression, npcId, npc.name);
-    met.progression = next;
+    const dossier = buildPeopleDossierPatch({ npc, progression: met.progression });
+    met.progression = withBondJournal(met.progression, npcId, npc.name, dossier);
     client.send('progression_update', { progression: met.progression });
   }
 
   private requireNpcPresent(client: Client, player: PlayerSchema, npcId: string) {
     const stand = this.npcStand(player, npcId);
-    if (!stand) {
-      this.warnPlayer(client, 'Step up to their counter before you speak.');
+    if (stand) {
+      const availability = checkInteractAvailable(stand.type, stand.data as Record<string, unknown>, stand.id);
+      if (!availability.available) {
+        this.warnPlayer(client, availability.message ?? 'Not available.');
+        return null;
+      }
+      const progression = this.playerData.get(client.sessionId)?.progression;
+      const requiredLicense = stand.data?.requiresLicense as string | undefined;
+      const placeId = typeof stand.data?.placeId === 'string' ? stand.data.placeId : undefined;
+      if (progression && requiredLicense && !holdsActiveLicense(progression, requiredLicense)) {
+        this.warnPlayer(client, licenseGateMessage(requiredLicense));
+        return null;
+      }
+      if (progression && placeId && !licenseUnlocksPlace(placeId, progression)) {
+        this.warnPlayer(client, 'This place admits only Magical Council credential holders.');
+        return null;
+      }
+      return stand;
+    }
+
+    const presence = npcPresence(npcId);
+    if (!presence || !presence.visible || presence.indoors || presence.held || presence.interaction === 'away') {
+      this.warnPlayer(client, 'They are not here right now.');
       return null;
     }
-    const availability = checkInteractAvailable(stand.type, stand.data as Record<string, unknown>, stand.id);
-    if (!availability.available) {
-      this.warnPlayer(client, availability.message ?? 'Not available.');
+    if (presence.scene !== player.scene) {
+      this.warnPlayer(client, 'They are not here right now.');
       return null;
     }
-    const progression = this.playerData.get(client.sessionId)?.progression;
-    const requiredLicense = stand.data?.requiresLicense as string | undefined;
-    const placeId = typeof stand.data?.placeId === 'string' ? stand.data.placeId : undefined;
-    if (progression && requiredLicense && !holdsActiveLicense(progression, requiredLicense)) {
-      this.warnPlayer(client, licenseGateMessage(requiredLicense));
+    if (presence.moving) {
+      this.warnPlayer(client, 'Wait until they settle before you speak.');
       return null;
     }
-    if (progression && placeId && !licenseUnlocksPlace(placeId, progression)) {
-      this.warnPlayer(client, 'This place admits only Magical Council credential holders.');
+    const tile = npcPresenceTile(presence, Date.now());
+    if (!tile) {
+      this.warnPlayer(client, 'They are not here right now.');
       return null;
     }
-    return stand;
+    const px = player.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = player.y * TILE_SIZE + TILE_SIZE / 2;
+    const tx = tile.x * TILE_SIZE + TILE_SIZE / 2;
+    const ty = tile.y * TILE_SIZE + TILE_SIZE / 2;
+    if (Math.hypot(px - tx, py - ty) > interactRangeFromEdgePx()) {
+      this.warnPlayer(client, 'Step closer before you speak.');
+      return null;
+    }
+    return {
+      id: presence.interactableId ?? `presence:${npcId}`,
+      type: 'npc',
+      x: tile.x,
+      y: tile.y,
+      data: { npcId },
+    } as MapInteractable;
   }
 
   private npcMaySpeak(client: Client, player: PlayerSchema, npcId: string): boolean {
