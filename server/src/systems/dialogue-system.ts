@@ -85,7 +85,8 @@ export class DialogueSystem {
     dialogueTreeId: string,
     nodeId: string,
     progression: PlayerProgression,
-    stats?: PlayerStats
+    stats?: PlayerStats,
+    coins?: number
   ): { choice: DialogueChoice; originalIndex: number }[] {
     const tree = this.trees.get(dialogueTreeId);
     const node = tree?.nodes.find((n) => n.id === nodeId);
@@ -95,9 +96,12 @@ export class DialogueSystem {
       .map((choice, originalIndex) => ({ choice, originalIndex }))
       .filter(({ choice }) => {
         if (!meetsDialogueRecognitionGate(choice, progression)) return false;
-        if (choice.requiresExamEligibility && stats) {
+        if (choice.chargeCoins != null && choice.chargeCoins > 0 && (coins ?? 0) < choice.chargeCoins) {
+          return false;
+        }
+        if (choice.requiresExamEligibility) {
           const license = getLicense(choice.requiresExamEligibility);
-          if (!license) return false;
+          if (!license || !stats) return false;
           if (holdsActiveLicense(progression, license.id)) return false;
           return meetsLicenseExamRequirements(license, stats, progression).ok;
         }
@@ -195,6 +199,22 @@ export class DialogueSystem {
 }
 
 export const dialogueSystem = new DialogueSystem();
+
+/** Labels the client may render. Indexes stay the server's choice positions. */
+export function publicDialogueChoices(
+  dialogueTreeId: string,
+  nodeId: string,
+  progression: PlayerProgression,
+  stats?: PlayerStats,
+  coins?: number
+): { index: number; label: string }[] {
+  return dialogueSystem
+    .availableChoices(dialogueTreeId, nodeId, progression, stats, coins)
+    .map(({ choice, originalIndex }) => ({
+      index: originalIndex,
+      label: choice.label,
+    }));
+}
 
 /** Map inventory taglock items to taglock types */
 export function resolveTaglockFromInventory(

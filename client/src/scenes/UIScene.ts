@@ -181,6 +181,7 @@ export class UIScene extends Phaser.Scene {
     npcId?: string;
     dialogueTreeId?: string;
     nodeId?: string;
+    choices?: { index: number; label: string }[];
     stationType?: string;
     interactableId?: string;
     recipes?: unknown[];
@@ -202,7 +203,7 @@ export class UIScene extends Phaser.Scene {
       case 'dialogue':
         if (d.npcId && d.dialogueTreeId) {
           gameState.activeUI = 'dialogue';
-          this.dialoguePanel.show(d.npcId, d.dialogueTreeId, d.nodeId ?? 'start');
+          this.dialoguePanel.show(d.npcId, d.dialogueTreeId, d.nodeId ?? 'start', d.choices);
         }
         break;
       case 'crafting':

@@ -24,6 +24,8 @@ type DialogueTreeRow = {
   nodes: DialogueNodeRow[];
 };
 
+type ServerDialogueChoice = { index: number; label: string };
+
 /** NPC conversation, drawn as a practitioner-ledger page. */
 export class DialoguePanel {
   private root: HTMLDivElement;
@@ -56,7 +58,12 @@ export class DialoguePanel {
     window.addEventListener('game:dialogue-update', this.onUpdate as EventListener);
   }
 
-  show(npcId: string, dialogueTreeId: string, nodeId = 'start'): void {
+  show(
+    npcId: string,
+    dialogueTreeId: string,
+    nodeId = 'start',
+    serverChoices?: ServerDialogueChoice[]
+  ): void {
     window.clearTimeout(this.closeTimer);
     this.treeId = dialogueTreeId;
     this.nodeId = nodeId;
@@ -73,7 +80,7 @@ export class DialoguePanel {
     const frame = this.root.querySelector('.ledger-frame');
     frame?.setAttribute('aria-label', npc?.name ?? 'Conversation');
 
-    if (node && !meetsDialogueRecognitionGate(node, progression)) {
+    if (!serverChoices && node && !meetsDialogueRecognitionGate(node, progression)) {
       this.renderBody(
         `${npc?.name ?? 'They'} has nothing further to offer at your recognition.`,
         ''
@@ -81,7 +88,10 @@ export class DialoguePanel {
       return;
     }
 
-    this.renderBody(node?.text ?? `${npc?.name ?? 'They'} has nothing to say.`, this.choiceHtml(node, progression));
+    this.renderBody(
+      node?.text ?? `${npc?.name ?? 'They'} has nothing to say.`,
+      this.choiceHtml(node, progression, serverChoices)
+    );
   }
 
   hide(): void {
@@ -115,7 +125,21 @@ export class DialoguePanel {
     });
   }
 
-  private choiceHtml(node: DialogueNodeRow | undefined, progression: PlayerProgression): string {
+  private choiceHtml(
+    node: DialogueNodeRow | undefined,
+    progression: PlayerProgression,
+    serverChoices?: ServerDialogueChoice[]
+  ): string {
+    if (serverChoices) {
+      if (!serverChoices.length) {
+        return '<p class="ledger-aside dim">There is nothing further to answer.</p>';
+      }
+      const rows = serverChoices.map(
+        (choice) =>
+          `<button type="button" class="ledger-choice" data-choice="${choice.index}"><span class="k">Answer</span>${escapeHtml(choice.label)}</button>`
+      );
+      return `<div class="ledger-choices">${rows.join('')}</div>`;
+    }
     if (!node?.choices.length) {
       return '<p class="ledger-aside dim">There is nothing further to answer.</p>';
     }
@@ -136,9 +160,10 @@ export class DialoguePanel {
     nodeId: string;
     message: string;
     dialogueTreeId: string;
+    choices?: ServerDialogueChoice[];
   }>): void => {
     if (!this.visible) return;
-    const { ended, nodeId, message, dialogueTreeId } = e.detail;
+    const { ended, nodeId, message, dialogueTreeId, choices } = e.detail;
     if (ended) {
       this.renderBody(message, '');
       window.clearTimeout(this.closeTimer);
@@ -148,6 +173,6 @@ export class DialoguePanel {
     this.nodeId = nodeId;
     const tree = gameState.content?.dialogues?.find((d) => d.id === dialogueTreeId) as DialogueTreeRow | undefined;
     const node = tree?.nodes.find((n) => n.id === nodeId);
-    this.renderBody(message, this.choiceHtml(node, this.progression()));
+    this.renderBody(message, this.choiceHtml(node, this.progression(), choices));
   };
 }

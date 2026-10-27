@@ -107,8 +107,15 @@ export class ShopPanel {
     const intro = keeper
       ? `${escapeHtml(keeper.name)} keeps ${escapeHtml(shop.name)}. Choose what you can carry.`
       : `${escapeHtml(shop.name)} has the following laid out.`;
+    const speak = keeper?.dialogueTreeId
+      ? `<button type="button" class="ledger-choice" data-talk="1"><span class="k">Speak</span>${escapeHtml(keeper.name)}</button>`
+      : '';
 
-    this.scroller.innerHTML = `<p class="ledger-lead">${intro}</p><div class="ledger-wares">${wares}</div>`;
+    this.scroller.innerHTML = `<p class="ledger-lead">${intro}</p>${speak}<div class="ledger-wares">${wares}</div>`;
+    this.scroller.querySelector<HTMLButtonElement>('[data-talk]')?.addEventListener('click', () => {
+      if (!keeper || !this.visible) return;
+      network.send('npc_talk', { npcId: keeper.id });
+    });
     this.scroller.querySelectorAll<HTMLButtonElement>('.ledger-buy').forEach((btn) => {
       btn.addEventListener('click', () => {
         const itemId = btn.dataset.item;
