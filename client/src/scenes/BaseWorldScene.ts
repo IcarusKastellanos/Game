@@ -1,5 +1,12 @@
 import Phaser from 'phaser';
-import { TILE_SIZE, distanceToInteractableFootprintPx, interactRangeFromEdgePx } from '@witchcraft/shared';
+import {
+  TILE_SIZE,
+  distanceToInteractableFootprintPx,
+  interactRangeFromEdgePx,
+  npcPresenceTile,
+  placedObjectDepth,
+  RENDER_LEVEL_PLAYER,
+} from '@witchcraft/shared';
 import type { ContentMapDefinition } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
@@ -30,6 +37,8 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   private activeTeleport?: TeleportEffect;
   /** Last schedule-hidden interactable list painted into this scene. */
   private hiddenNpcKey = '';
+  /** Sprites for NPCs who are on this scene but not standing on their posted interactable. */
+  private npcWalkers = new Map<string, Phaser.GameObjects.Sprite>();
 
   /** (Re)register physics colliders between the player and current blocker groups. */
   private registerBlockerColliders(): void {
@@ -48,6 +57,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
 
   protected async setupWorld(): Promise<void> {
     const setupId = ++this.setupGeneration;
+    this.clearNpcWalkers();
     gameState.isTransitioning = true;
     gameState.currentScene = this.sceneId;
 
@@ -200,6 +210,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     if (!this.player?.active || !this.controller || gameState.isTransitioning) return;
     this.controller.update(this.player, this.blockers, () => this.tryInteract());
     applyWorldDepthSort(this.player, this.furnitureLayer, this.remotePlayers, this.remoteNameLabels);
+    this.syncNpcWalkers();
     network.tickWorldSync(delta);
     this.syncRemotePlayers();
     this.tickSpeechBubbles();
@@ -222,6 +233,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
     this.speechBubbles.forEach((bubble) => bubble.root.destroy());
     this.speechBubbles.clear();
+    this.clearNpcWalkers();
     network.onPlayersChange = undefined;
     this.remotePlayers.forEach((s) => s.destroy());
     this.remotePlayers.clear();
@@ -354,15 +366,64 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     if (!this.player?.active || gameState.currentScene !== this.sceneId) return;
     this.hiddenNpcKey = gameState.hiddenNpcIds.join('\0');
     this.rebuildWorldMap();
+    this.syncNpcWalkers();
   };
 
   private onWorldState = (): void => {
     if (!this.player?.active || gameState.currentScene !== this.sceneId) return;
     const next = gameState.hiddenNpcIds.join('\0');
-    if (next === this.hiddenNpcKey) return;
-    this.hiddenNpcKey = next;
-    this.rebuildWorldMap();
+    if (next !== this.hiddenNpcKey) {
+      this.hiddenNpcKey = next;
+      this.rebuildWorldMap();
+    }
+    this.syncNpcWalkers();
   };
+
+  private clearNpcWalkers(): void {
+    this.npcWalkers.forEach((sprite) => sprite.destroy());
+    this.npcWalkers.clear();
+  }
+
+  /** Draw NPCs the server placed on this scene away from their posted sprite. */
+  private syncNpcWalkers(): void {
+    if (!this.sys?.isActive()) return;
+    const now = Date.now();
+    const posted = new Set<string>();
+    const mapDef = gameState.getMap(this.sceneId);
+    for (const inter of mapDef?.interactables ?? []) {
+      if (inter.type !== 'npc') continue;
+      const npcId = typeof inter.data?.npcId === 'string' ? inter.data.npcId : '';
+      if (!npcId || gameState.hiddenNpcIds.includes(inter.id)) continue;
+      posted.add(npcId);
+    }
+    const wanted = new Set<string>();
+    for (const presence of gameState.npcPresences) {
+      if (!presence.visible || presence.indoors || presence.scene !== this.sceneId) continue;
+      if (posted.has(presence.npcId)) continue;
+      const tile = npcPresenceTile(presence, now);
+      if (!tile) continue;
+      const key = `npc_${presence.npcId}`;
+      if (!this.textures.exists(key)) continue;
+      wanted.add(presence.npcId);
+      const x = tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const y = tile.y * TILE_SIZE + TILE_SIZE / 2;
+      let sprite = this.npcWalkers.get(presence.npcId);
+      if (!sprite?.active) {
+        sprite = this.add.sprite(x, y, key).setOrigin(0.5, 0.5);
+        this.npcWalkers.set(presence.npcId, sprite);
+      } else if (sprite.texture.key !== key) {
+        sprite.setTexture(key);
+      }
+      sprite.setPosition(x, y);
+      sprite.setVisible(true);
+      sprite.setDepth(placedObjectDepth(RENDER_LEVEL_PLAYER, y));
+    }
+    for (const [npcId, sprite] of this.npcWalkers) {
+      if (wanted.has(npcId)) continue;
+      sprite.destroy();
+      this.npcWalkers.delete(npcId);
+    }
+  }
 
   protected rebuildWorldMap(): void {
     const mapDef = gameState.getMap(this.sceneId);

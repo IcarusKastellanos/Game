@@ -53,6 +53,7 @@ function npcToDb(npc: ContentNpc, previousData?: unknown) {
     data: {
       ...prev,
       spritePixels,
+      scheduleOverride: npc.scheduleOverride ?? null,
     },
   };
 }

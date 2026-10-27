@@ -19,7 +19,7 @@ export async function saveNpcDefinition(
   id: string,
   expectedRevision: number
 ): Promise<{ npc: ContentNpc; revision: number }> {
-  const parsed = validateNpcDefinition(value, id);
+  const parsed = validateNpcDefinition(value, id, [...contentRegistry.npcPlaces.keys()]);
   if (!parsed.ok) throw new ContentSaveError(parsed.error, 400);
   const npc = parsed.npc;
   const existing = await prisma.contentNpc.findUnique({ where: { id: npc.id } });

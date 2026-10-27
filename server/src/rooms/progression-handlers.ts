@@ -32,8 +32,8 @@ import { craftingSystem } from '../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
 import { applyPocketSpellToRecipient, resolveAndReleasePocketSpell } from '../systems/pocket-spell-system.js';
 import { questSystem } from '../systems/quest-system.js';
-import { isInteractableNpcAvailable, getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
-import { getWorldHour, formatWorldHour } from '../systems/world-clock.js';
+import { currentNpcWorld, isInteractableNpcAvailable } from '../systems/npc-schedule.js';
+import { getWorldHour } from '../systems/world-clock.js';
 import { logSpellCast } from '../services/player-service.js';
 import { auraSystem } from '../systems/inventory-ward-aura.js';
 import type { PlayerSchema } from '../schemas/game-state.js';
@@ -130,11 +130,7 @@ function checkSpecialtyOffer(_client: Client, _stats: PlayerStats): void {
 }
 
 export function sendWorldState(client: Client): void {
-  client.send('world_state', {
-    hour: getWorldHour(),
-    hourLabel: formatWorldHour(getWorldHour()),
-    hiddenNpcIds: getUnavailableNpcInteractableIds(),
-  });
+  client.send('world_state', currentNpcWorld());
 }
 
 /** Apply one content social event. Familiarity is mirrored; public reputation moves only when the event says so. */

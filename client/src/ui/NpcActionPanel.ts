@@ -32,7 +32,7 @@ export class NpcActionPanel {
     });
   }
 
-  show(detail: { npcId: string; name?: string; role?: string; options?: NpcInteractionOffer[] }): void {
+  show(detail: { npcId: string; name?: string; role?: string; options?: NpcInteractionOffer[]; notice?: string }): void {
     this.npcId = detail.npcId;
     this.visible = true;
     this.root.classList.add('is-open');
@@ -47,9 +47,10 @@ export class NpcActionPanel {
           `<button type="button" class="ledger-choice" data-action="${escapeHtml(option.id)}"><span class="k">Choose</span>${escapeHtml(option.label)}</button>`
       )
       .join('');
+    const note = detail.notice ? `<p class="ledger-aside">${escapeHtml(detail.notice)}</p>` : '';
     this.scroller.innerHTML = rows
-      ? `<div class="ledger-choices">${rows}</div>`
-      : '<p class="ledger-lead">They have nothing for you just now.</p>';
+      ? `${note}<div class="ledger-choices">${rows}</div>`
+      : `${note}<p class="ledger-lead">They have nothing for you just now.</p>`;
     this.scroller.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const actionId = button.dataset.action;

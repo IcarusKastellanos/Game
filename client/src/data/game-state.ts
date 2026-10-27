@@ -1,4 +1,4 @@
-import type { GrimoireEntryMap, LicensesDocument, PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
+import type { GrimoireEntryMap, LicensesDocument, NpcPublicPresence, PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
 import {
   ContentMapDefinition,
   ContentSpell,
@@ -114,6 +114,8 @@ class GameState {
   pendingApartmentInvite: { inviteId: string; hostName: string } | null = null;
   progression: PlayerProgression | null = null;
   hiddenNpcIds: string[] = [];
+  /** Server-published NPC presence. The client only interpolates it. */
+  npcPresences: NpcPublicPresence[] = [];
   worldHour = 12;
 
   async loadSession(): Promise<void> {

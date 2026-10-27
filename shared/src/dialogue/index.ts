@@ -1,4 +1,5 @@
 import type { ContentNpc, InventorySlot, NpcActionId, NpcCapability, PlayerStats } from '../types/index.js';
+import { parseNpcSchedule } from '../npc/schedule.js';
 import type { ContentQuest, PlayerProgression } from '../progression/index.js';
 import { TILE_SIZE } from '../constants/index.js';
 import {
@@ -337,7 +338,8 @@ export function validateDialogueTree(
 
 export function validateNpcDefinition(
   value: unknown,
-  id: string
+  id: string,
+  placeIds?: readonly string[]
 ): { ok: true; npc: ContentNpc } | { ok: false; error: string } {
   if (!value || typeof value !== 'object') return { ok: false, error: 'NPC must be an object.' };
   const raw = value as Record<string, unknown>;
@@ -349,19 +351,9 @@ export function validateNpcDefinition(
   if (typeof locationId !== 'string') return { ok: false, error: locationId };
   const dialogueTreeId = requiredString(raw.dialogueTreeId, 'dialogueTreeId');
   if (typeof dialogueTreeId !== 'string') return { ok: false, error: dialogueTreeId };
-  if (!Array.isArray(raw.schedule)) return { ok: false, error: 'Schedule must be a list.' };
-  const schedule: ContentNpc['schedule'] = [];
-  for (const entry of raw.schedule) {
-    if (!entry || typeof entry !== 'object') return { ok: false, error: 'Each schedule entry must be an object.' };
-    const row = entry as Record<string, unknown>;
-    if (typeof row.hour !== 'number' || !Number.isFinite(row.hour)) {
-      return { ok: false, error: 'Each schedule entry needs an hour.' };
-    }
-    if (typeof row.locationId !== 'string' || !row.locationId.trim()) {
-      return { ok: false, error: 'Each schedule entry needs a locationId.' };
-    }
-    schedule.push({ hour: row.hour, locationId: row.locationId.trim() as ContentNpc['locationId'] });
-  }
+  const parsedSchedule = parseNpcSchedule(raw.schedule, raw.scheduleOverride, placeIds);
+  if (!parsedSchedule.ok) return parsedSchedule;
+  const schedule = parsedSchedule.schedule;
   let capabilities: NpcCapability[] | undefined;
   if (raw.capabilities != null) {
     if (!Array.isArray(raw.capabilities)) return { ok: false, error: 'Capabilities must be a list.' };
@@ -393,6 +385,7 @@ export function validateNpcDefinition(
       role,
       locationId: locationId as ContentNpc['locationId'],
       schedule,
+      ...(parsedSchedule.scheduleOverride ? { scheduleOverride: parsedSchedule.scheduleOverride } : {}),
       relationshipLevel: finiteNumber(raw.relationshipLevel, 0),
       magicalKnowledge: finiteNumber(raw.magicalKnowledge, 0),
       dialogueTreeId,

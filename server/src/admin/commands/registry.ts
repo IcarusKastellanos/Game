@@ -96,6 +96,8 @@ const COMMANDS: Record<string, { permission: PermissionSlug; description: string
       await mergeNpcSpritesFromDb();
       const { pushLiveMapsToAllClients } = await import('../../content/live-map-push.js');
       const push = await pushLiveMapsToAllClients({ resnapSpawns: true });
+      const { broadcastNpcWorldState } = await import('../../rooms/game-room-registry.js');
+      broadcastNpcWorldState();
       await writeAuditLog(ctx.audit, { action: 'ingame.reload', objectType: 'system', objectId: 'content' });
       const warn = push.warnings.length ? ` Warnings: ${push.warnings.join(' ')}` : '';
       return {

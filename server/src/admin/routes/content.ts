@@ -695,11 +695,17 @@ contentRouter.put('/grimoire-entries/:kind/:id', async (req: AdminRequest, res) 
 });
 
 // --- Reload ---
+contentRouter.get('/npc-places', requirePerm('content.npc.view'), (_req, res) => {
+  res.json([...contentRegistry.npcPlaces.values()]);
+});
+
 contentRouter.post('/reload', requirePerm('system.reload'), async (req: AdminRequest, res) => {
   contentRegistry.load();
   const merged = await rehydrateContentOverlays();
   const { ensureCanonicalMapProjects } = await import('../../content/canonical-maps.js');
   await ensureCanonicalMapProjects();
+  const { broadcastNpcWorldState } = await import('../../rooms/game-room-registry.js');
+  broadcastNpcWorldState();
   await writeAuditLog(auditContext(req), {
     action: 'system.content.reload',
     objectType: 'system',
