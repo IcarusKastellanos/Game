@@ -168,6 +168,21 @@ export interface PlayerProgression {
   grimoire: GrimoireState;
   /** Per-NPC bonds and community reputation. Separate from public and spiritual reputation. */
   social?: import('../social/index.js').PlayerSocial;
+  /** Knowledge / rumor ids this player has personally discovered. */
+  discoveredKnowledge?: string[];
+  /** Teacher lesson ids already purchased or completed. */
+  completedLessons?: string[];
+  /** Multi-visit dialogue state keyed by dialogue tree id. */
+  dialogueState?: Record<
+    string,
+    {
+      visitCount: number;
+      lastNodeId?: string;
+      completedNodeIds?: string[];
+      lastSeenAt?: number;
+      flags?: string[];
+    }
+  >;
 }
 
 export interface ContentRecipe {
@@ -404,6 +419,9 @@ export function defaultProgression(): PlayerProgression {
     shopStockDay: '',
     grimoire: defaultGrimoire(),
     social: emptySocial(),
+    discoveredKnowledge: [],
+    completedLessons: [],
+    dialogueState: {},
   };
 }
 
@@ -498,7 +516,46 @@ export function parseProgression(raw: unknown): PlayerProgression {
     shopStockDay: typeof o.shopStockDay === 'string' ? o.shopStockDay : '',
     grimoire: parseGrimoire(o.grimoire),
     social: parsePlayerSocial(o.social, npcRelationships),
+    discoveredKnowledge: Array.isArray(o.discoveredKnowledge)
+      ? [...new Set((o.discoveredKnowledge as unknown[]).filter((id): id is string => typeof id === 'string'))]
+      : [],
+    completedLessons: Array.isArray(o.completedLessons)
+      ? [...new Set((o.completedLessons as unknown[]).filter((id): id is string => typeof id === 'string'))]
+      : [],
+    dialogueState: parseDialogueState(o.dialogueState),
   };
+}
+
+function parseDialogueState(
+  raw: unknown
+): NonNullable<PlayerProgression['dialogueState']> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: NonNullable<PlayerProgression['dialogueState']> = {};
+  for (const [treeId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object') continue;
+    const row = value as Record<string, unknown>;
+    out[treeId] = {
+      visitCount:
+        typeof row.visitCount === 'number' && Number.isFinite(row.visitCount)
+          ? Math.max(0, Math.floor(row.visitCount))
+          : 0,
+      ...(typeof row.lastNodeId === 'string' ? { lastNodeId: row.lastNodeId } : {}),
+      ...(Array.isArray(row.completedNodeIds)
+        ? {
+            completedNodeIds: row.completedNodeIds.filter(
+              (id): id is string => typeof id === 'string'
+            ),
+          }
+        : {}),
+      ...(typeof row.lastSeenAt === 'number' && Number.isFinite(row.lastSeenAt)
+        ? { lastSeenAt: row.lastSeenAt }
+        : {}),
+      ...(Array.isArray(row.flags)
+        ? { flags: row.flags.filter((id): id is string => typeof id === 'string') }
+        : {}),
+    };
+  }
+  return out;
 }
 
 function parseShopStock(raw: unknown): Record<string, Record<string, number>> {

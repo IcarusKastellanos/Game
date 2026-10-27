@@ -128,9 +128,14 @@ export interface NpcSocialProfile {
   appreciatedGifts?: string[];
   giftPreferences?: GiftPreference[];
   giftPersonality?: { affinityScale?: number };
+  /** Full personality profile. Soft-modulates gifts and greetings only. */
+  personality?: import('../npc/personality.js').PersonalityProfile;
   actionIds?: string[];
   shopDiscount?: { minStage: string; multiplier: number };
   acknowledgements?: { memoryId: string; text: string }[];
+  /** Absence greeting after this many real days. */
+  absenceDays?: number;
+  absenceLine?: string;
 }
 
 export interface SocialDocument {
@@ -178,6 +183,8 @@ export interface NpcBond {
   knownPreferences: string[];
   actionNextAt: Record<string, number>;
   actionReceipts: SocialReceipt[];
+  /** Last real-time conversation with this player. */
+  lastSeenAt?: number;
 }
 
 export interface PlayerSocial {
@@ -393,9 +400,15 @@ export function bondShopMultiplier(progression: PlayerProgression | undefined, n
 }
 
 export function bondGreeting(npcId: string, progression: PlayerProgression | undefined, now = Date.now()): string | null {
-  const lines = documentState?.npcs[npcId]?.acknowledgements ?? [];
-  if (!lines.length || !progression) return null;
+  if (!progression) return null;
+  const profile = documentState?.npcs[npcId];
   const bond = bondOf(progression, npcId);
+  if (profile?.absenceLine && profile.absenceDays != null && bond.lastSeenAt != null) {
+    const days = (now - bond.lastSeenAt) / 86_400_000;
+    if (days >= profile.absenceDays) return profile.absenceLine;
+  }
+  const lines = profile?.acknowledgements ?? [];
+  if (!lines.length) return null;
   const memories = bond.memories.filter((memory) => memory.visible && !memoryExpired(memory, now));
   memories.sort((a, b) => b.importance - a.importance || b.at - a.at);
   for (const memory of memories) {
@@ -532,6 +545,7 @@ function parseBond(raw: unknown): NpcBond | null {
     bond.onceEvents = o.onceEvents.filter((id): id is string => typeof id === 'string').slice(-MAX_ONCE);
   }
   if (typeof o.giftNextAt === 'number' && Number.isFinite(o.giftNextAt)) bond.giftNextAt = o.giftNextAt;
+  if (typeof o.lastSeenAt === 'number' && Number.isFinite(o.lastSeenAt)) bond.lastSeenAt = o.lastSeenAt;
   if (o.giftCounts && typeof o.giftCounts === 'object') {
     for (const [itemId, count] of Object.entries(o.giftCounts as Record<string, unknown>)) {
       if (typeof count === 'number' && Number.isFinite(count) && count > 0) bond.giftCounts[itemId] = Math.floor(count);
@@ -604,6 +618,7 @@ function copyBond(bond: NpcBond): NpcBond {
     knownPreferences: [...bond.knownPreferences],
     actionNextAt: { ...bond.actionNextAt },
     actionReceipts: bond.actionReceipts.map((receipt) => ({ ...receipt })),
+    lastSeenAt: bond.lastSeenAt,
   };
 }
 

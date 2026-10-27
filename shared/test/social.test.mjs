@@ -146,7 +146,8 @@ test('a kept promise applies once, and a broken promise changes later dialogue',
   assert.equal(bond(kept.progression, 'npc_mara').grudges.includes('broke_promise'), false);
 
   const stranger = publishDialogueChoices(maraTree, 'start', defaultProgression(), DEFAULT_STATS, 0);
-  const locked = stranger.find((choice) => choice.id === 'start:3');
+  const locked = stranger.find((choice) => choice.id === 'private_lore' || choice.label.includes('keep back'));
+  assert.ok(locked);
   assert.equal(locked.available, false);
   assert.match(locked.requirement, /close enough/);
   assert.equal(/\d/.test(locked.requirement), false);
@@ -157,7 +158,7 @@ test('a kept promise applies once, and a broken promise changes later dialogue',
     scale: 15,
   });
   const open = publishDialogueChoices(maraTree, 'start', known.progression, DEFAULT_STATS, 0).find(
-    (choice) => choice.id === 'start:3'
+    (choice) => choice.id === 'private_lore' || choice.label.includes('keep back')
   );
   assert.equal(open.available, true);
 
@@ -166,7 +167,7 @@ test('a kept promise applies once, and a broken promise changes later dialogue',
     npcId: 'npc_mara',
   });
   const hurt = publishDialogueChoices(maraTree, 'start', wounded.progression, DEFAULT_STATS, 0).find(
-    (choice) => choice.id === 'start:3'
+    (choice) => choice.id === 'private_lore' || choice.label.includes('keep back')
   );
   assert.equal(hurt.available, false);
   assert.match(hurt.requirement, /wound/);
@@ -177,11 +178,11 @@ test('a kept promise applies once, and a broken promise changes later dialogue',
     npcId: 'npc_mara',
   });
   const restored = publishDialogueChoices(maraTree, 'start', mended.progression, DEFAULT_STATS, 0).find(
-    (choice) => choice.id === 'start:3'
+    (choice) => choice.id === 'private_lore' || choice.label.includes('keep back')
   );
   assert.equal(restored.available, true);
 
-  const forged = resolveDialogueChoice(maraTree, 'start', 'start:3', {
+  const forged = resolveDialogueChoice(maraTree, 'start', 'private_lore', {
     inventory: [],
     progression: defaultProgression(),
     stats: DEFAULT_STATS,
@@ -190,7 +191,7 @@ test('a kept promise applies once, and a broken promise changes later dialogue',
   assert.equal(forged.ok, false);
   assert.equal(/\d/.test(forged.reason), false);
 
-  const allowed = resolveDialogueChoice(maraTree, 'start', 'start:3', {
+  const allowed = resolveDialogueChoice(maraTree, 'start', 'private_lore', {
     inventory: [],
     progression: known.progression,
     stats: DEFAULT_STATS,

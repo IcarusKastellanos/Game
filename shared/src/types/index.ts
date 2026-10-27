@@ -510,6 +510,11 @@ export interface ContentNpc {
   capabilities?: NpcCapability[];
   /** Custom 16×16 overworld sprite pixels (admin-painted or imported) */
   spritePixels?: string[];
+  /** Trait scores 0–100. Colors reactions; never bypasses permissions or quest gates. */
+  personality?: import('../npc/personality.js').PersonalityProfile;
+  /** How concurrent players may talk to this NPC. */
+  conversationPolicy?: import('../npc/behavior.js').ConversationPolicy;
+  biography?: string;
 }
 
 export type NpcActionId =

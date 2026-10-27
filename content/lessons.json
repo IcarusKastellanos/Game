@@ -1,0 +1,61 @@
+{
+  "lessons": [
+    {
+      "id": "lesson_rowan_ward_basics",
+      "npcId": "npc_circle_leader",
+      "label": "Threshold Warding",
+      "description": "Rowan teaches the first ward marks used on a doorway.",
+      "teaches": {
+        "kind": "skill",
+        "targetId": "protection",
+        "skillXp": 30
+      },
+      "costCoins": 15,
+      "durationMinutes": 30,
+      "requires": {
+        "stage": "familiar"
+      },
+      "requiresQuestIds": [
+        "quest_first_steps"
+      ],
+      "nodeId": "train"
+    },
+    {
+      "id": "lesson_rowan_healing_charm",
+      "npcId": "npc_circle_leader",
+      "label": "Healing Charm Marks",
+      "description": "A second lesson that records the healing charm technique.",
+      "teaches": {
+        "kind": "spell",
+        "targetId": "healing_charm"
+      },
+      "costCoins": 25,
+      "requires": {
+        "stage": "friendly",
+        "affinityMin": 10
+      },
+      "requiresLessonIds": [
+        "lesson_rowan_ward_basics"
+      ],
+      "requiresQuestIds": [
+        "quest_first_steps"
+      ],
+      "nodeId": "train"
+    },
+    {
+      "id": "lesson_agatha_catalog",
+      "npcId": "npc_librarian",
+      "label": "Catalog Discipline",
+      "description": "Agatha teaches how to keep a working ledger.",
+      "teaches": {
+        "kind": "lore",
+        "targetId": "taught_catalog_discipline"
+      },
+      "costCoins": 10,
+      "requires": {
+        "stage": "acquaintance"
+      },
+      "nodeId": "study"
+    }
+  ]
+}

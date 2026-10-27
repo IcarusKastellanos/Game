@@ -89,7 +89,15 @@ import {
   takeInventorySlot,
   withGrimoire,
   type SurvivalActivity,
+  beginDialogueVisit,
+  resolveNodeText,
+  acquireConversationLock,
+  releaseConversationLock,
+  refreshConversationLock,
+  parseConversationPolicy,
+  type NpcConversationLock,
 } from '@witchcraft/shared';
+import { knowledgeStore } from '../systems/knowledge-store.js';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
 import {
   createApartmentInvite,
@@ -200,6 +208,7 @@ export class GameRoom extends Room<GameRoomState> {
 
   private studyCircleNotifiedHour = -1;
   private lastNpcWorldSig = '';
+  private conversationLocks: NpcConversationLock[] = [];
 
   onCreate(options: { scene?: string; shard?: string }) {
     this.autoDispose = false;
@@ -1785,11 +1794,25 @@ export class GameRoom extends Room<GameRoomState> {
         ? dialogueChoiceId(node.id, node.choices[choiceIndex], choiceIndex)
         : '');
     const progression = this.playerData.get(client.sessionId)?.progression;
+    const playerId = this.playerData.get(client.sessionId)?.dbPlayerId ?? client.sessionId;
+    this.conversationLocks = refreshConversationLock(this.conversationLocks, npcId, playerId);
     const result = dialogueSystem.resolve(dialogueTreeId, nodeId, resolvedId, {
       inventory: player.inventory,
       progression,
       stats: player.stats,
       coins: player.coins,
+      actionCtx: {
+        npcId,
+        playerId,
+        worldKnowledge: knowledgeStore.get(),
+        applyQuest: (questId, kind) => {
+          const current = this.playerData.get(client.sessionId)?.progression ?? progression ?? defaultProgression();
+          if (kind === 'start') {
+            return questSystem.startQuest(current, questId);
+          }
+          return current;
+        },
+      },
     });
     if (!result.ok) {
       this.warnPlayer(client, result.reason);
@@ -1797,7 +1820,7 @@ export class GameRoom extends Room<GameRoomState> {
       client.send('dialogue_update', {
         ended: false,
         nodeId,
-        message: node?.text ?? '',
+        message: node ? resolveNodeText(node, spoken, npcId, dialogueTreeId) : '',
         dialogueTreeId,
         choices: dialogueSystem.publish(dialogueTreeId, nodeId, spoken, player.stats, player.coins),
         notice: result.reason,
@@ -1808,6 +1831,9 @@ export class GameRoom extends Room<GameRoomState> {
     if (result.inventory) player.inventory = result.inventory;
     if (result.coinsDelta) {
       player.coins = Math.max(0, player.coins + result.coinsDelta);
+    }
+    if (result.stats) {
+      player.stats = result.stats;
     }
     if (result.statBoost) {
       const stats = { ...player.stats };
@@ -1833,6 +1859,10 @@ export class GameRoom extends Room<GameRoomState> {
       syncRecognition(ctx);
     });
 
+    if (result.worldKnowledge) {
+      knowledgeStore.set(result.worldKnowledge);
+    }
+
     if (result.notification) {
       client.send('notification', {
         type: 'notification',
@@ -1840,9 +1870,16 @@ export class GameRoom extends Room<GameRoomState> {
         level: 'success',
       });
     }
+    for (const note of result.notifications ?? []) {
+      client.send('notification', { type: 'notification', message: note, level: 'info' });
+    }
 
-    if (result.coinsDelta) {
+    if (result.coinsDelta || result.stats) {
       this.sendPlayerSync(client, player);
+    }
+
+    if (result.ended) {
+      this.conversationLocks = releaseConversationLock(this.conversationLocks, npcId, playerId);
     }
 
     const spoken = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
@@ -2170,7 +2207,25 @@ export class GameRoom extends Room<GameRoomState> {
     if (!npc?.dialogueTreeId) return;
     if (!this.npcMaySpeak(client, player, npcId)) return;
 
-    const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
+    const met = this.playerData.get(client.sessionId);
+    if (!met) return;
+    const playerId = met.dbPlayerId ?? client.sessionId;
+    const policy = parseConversationPolicy(npc.conversationPolicy);
+    const locked = acquireConversationLock({
+      locks: this.conversationLocks,
+      npcId,
+      playerId,
+      sessionId: client.sessionId,
+      policy,
+    });
+    this.conversationLocks = locked.locks;
+    if (!locked.acquired) {
+      this.warnPlayer(client, locked.reason ?? 'Someone else is speaking with them.');
+      return;
+    }
+
+    met.progression = beginDialogueVisit(met.progression, npc.dialogueTreeId, npcId);
+    const progression = met.progression;
     const tree = dialogueSystem.getTree(npc.dialogueTreeId);
     const presence = npcPresence(npcId);
     let openNode = nodeId;
@@ -2180,23 +2235,22 @@ export class GameRoom extends Room<GameRoomState> {
     const node = tree?.nodes.find((entry) => entry.id === openNode);
     const remembered = openNode === 'start' ? bondGreeting(npcId, progression) : null;
     const notice = presence?.interaction === 'busy' ? presence.notice : undefined;
+    const text =
+      remembered ||
+      (node ? resolveNodeText(node, progression, npcId, npc.dialogueTreeId) : '');
     client.send('open_ui', {
       ui: 'dialogue',
       npcId,
       dialogueTreeId: npc.dialogueTreeId,
       nodeId: openNode,
-      text: remembered || (node?.text ?? ''),
+      text,
       choices: dialogueSystem.publish(npc.dialogueTreeId, openNode, progression, player.stats, player.coins),
       ...(notice ? { notice } : {}),
     });
 
-    const met = this.playerData.get(client.sessionId);
-    if (!met) return;
     const next = withBondJournal(met.progression, npcId, npc.name);
-    if (next !== met.progression) {
-      met.progression = next;
-      client.send('progression_update', { progression: met.progression });
-    }
+    met.progression = next;
+    client.send('progression_update', { progression: met.progression });
   }
 
   private requireNpcPresent(client: Client, player: PlayerSchema, npcId: string) {

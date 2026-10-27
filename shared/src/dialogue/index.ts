@@ -17,6 +17,31 @@ import {
 } from '../progression/licenses.js';
 import { meetsDialogueRecognitionGate } from '../progression/recognition.js';
 import { bondBlockReason, listSocialOffers, type BondGate } from '../social/index.js';
+import {
+  applyDialogueActions,
+  parseDialogueActions,
+  type DialogueAction,
+  type DialogueActionContext,
+} from './actions.js';
+import { parseConversationPolicy } from '../npc/behavior.js';
+import { validatePersonality } from '../npc/personality.js';
+import { lessonsForNpc } from '../npc/lessons.js';
+import { knowledgeKnownByNpc } from '../npc/knowledge.js';
+
+export interface DialogueTextVariant {
+  text: string;
+  when?: {
+    memory?: string;
+    grudge?: string;
+    stage?: string;
+    flag?: string;
+    visitMin?: number;
+    visitMax?: number;
+    absenceDaysMin?: number;
+    humor?: boolean;
+    guarded?: boolean;
+  };
+}
 
 export interface DialogueChoice {
   /** Stable id. Existing trees omit it and use `${nodeId}:${index}`. */
@@ -37,6 +62,16 @@ export interface DialogueChoice {
   requiresBond?: BondGate;
   /** Social event id applied when the choice succeeds. */
   socialEvent?: string;
+  /** Hide until this many visits to the tree. */
+  visitMin?: number;
+  /** Hide after this many visits. */
+  visitMax?: number;
+  requiresStoryFlag?: string;
+  requiresQuestComplete?: string;
+  requiresKnowledge?: string;
+  requiresLesson?: string;
+  /** Validated action registry — applied after the choice succeeds. */
+  actions?: DialogueAction[];
 }
 
 export interface DialogueNode {
@@ -46,6 +81,11 @@ export interface DialogueNode {
   requiresRecognition?: string;
   requiresLicense?: string;
   requiresAnyLicense?: string[];
+  /** Prefer these lines when memories / visits / personality match. */
+  textVariants?: DialogueTextVariant[];
+  entryRequiresBond?: BondGate;
+  entryRequiresFlag?: string;
+  entryVisitMin?: number;
 }
 
 export interface DialogueTree {
@@ -78,12 +118,15 @@ export interface DialogueChoiceSuccess {
   ended: boolean;
   message: string;
   inventory?: InventorySlot[];
+  stats?: PlayerStats;
   statBoost?: Record<string, number>;
   relationshipDelta?: number;
   socialEvent?: string;
   coinsDelta?: number;
   progression?: PlayerProgression;
   notification?: string;
+  notifications?: string[];
+  worldKnowledge?: import('../npc/knowledge.js').WorldKnowledgeStore;
 }
 
 export interface DialogueChoiceFailure {
@@ -133,7 +176,7 @@ export function publishDialogueChoices(
   node.choices.forEach((choice, index) => {
     if (!meetsDialogueRecognitionGate(choice, progression)) return;
     const id = dialogueChoiceId(node.id, choice, index);
-    const block = choiceBlock(choice, progression, stats, coins, tree?.npcId);
+    const block = choiceBlock(choice, progression, stats, coins, tree?.npcId, tree?.id);
     if (block === 'hide') return;
     published.push({
       id,
@@ -151,7 +194,8 @@ export function resolveDialogueChoice(
   tree: DialogueTree | undefined,
   nodeId: string,
   choiceId: string,
-  session: DialogueSession
+  session: DialogueSession,
+  actionCtx?: Partial<DialogueActionContext>
 ): DialogueChoiceOutcome {
   if (!tree) return { ok: false, reason: 'That conversation is no longer available.' };
   const node = tree.nodes.find((entry) => entry.id === nodeId);
@@ -160,6 +204,13 @@ export function resolveDialogueChoice(
   const progression = session.progression;
   if (progression && !meetsDialogueRecognitionGate(node, progression)) {
     return { ok: false, reason: 'They have nothing further for you at your recognition.' };
+  }
+  if (progression && node.entryRequiresBond) {
+    const entryBlock = bondBlockReason(progression, tree.npcId, node.entryRequiresBond);
+    if (entryBlock) return { ok: false, reason: entryBlock };
+  }
+  if (progression && node.entryRequiresFlag && !progression.storyFlags?.includes(node.entryRequiresFlag)) {
+    return { ok: false, reason: 'That path is still sealed.' };
   }
 
   const located = locateChoice(node, choiceId);
@@ -173,13 +224,16 @@ export function resolveDialogueChoice(
     return { ok: false, reason: 'That path is closed to you.' };
   }
 
-  const block = choiceBlock(choice, progression, session.stats, session.coins, tree.npcId);
+  const block = choiceBlock(choice, progression, session.stats, session.coins, tree.npcId, tree.id);
   if (block === 'hide') return { ok: false, reason: 'That path is closed to you.' };
   if (block) return { ok: false, reason: block };
 
   let nextProgression = progression;
+  let nextStats = session.stats;
   let coinsDelta = 0;
   let notification: string | undefined;
+  const notifications: string[] = [];
+  let worldKnowledge: import('../npc/knowledge.js').WorldKnowledgeStore | undefined;
 
   if (choice.chargeCoins != null && choice.chargeCoins > 0) {
     coinsDelta = -choice.chargeCoins;
@@ -204,20 +258,164 @@ export function resolveDialogueChoice(
     updatedInv = addItemToInventory(session.inventory, choice.grantItem, 1);
   }
 
+  if (choice.actions?.length) {
+    if (!nextProgression || !nextStats) {
+      return { ok: false, reason: 'Your record is not ready for that.' };
+    }
+    const applied = applyDialogueActions(choice.actions, {
+      npcId: tree.npcId,
+      progression: nextProgression,
+      stats: nextStats,
+      inventory: updatedInv,
+      coins: (session.coins ?? 0) + coinsDelta,
+      ...actionCtx,
+    });
+    if (!applied.ok) return { ok: false, reason: applied.reason };
+    nextProgression = applied.progression;
+    nextStats = applied.stats;
+    updatedInv = applied.inventory;
+    coinsDelta = applied.coins - (session.coins ?? 0);
+    notifications.push(...applied.notifications);
+    if (applied.worldKnowledge) worldKnowledge = applied.worldKnowledge;
+    if (applied.ended) {
+      return {
+        ok: true,
+        choiceId: dialogueChoiceId(node.id, choice, located.index),
+        nextNodeId: 'end',
+        ended: true,
+        message: 'Farewell.',
+        inventory: updatedInv !== session.inventory ? updatedInv : undefined,
+        stats: nextStats !== session.stats ? nextStats : undefined,
+        relationshipDelta: choice.relationshipDelta,
+        socialEvent: choice.socialEvent,
+        coinsDelta: coinsDelta || undefined,
+        progression: nextProgression !== progression ? nextProgression : undefined,
+        notification,
+        notifications,
+        ...(worldKnowledge ? { worldKnowledge } : {}),
+      };
+    }
+  }
+
+  if (nextProgression) {
+    nextProgression = noteDialogueNode(nextProgression, tree.id, choice.next);
+  }
+
   const nextNode = tree.nodes.find((entry) => entry.id === choice.next);
+  const message = nextNode
+    ? resolveNodeText(nextNode, nextProgression, tree.npcId, tree.id)
+    : 'Farewell.';
   return {
     ok: true,
     choiceId: dialogueChoiceId(node.id, choice, located.index),
     nextNodeId: choice.next,
     ended: choice.next === 'end' || !nextNode,
-    message: nextNode?.text ?? 'Farewell.',
-    inventory: choice.grantItem ? updatedInv : undefined,
+    message,
+    inventory: updatedInv !== session.inventory ? updatedInv : undefined,
+    stats: nextStats !== session.stats ? nextStats : undefined,
     statBoost: choice.statBoost,
-      relationshipDelta: choice.relationshipDelta,
-      socialEvent: choice.socialEvent,
-      coinsDelta: coinsDelta || undefined,
+    relationshipDelta: choice.relationshipDelta,
+    socialEvent: choice.socialEvent,
+    coinsDelta: coinsDelta || undefined,
     progression: nextProgression !== progression ? nextProgression : undefined,
     notification,
+    ...(notifications.length ? { notifications } : {}),
+    ...(worldKnowledge ? { worldKnowledge } : {}),
+  };
+}
+
+export function resolveNodeText(
+  node: DialogueNode,
+  progression: PlayerProgression | undefined,
+  npcId: string,
+  treeId?: string
+): string {
+  if (!node.textVariants?.length || !progression) return node.text;
+  const state = progression.dialogueState?.[treeId ?? ''] ?? { visitCount: 0 };
+  const bond = progression.social?.bonds[npcId];
+  const absenceDays =
+    bond?.lastSeenAt != null ? (Date.now() - bond.lastSeenAt) / 86_400_000 : 0;
+  for (const variant of node.textVariants) {
+    const when = variant.when;
+    if (!when) continue;
+    if (when.memory && !bond?.memories.some((memory) => memory.id === when.memory)) continue;
+    if (when.grudge && !bond?.grudges.includes(when.grudge)) continue;
+    if (when.flag && !progression.storyFlags?.includes(when.flag)) continue;
+    if (when.visitMin != null && state.visitCount < when.visitMin) continue;
+    if (when.visitMax != null && state.visitCount > when.visitMax) continue;
+    if (when.absenceDaysMin != null && absenceDays < when.absenceDaysMin) continue;
+    if (when.stage) {
+      const stageBlock = bondBlockReason(progression, npcId, { stage: when.stage });
+      if (stageBlock) continue;
+    }
+    return variant.text;
+  }
+  return node.text;
+}
+
+export function noteDialogueNode(
+  progression: PlayerProgression,
+  treeId: string,
+  nodeId: string,
+  now = Date.now()
+): PlayerProgression {
+  const prior = progression.dialogueState?.[treeId] ?? {
+    visitCount: 0,
+    completedNodeIds: [],
+  };
+  const completed = new Set(prior.completedNodeIds ?? []);
+  if (nodeId && nodeId !== 'end') completed.add(nodeId);
+  return {
+    ...progression,
+    dialogueState: {
+      ...(progression.dialogueState ?? {}),
+      [treeId]: {
+        ...prior,
+        lastNodeId: nodeId,
+        completedNodeIds: [...completed],
+        lastSeenAt: now,
+      },
+    },
+  };
+}
+
+/** Open a conversation: bump visit count once per open and stamp lastSeen. */
+export function beginDialogueVisit(
+  progression: PlayerProgression,
+  treeId: string,
+  npcId: string,
+  now = Date.now()
+): PlayerProgression {
+  const prior = progression.dialogueState?.[treeId] ?? { visitCount: 0, completedNodeIds: [] };
+  const social = progression.social ?? { bonds: {}, scopes: {} };
+  const bond = social.bonds[npcId] ?? {
+    axes: {},
+    grudges: [],
+    memories: [],
+    onceEvents: [],
+    giftCounts: {},
+    giftReceipts: [],
+    knownPreferences: [],
+    actionNextAt: {},
+    actionReceipts: [],
+  };
+  return {
+    ...progression,
+    dialogueState: {
+      ...(progression.dialogueState ?? {}),
+      [treeId]: {
+        ...prior,
+        visitCount: (prior.visitCount ?? 0) + 1,
+        lastSeenAt: now,
+      },
+    },
+    social: {
+      ...social,
+      bonds: {
+        ...social.bonds,
+        [npcId]: { ...bond, lastSeenAt: now },
+      },
+    },
   };
 }
 
@@ -268,6 +466,22 @@ export function buildNpcInteractionOffers(input: {
 
   if (input.acceptsGifts && !offers.some((offer) => offer.id === 'gift')) {
     offers.push({ id: 'gift', label: ACTION_LABELS.gift });
+  }
+  if (
+    input.progression &&
+    lessonsForNpc(npc.id).length &&
+    nodeIds.has('train') &&
+    !offers.some((offer) => offer.id === 'train')
+  ) {
+    offers.push({ id: 'train', label: ACTION_LABELS.train, nodeId: 'train' });
+  }
+  if (
+    input.progression &&
+    knowledgeKnownByNpc(npc.id).length &&
+    nodeIds.has('rumors') &&
+    !offers.some((offer) => offer.id === 'rumors')
+  ) {
+    offers.push({ id: 'rumors', label: ACTION_LABELS.rumors, nodeId: 'rumors' });
   }
   if (input.progression) {
     for (const social of listSocialOffers(npc.id, input.progression, input.now)) {
@@ -326,14 +540,44 @@ export function validateDialogueTree(
       if (!parsed.ok) return parsed;
       choices.push(parsed.choice);
     }
+    const textVariants = parseTextVariants(node.textVariants);
     nodes.push({
       id: node.id.trim(),
       text: node.text,
       choices,
       ...gateFields(node),
+      ...(textVariants ? { textVariants } : {}),
+      ...(node.entryRequiresBond && typeof node.entryRequiresBond === 'object'
+        ? (() => {
+            const gate = parseBondGate(node.entryRequiresBond);
+            return gate.ok && gate.gate ? { entryRequiresBond: gate.gate } : {};
+          })()
+        : {}),
+      ...(typeof node.entryRequiresFlag === 'string' && node.entryRequiresFlag.trim()
+        ? { entryRequiresFlag: node.entryRequiresFlag.trim() }
+        : {}),
+      ...(typeof node.entryVisitMin === 'number' && Number.isFinite(node.entryVisitMin)
+        ? { entryVisitMin: Math.max(0, Math.floor(node.entryVisitMin)) }
+        : {}),
     });
   }
   return { ok: true, tree: { id: raw.id.trim(), npcId: raw.npcId.trim(), nodes } };
+}
+
+function parseTextVariants(raw: unknown): DialogueTextVariant[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: DialogueTextVariant[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const row = entry as Record<string, unknown>;
+    if (typeof row.text !== 'string') continue;
+    const variant: DialogueTextVariant = { text: row.text };
+    if (row.when && typeof row.when === 'object') {
+      variant.when = row.when as DialogueTextVariant['when'];
+    }
+    out.push(variant);
+  }
+  return out.length ? out : undefined;
 }
 
 export function validateNpcDefinition(
@@ -377,6 +621,10 @@ export function validateNpcDefinition(
   if (spritePixels && spritePixels.length !== 256) {
     return { ok: false, error: 'NPC spritePixels must be 256 colors.' };
   }
+  const personalityCheck = validatePersonality(raw.personality);
+  if (!personalityCheck.ok) return personalityCheck;
+  const conversationPolicy = raw.conversationPolicy != null ? parseConversationPolicy(raw.conversationPolicy) : undefined;
+  const biography = optionalString(raw.biography);
   return {
     ok: true,
     npc: {
@@ -394,6 +642,9 @@ export function validateNpcDefinition(
       ...(secrets ? { secrets } : {}),
       ...(capabilities ? { capabilities } : {}),
       ...(spritePixels ? { spritePixels } : {}),
+      ...(personalityCheck.personality ? { personality: personalityCheck.personality } : {}),
+      ...(conversationPolicy ? { conversationPolicy } : {}),
+      ...(biography ? { biography } : {}),
     },
   };
 }
@@ -444,7 +695,8 @@ function choiceBlock(
   progression: PlayerProgression | undefined,
   stats: PlayerStats | undefined,
   coins: number | undefined,
-  npcId?: string
+  npcId?: string,
+  treeId?: string
 ): string | 'hide' | null {
   if (choice.requiresExamEligibility) {
     const license = getLicense(choice.requiresExamEligibility);
@@ -459,6 +711,23 @@ function choiceBlock(
   }
   const bond = bondBlockReason(progression, npcId, choice.requiresBond);
   if (bond) return bond;
+  if (progression) {
+    const visits = progression.dialogueState?.[treeId ?? '']?.visitCount ?? 0;
+    if (choice.visitMin != null && visits < choice.visitMin) return 'Come back another day.';
+    if (choice.visitMax != null && visits > choice.visitMax) return 'hide';
+    if (choice.requiresStoryFlag && !progression.storyFlags?.includes(choice.requiresStoryFlag)) {
+      return 'That path is still sealed.';
+    }
+    if (choice.requiresQuestComplete && !progression.questProgress?.[choice.requiresQuestComplete]?.completedAt) {
+      return 'That path is not open yet.';
+    }
+    if (choice.requiresKnowledge && !progression.discoveredKnowledge?.includes(choice.requiresKnowledge)) {
+      return 'You have not learned that yet.';
+    }
+    if (choice.requiresLesson && !progression.completedLessons?.includes(choice.requiresLesson)) {
+      return 'You need that lesson first.';
+    }
+  }
   return null;
 }
 
@@ -507,6 +776,24 @@ function parseChoice(
     const gate = parseBondGate(raw.requiresBond);
     if (!gate.ok) return gate;
     if (gate.gate) choice.requiresBond = gate.gate;
+  }
+  if (typeof raw.visitMin === 'number' && Number.isFinite(raw.visitMin)) choice.visitMin = Math.max(0, Math.floor(raw.visitMin));
+  if (typeof raw.visitMax === 'number' && Number.isFinite(raw.visitMax)) choice.visitMax = Math.max(0, Math.floor(raw.visitMax));
+  if (typeof raw.requiresStoryFlag === 'string' && raw.requiresStoryFlag.trim()) {
+    choice.requiresStoryFlag = raw.requiresStoryFlag.trim();
+  }
+  if (typeof raw.requiresQuestComplete === 'string' && raw.requiresQuestComplete.trim()) {
+    choice.requiresQuestComplete = raw.requiresQuestComplete.trim();
+  }
+  if (typeof raw.requiresKnowledge === 'string' && raw.requiresKnowledge.trim()) {
+    choice.requiresKnowledge = raw.requiresKnowledge.trim();
+  }
+  if (typeof raw.requiresLesson === 'string' && raw.requiresLesson.trim()) {
+    choice.requiresLesson = raw.requiresLesson.trim();
+  }
+  if (raw.actions != null) {
+    const actions = parseDialogueActions(raw.actions);
+    if (actions.length) choice.actions = actions;
   }
   return { ok: true, choice };
 }

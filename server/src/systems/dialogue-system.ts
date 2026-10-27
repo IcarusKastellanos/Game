@@ -2,6 +2,7 @@ import type { InventorySlot, PlayerProgression, PlayerStats, TaglockType } from 
 import {
   publishDialogueChoices,
   resolveDialogueChoice,
+  type DialogueActionContext,
   type DialogueChoiceOutcome,
   type DialogueTree,
 } from '@witchcraft/shared';
@@ -14,6 +15,7 @@ export interface DialogueResolveContext {
   progression?: PlayerProgression;
   stats?: PlayerStats;
   coins?: number;
+  actionCtx?: Partial<DialogueActionContext>;
 }
 
 /** Dialogue tree loader. Choice publication and resolution live in shared. */
@@ -47,7 +49,7 @@ export class DialogueSystem {
     choiceId: string,
     ctx: DialogueResolveContext
   ): DialogueChoiceOutcome {
-    return resolveDialogueChoice(this.trees.get(dialogueTreeId), nodeId, choiceId, ctx);
+    return resolveDialogueChoice(this.trees.get(dialogueTreeId), nodeId, choiceId, ctx, ctx.actionCtx);
   }
 }
 

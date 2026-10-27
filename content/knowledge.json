@@ -1,0 +1,100 @@
+{
+  "entries": [
+    {
+      "id": "rumor_coven_stones",
+      "kind": "secret",
+      "text": "Behind the old coven stones a narrow path still holds the circle's marks.",
+      "reliability": "complete",
+      "knownByNpcIds": [
+        "npc_mara"
+      ],
+      "reveal": {
+        "bond": {
+          "stage": "familiar",
+          "noGrudge": "broke_promise"
+        }
+      },
+      "discoveryScope": "personal",
+      "unlocks": {
+        "storyFlag": "knows_old_coven_site",
+        "locationId": "study_circle"
+      }
+    },
+    {
+      "id": "rumor_market_ward",
+      "kind": "rumor",
+      "text": "Someone has been reinforcing the market ward with iron nails at dusk.",
+      "alternateText": "They say the market ward was reinforced, though the details wander.",
+      "reliability": "unreliable",
+      "knownByNpcIds": [
+        "npc_tom",
+        "npc_mara"
+      ],
+      "reveal": {
+        "bond": {
+          "stage": "acquaintance"
+        }
+      },
+      "discoveryScope": "personal"
+    },
+    {
+      "id": "lore_circle_oath",
+      "kind": "lore",
+      "text": "The circle keeps a quiet oath: teach only those who return with rosemary and regard.",
+      "reliability": "complete",
+      "knownByNpcIds": [
+        "npc_circle_leader"
+      ],
+      "reveal": {
+        "bond": {
+          "stage": "familiar"
+        },
+        "questIds": [
+          "quest_first_steps"
+        ]
+      },
+      "discoveryScope": "personal",
+      "unlocks": {
+        "storyFlag": "heard_circle_oath"
+      }
+    },
+    {
+      "id": "world_lantern_watch",
+      "kind": "history",
+      "text": "Townsfolk still speak of the night the lantern vigil held the green.",
+      "reliability": "partial",
+      "knownByNpcIds": [
+        "npc_librarian",
+        "npc_circle_leader"
+      ],
+      "reveal": {
+        "bond": {
+          "stage": "acquaintance"
+        }
+      },
+      "discoveryScope": "world",
+      "unlocks": {
+        "storyFlag": "heard_lantern_watch"
+      }
+    },
+    {
+      "id": "recipe_hint_herbal",
+      "kind": "recipe",
+      "text": "Agatha keeps a calm tea blend among her teaching notes.",
+      "reliability": "hint",
+      "knownByNpcIds": [
+        "npc_librarian"
+      ],
+      "reveal": {
+        "bond": {
+          "stage": "familiar"
+        }
+      },
+      "discoveryScope": "personal",
+      "reference": "herbal_tea",
+      "unlocks": {
+        "recipeId": "recipe_healing_tea"
+      }
+    }
+  ]
+}

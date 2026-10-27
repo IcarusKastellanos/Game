@@ -37,6 +37,33 @@ type ScheduleOverride = {
 
 type NpcPlaceOption = { id: string; label?: string };
 
+type Personality = Partial<Record<
+  | 'friendliness'
+  | 'caution'
+  | 'honesty'
+  | 'generosity'
+  | 'curiosity'
+  | 'ambition'
+  | 'pride'
+  | 'suspicion'
+  | 'humor'
+  | 'socialOpenness',
+  number
+>>;
+
+const PERSONALITY_TRAITS: (keyof Personality)[] = [
+  'friendliness',
+  'caution',
+  'honesty',
+  'generosity',
+  'curiosity',
+  'ambition',
+  'pride',
+  'suspicion',
+  'humor',
+  'socialOpenness',
+];
+
 type NpcRecord = {
   id: string;
   name: string;
@@ -51,6 +78,9 @@ type NpcRecord = {
   faction?: string;
   secrets?: string[];
   spritePixels?: string[];
+  personality?: Personality;
+  conversationPolicy?: string;
+  biography?: string;
   revision?: number;
 };
 
@@ -122,7 +152,14 @@ function cleanOverride(override: ScheduleOverride): ScheduleOverride | undefined
   };
 }
 
-type EdgeMeta = { relationshipDelta?: number; grantItem?: string; statBoost?: Record<string, number> };
+type EdgeMeta = {
+  relationshipDelta?: number;
+  grantItem?: string;
+  statBoost?: Record<string, number>;
+  socialEvent?: string;
+  requiresBond?: Record<string, unknown>;
+  actionsJson?: string;
+};
 type AnnotatedEdge = GraphEdge & { meta?: EdgeMeta };
 
 export async function renderNpcList(el: HTMLElement, onEdit: (id: string) => void): Promise<void> {
@@ -185,11 +222,17 @@ export async function renderNpcEditor(
       relationshipDelta?: number;
       grantItem?: string;
       statBoost?: Record<string, number>;
+      socialEvent?: string;
+      requiresBond?: Record<string, unknown>;
+      actions?: unknown[];
     }[]).forEach((choice, ci) => {
       edgeMeta.set(`${node.id}:${ci}`, {
         relationshipDelta: choice.relationshipDelta,
         grantItem: choice.grantItem,
         statBoost: choice.statBoost,
+        socialEvent: choice.socialEvent,
+        requiresBond: choice.requiresBond,
+        actionsJson: choice.actions ? JSON.stringify(choice.actions) : undefined,
       });
     });
   }
@@ -214,6 +257,20 @@ export async function renderNpcEditor(
           ${field('Magical Knowledge', numberInput('npc-mk', npc.magicalKnowledge ?? 0))}
         </div>
         ${field('Faction', textInput('npc-faction', npc.faction ?? ''))}
+        ${field('Biography', textarea('npc-bio', npc.biography ?? ''))}
+        ${field('Secrets (comma ids)', textInput('npc-secrets', (npc.secrets ?? []).join(', ')))}
+        ${field('Conversation policy', selectInput('npc-convo', [
+          { value: 'concurrent_personal', label: 'concurrent personal' },
+          { value: 'exclusive', label: 'exclusive' },
+          { value: 'shared_public', label: 'shared public' },
+        ], npc.conversationPolicy ?? 'concurrent_personal'))}
+        <h3 class="section-head mt">Personality (0–100)</h3>
+        <p class="muted-text">Traits color reactions and gift warmth. They never bypass quest, bond, or economy rules.</p>
+        <div class="form-grid">
+          ${PERSONALITY_TRAITS.map((trait) =>
+            field(trait, numberInput(`npc-trait-${trait}`, npc.personality?.[trait] ?? 50))
+          ).join('')}
+        </div>
         <div id="npc-routine"></div>
         <h3 class="section-head mt">Map sprite — paint here (16×16)</h3>
         <p class="muted-text">This is the picture drawn on the town map. Paint the pixels in this panel, or drop an image onto it. Save NPC writes the painting with the character.</p>
@@ -425,19 +482,34 @@ export async function renderNpcEditor(
         ${field('Next Node', selectInput('ei-next', targetOpts, edge.to))}
         ${field('Relationship Δ', numberInput('ei-rel', meta.relationshipDelta ?? 0))}
         ${field('Grant Item', textInput('ei-grant', meta.grantItem ?? ''))}
+        ${field('Social Event', textInput('ei-social', meta.socialEvent ?? ''))}
       </div>
       ${field('Stat Boost (JSON)', textInput('ei-stat', JSON.stringify(meta.statBoost ?? {})))}
+      ${field('Bond Gate (JSON)', textInput('ei-bond', JSON.stringify(meta.requiresBond ?? {})))}
+      ${field('Actions (JSON array)', textarea('ei-actions', meta.actionsJson ?? '[]'))}
       <button type="button" class="btn secondary" id="ei-apply">Apply Choice</button>`;
     document.getElementById('ei-apply')!.onclick = () => {
       const label = (document.getElementById('ei-label') as HTMLInputElement).value.trim();
       const next = (document.getElementById('ei-next') as HTMLSelectElement).value;
       const rel = Number((document.getElementById('ei-rel') as HTMLInputElement).value);
       const grant = (document.getElementById('ei-grant') as HTMLInputElement).value.trim();
+      const socialEvent = (document.getElementById('ei-social') as HTMLInputElement).value.trim();
       let statBoost: Record<string, number> | undefined;
+      let requiresBond: Record<string, unknown> | undefined;
+      let actionsJson: string | undefined;
       try {
         const parsed = JSON.parse((document.getElementById('ei-stat') as HTMLInputElement).value || '{}');
         if (Object.keys(parsed).length) statBoost = parsed;
       } catch { /* ignore invalid JSON */ }
+      try {
+        const parsed = JSON.parse((document.getElementById('ei-bond') as HTMLInputElement).value || '{}');
+        if (Object.keys(parsed).length) requiresBond = parsed;
+      } catch { /* ignore */ }
+      try {
+        const raw = (document.getElementById('ei-actions') as HTMLTextAreaElement).value || '[]';
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) actionsJson = JSON.stringify(parsed);
+      } catch { /* ignore */ }
 
       const edgeList = graph!.getEdges();
       const e = edgeList.find((x) => x.id === edge!.id);
@@ -448,6 +520,9 @@ export async function renderNpcEditor(
         relationshipDelta: rel || undefined,
         grantItem: grant || undefined,
         statBoost,
+        socialEvent: socialEvent || undefined,
+        requiresBond,
+        actionsJson,
       });
       graph!.setData(graph!.getNodes(), edgeList);
       renderEdgeInspector(e);
@@ -487,6 +562,18 @@ export async function renderNpcEditor(
         relationshipLevel: Number((document.getElementById('npc-rel') as HTMLInputElement).value),
         magicalKnowledge: Number((document.getElementById('npc-mk') as HTMLInputElement).value),
         faction: (document.getElementById('npc-faction') as HTMLInputElement).value.trim() || undefined,
+        biography: (document.getElementById('npc-bio') as HTMLTextAreaElement).value.trim() || undefined,
+        secrets: (document.getElementById('npc-secrets') as HTMLInputElement).value
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean),
+        conversationPolicy: (document.getElementById('npc-convo') as HTMLSelectElement).value || undefined,
+        personality: Object.fromEntries(
+          PERSONALITY_TRAITS.map((trait) => {
+            const raw = Number((document.getElementById(`npc-trait-${trait}`) as HTMLInputElement).value);
+            return [trait, Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : 50];
+          })
+        ),
         schedule: cleanRoutineRows(routineRows),
         scheduleOverride: cleanOverride(routineOverride),
         spritePixels: npcSpritePixels.length === NPC_SPRITE_PX * NPC_SPRITE_PX ? npcSpritePixels : undefined,
@@ -499,11 +586,21 @@ export async function renderNpcEditor(
         choices: (node.choices as { label: string; next: string; id?: string }[]).map((choice, ci) => {
           const edge = edges.filter((e) => e.from === node.id)[ci];
           const meta = edge ? edgeMeta.get(edge.id) : undefined;
+          let actions: unknown[] | undefined;
+          if (meta?.actionsJson) {
+            try {
+              const parsed = JSON.parse(meta.actionsJson);
+              if (Array.isArray(parsed) && parsed.length) actions = parsed;
+            } catch { /* ignore */ }
+          }
           return {
             ...choice,
             ...(meta?.relationshipDelta != null ? { relationshipDelta: meta.relationshipDelta } : {}),
             ...(meta?.grantItem ? { grantItem: meta.grantItem } : {}),
             ...(meta?.statBoost ? { statBoost: meta.statBoost } : {}),
+            ...(meta?.socialEvent ? { socialEvent: meta.socialEvent } : {}),
+            ...(meta?.requiresBond ? { requiresBond: meta.requiresBond } : {}),
+            ...(actions ? { actions } : {}),
           };
         }),
       }));
