@@ -9,6 +9,7 @@ import {
   countTaglocksForTarget,
   MAX_TAGLOCKS_PER_TARGET,
   inventorySlotCount,
+  findFirstEmptySlotIndex,
   INVENTORY_MAX_SLOTS,
   clampMagicalEnergy,
   clampPlayerStatValue,
@@ -68,11 +69,16 @@ import {
   getLicense,
   backfillGrimoireIngredients,
   defaultGrimoire,
+  GRIMOIRE_MANUSCRIPT_ITEM_ID,
   malevolentGrimoireWard,
+  manuscriptMetadataFromPage,
+  readManuscriptMeta,
+  receiveSharedGrimoirePage,
   recordGrimoireCast,
   recordGrimoireIngredients,
   recordGrimoireNpc,
   shareSpellIntoGrimoire,
+  takeInventorySlot,
   withGrimoire,
   type SurvivalActivity,
 } from '@witchcraft/shared';
@@ -113,6 +119,7 @@ import { setOnlinePlayerCount } from '../admin/services/dashboard.js';
 import { assertPlayerAuth } from '../services/player-auth.js';
 import { chatService, type ChatPayload } from '../services/chat-service.js';
 import { censorChatMessage } from '../systems/chat-filter.js';
+import { isManuscriptArchived, registerManuscriptExport } from '../systems/manuscript-registry.js';
 import type { PermissionSlug } from '@witchcraft/shared';
 import { registerGameRoom, unregisterGameRoom } from './game-room-registry.js';
 import { SlidingWindowRateLimiter } from '../utils/rate-limit.js';
@@ -190,7 +197,7 @@ export class GameRoom extends Room<GameRoomState> {
       'choose_specialty', 'cast_pocket_spell',
       'craft_recipe', 'hexagram_enchant', 'experiment_ingredients', 'read_book_complete',
       'presence_ready',
-      'grimoire_write', 'grimoire_share', 'grimoire_petition', 'grimoire_recall',
+      'grimoire_write', 'grimoire_share', 'grimoire_petition', 'grimoire_recall', 'grimoire_export',
       'admin_action',
     ] as const;
 
@@ -586,7 +593,7 @@ export class GameRoom extends Room<GameRoomState> {
         this.handleBuy(client, player, msg.shopId, msg.itemId, msg.quantity);
         break;
       case 'use_item':
-        this.handleUseItem(client, player, msg.itemId, msg.quantity ?? 1);
+        this.handleUseItem(client, player, msg.itemId, msg.quantity ?? 1, msg.slotIndex);
         break;
       case 'care_familiar':
         this.handleCareFamiliar(client, player, msg.action);
@@ -620,6 +627,9 @@ export class GameRoom extends Room<GameRoomState> {
         break;
       case 'grimoire_recall':
         this.handleGrimoireRecall(client, msg.spiritId);
+        break;
+      case 'grimoire_export':
+        this.handleGrimoireExport(client, player, msg.pageId);
         break;
       case 'chat':
         this.handleChat(client, player, msg);
@@ -1822,10 +1832,139 @@ export class GameRoom extends Room<GameRoomState> {
   private handleGrimoireWrite(client: Client, msg: Extract<ClientMessage, { type: 'grimoire_write' }>): void {
     const data = this.playerData.get(client.sessionId);
     if (!data) return;
-    const next = mergeGrimoireWrite(data.progression, msg);
-    if (!next) return;
-    data.progression = next;
+    const result = mergeGrimoireWrite(data.progression, msg);
+    if (result.progression) {
+      data.progression = result.progression;
+      client.send('progression_update', { progression: data.progression });
+    }
+    if (result.message && result.level) {
+      client.send('notification', { type: 'notification', message: result.message, level: result.level });
+    }
+  }
+
+  private handleGrimoireExport(client: Client, player: PlayerSchema, pageId: string): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const book = data.progression.grimoire ?? defaultGrimoire();
+    const page = book.authored.find((row) => row.id === pageId);
+    if (!page) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That Author page is not in your book.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (!page.body.trim()) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Write something on the page before exporting it.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (isManuscriptArchived(page.id)) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Staff archived that page. It cannot be exported again.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (findFirstEmptySlotIndex(normalizeInventoryLayout(player.inventory)) < 0) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Your bag is full. Make room for the manuscript.',
+        level: 'warn',
+      });
+      return;
+    }
+    const meta = manuscriptMetadataFromPage(page, player.displayName, player.dbPlayerId || undefined);
+    const recorded = readManuscriptMeta({ itemId: GRIMOIRE_MANUSCRIPT_ITEM_ID, quantity: 1, metadata: meta });
+    if (recorded) registerManuscriptExport(recorded, player.dbPlayerId || undefined);
+    player.inventory = inventorySystem.addItem(player.inventory, GRIMOIRE_MANUSCRIPT_ITEM_ID, 1, meta);
+    this.sendPlayerSync(client, player);
+    client.send('notification', {
+      type: 'notification',
+      message: `"${page.title}" is bound as a manuscript. Trade it, or right-click it to take a page into Shared.`,
+      level: 'success',
+    });
+  }
+
+  private handleUseManuscript(client: Client, player: PlayerSchema, slotIndex?: number): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const grid = normalizeInventoryLayout(player.inventory);
+    let index =
+      typeof slotIndex === 'number' && Number.isFinite(slotIndex)
+        ? Math.floor(slotIndex)
+        : grid.findIndex((slot) => slot.itemId === GRIMOIRE_MANUSCRIPT_ITEM_ID);
+    if (index < 0 || index >= grid.length || grid[index]?.itemId !== GRIMOIRE_MANUSCRIPT_ITEM_ID) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That manuscript is not in your bag.',
+        level: 'warn',
+      });
+      return;
+    }
+    const manuscript = readManuscriptMeta(grid[index]);
+    if (!manuscript) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'This manuscript has no writing left on it.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (isManuscriptArchived(manuscript.manuscriptPageId)) {
+      const takenBanned = takeInventorySlot(grid, index);
+      player.inventory = takenBanned.inventory;
+      this.sendPlayerSync(client, player);
+      client.send('notification', {
+        type: 'notification',
+        message: 'Staff archived that manuscript. The copy dissolves.',
+        level: 'warn',
+      });
+      return;
+    }
+    const taken = takeInventorySlot(grid, index);
+    if (!taken.slot) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That manuscript is not in your bag.',
+        level: 'warn',
+      });
+      return;
+    }
+    const received = receiveSharedGrimoirePage(data.progression.grimoire ?? defaultGrimoire(), manuscript);
+    if (received.status === 'full') {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Your Shared section is full. Clear a page before taking another.',
+        level: 'warn',
+      });
+      return;
+    }
+    if ((received.status !== 'added' && received.status !== 'again') || !received.page) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'This manuscript has no writing left on it.',
+        level: 'warn',
+      });
+      return;
+    }
+    player.inventory = taken.inventory;
+    data.progression = { ...data.progression, grimoire: received.grimoire };
+    this.sendPlayerSync(client, player);
     client.send('progression_update', { progression: data.progression });
+    client.send('notification', {
+      type: 'notification',
+      message:
+        received.status === 'again'
+          ? `"${received.page.title}" was already in Shared; the page is refreshed.`
+          : `"${received.page.title}" by ${received.page.authorName} is written into Shared.`,
+      level: 'success',
+    });
   }
 
   private handleGrimoirePetition(client: Client, spiritId: string): void {
@@ -1992,7 +2131,13 @@ export class GameRoom extends Room<GameRoomState> {
     });
   }
 
-  private handleUseItem(client: Client, player: PlayerSchema, itemId: string, quantity: number) {
+  private handleUseItem(
+    client: Client,
+    player: PlayerSchema,
+    itemId: string,
+    quantity: number,
+    slotIndex?: number
+  ) {
     const itemDef = contentRegistry.ingredients.get(itemId);
     if (!itemDef) {
       client.send('notification', {
@@ -2009,6 +2154,11 @@ export class GameRoom extends Room<GameRoomState> {
         message: 'You cannot use that item.',
         level: 'error',
       });
+      return;
+    }
+
+    if (itemId === GRIMOIRE_MANUSCRIPT_ITEM_ID) {
+      this.handleUseManuscript(client, player, slotIndex);
       return;
     }
 

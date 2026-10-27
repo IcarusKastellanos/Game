@@ -11,15 +11,18 @@ import {
   meetsSpellLicenseGate,
   playerLevel,
   selectGrimoireSpirit,
+  setAuthoredGrimoireActive,
   setGrimoireNotes,
   setGrimoireNpcNote,
   setGrimoireSpellNote,
   setGrimoireSpiritNote,
+  setSharedGrimoireActive,
   customizeGrimoire,
   sanitizeGrimoireMarkup,
   type ContentSpell,
   type GrimoireEntryKind,
   type GrimoireInk,
+  type GrimoireSharedPage,
   type GrimoireSpellEntry,
   type GrimoireState,
   type PlayerProgression,
@@ -29,7 +32,7 @@ import { network } from '../../net/NetworkManager.js';
 import { escapeHtml } from '../ledger-chrome.js';
 import { GRIMOIRE_NOTE_PAGES, loadGrimoireNotes } from './grimoire-notes.js';
 
-const TABS = ['The Book', 'Spells', 'Ingredients', 'Spirits', 'People', 'Notes'] as const;
+const TABS = ['The Book', 'Spells', 'Ingredients', 'Spirits', 'People', 'Author', 'Shared', 'Notes'] as const;
 export type GrimoireTab = (typeof TABS)[number];
 
 const INK_LABELS: Record<GrimoireInk, string> = {
@@ -206,6 +209,8 @@ function paint(section: Element, tab: string): void {
   else if (tab === 'Ingredients') paintIngredients(section, current);
   else if (tab === 'Spirits') paintSpirits(section, current);
   else if (tab === 'People') paintPeople(section, current);
+  else if (tab === 'Author') paintAuthor(section, current);
+  else if (tab === 'Shared') paintShared(section, current);
   else paintNotes(section, current);
 }
 
@@ -221,8 +226,10 @@ function paintBook(section: Element, current: GrimoireState): void {
       <li><strong>${current.ingredients.length}</strong> ingredients noted</li>
       <li><strong>${current.spirits.length}</strong> spirits met</li>
       <li><strong>${current.npcs.length}</strong> people remembered</li>
+      <li><strong>${(current.authored ?? []).length}</strong> pages authored</li>
+      <li><strong>${(current.sharedPages ?? []).length}</strong> shared pages kept</li>
     </ul>
-    <p>Casting, gathering, meeting a spirit your license can reach, and speaking with someone in town all leave a page. A friend, or a practitioner standing with you, can index a working you cannot cast yet. The page stays sealed until the working is actually yours.</p>
+    <p>Casting, gathering, meeting a spirit your license can reach, and speaking with someone in town all leave a page. Author lets you write freely and export a manuscript for trade. Right-clicking a manuscript takes that writing into Shared.</p>
     <p>A malevolent spell written here — cast, studied, or shared — gives you a thread of resistance when someone turns that same spell on you. The difference is a single point of focus.</p>
     ${sealedShared ? `<p class="hud-muted">${sealedShared} shared ${sealedShared === 1 ? 'page is' : 'pages are'} still sealed.</p>` : ''}
     <label class="hud-grimoire__field">Title
@@ -513,6 +520,104 @@ function bondSentence(name: string, relationship: number): string {
   if (relationship >= 30) return `${name} is a friend. The tie is warm enough to matter.`;
   if (relationship >= 10) return `${name} is an acquaintance. You know one another's names.`;
   return `${name} is newly met. This page is only a first impression.`;
+}
+
+function paintAuthor(section: Element, current: GrimoireState): void {
+  const pages = current.authored ?? [];
+  const activeId = pages.some((page) => page.id === current.authoredActive)
+    ? current.authoredActive!
+    : pages[0]?.id ?? '';
+  const page = pages.find((row) => row.id === activeId);
+  section.innerHTML = `
+    <h3>Author</h3>
+    <p>Write any page you like. Filtered words are masked when you save. Export binds a copy as a manuscript you can trade for coin. Right-clicking a manuscript takes the writing into Shared.</p>
+    <div class="hud-grimoire__index">
+      ${pages.map((row) => `<button type="button" class="hud-grimoire__index-btn${row.id === page?.id ? ' is-active' : ''}" data-authored="${escapeHtml(row.id)}">${escapeHtml(row.title)}</button>`).join('') || '<p class="hud-muted">No authored pages yet.</p>'}
+      <button type="button" class="hud-btn" id="grimoire-author-new">New page</button>
+    </div>
+    ${page ? `
+      <article class="hud-grimoire__entry">
+        <label class="hud-grimoire__field">Title
+          <input id="grimoire-author-title" class="hud-grimoire__input" maxlength="80" value="${escapeHtml(page.title)}" />
+        </label>
+        <div class="hud-grimoire__tools">
+          <button type="button" class="hud-btn secondary" data-cmd="bold"><b>B</b></button>
+          <button type="button" class="hud-btn secondary" data-cmd="italic"><i>I</i></button>
+          <button type="button" class="hud-btn secondary" data-cmd="underline"><u>U</u></button>
+        </div>
+        <div id="grimoire-author-body" class="hud-grimoire__sheet" contenteditable="true" spellcheck="true">${sanitizeGrimoireMarkup(page.body)}</div>
+        <div class="hud-grimoire__share">
+          <button type="button" class="hud-btn" id="grimoire-author-save">Save page</button>
+          <button type="button" class="hud-btn" id="grimoire-author-export">Export manuscript</button>
+          <button type="button" class="hud-btn secondary" id="grimoire-author-delete">Delete</button>
+        </div>
+      </article>` : '<p class="hud-muted">Start a new page to begin writing.</p>'}`;
+
+  section.querySelectorAll('[data-authored]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = (btn as HTMLElement).dataset.authored ?? '';
+      publish('grimoire_write', { authoredActive: id }, setAuthoredGrimoireActive(book(), id));
+      paint(section, 'Author');
+    });
+  });
+  section.querySelector('#grimoire-author-new')?.addEventListener('click', () => {
+    network.send('grimoire_write', { authoredPage: { title: 'Untitled page', body: '<p>Write freely.</p>' } });
+  });
+  if (!page) return;
+  const sheet = section.querySelector('#grimoire-author-body') as HTMLElement | null;
+  section.querySelectorAll('[data-cmd]').forEach((btn) => {
+    btn.addEventListener('mousedown', (event) => event.preventDefault());
+    btn.addEventListener('click', () => {
+      sheet?.focus();
+      document.execCommand((btn as HTMLElement).dataset.cmd ?? 'bold', false);
+    });
+  });
+  section.querySelector('#grimoire-author-save')?.addEventListener('click', () => {
+    const title = (section.querySelector('#grimoire-author-title') as HTMLInputElement | null)?.value ?? page.title;
+    network.send('grimoire_write', {
+      authoredPage: { id: page.id, title, body: sheet?.innerHTML ?? page.body },
+    });
+  });
+  section.querySelector('#grimoire-author-export')?.addEventListener('click', () => {
+    network.send('grimoire_export', { pageId: page.id });
+  });
+  section.querySelector('#grimoire-author-delete')?.addEventListener('click', () => {
+    if (!window.confirm('Delete this Author page?')) return;
+    network.send('grimoire_write', { authoredDeleteId: page.id });
+  });
+}
+
+function paintShared(section: Element, current: GrimoireState): void {
+  const pages = current.sharedPages ?? [];
+  const activeId = pages.some((page) => page.id === current.sharedActive)
+    ? current.sharedActive!
+    : pages[0]?.id ?? '';
+  const page = pages.find((row) => row.id === activeId) as GrimoireSharedPage | undefined;
+  section.innerHTML = `
+    <h3>Shared</h3>
+    <p>Pages taken from manuscripts you bought or were given. Right-click a Grimoire Manuscript in your bag to bring its writing here.</p>
+    <div class="hud-grimoire__index">
+      ${pages.map((row) => `<button type="button" class="hud-grimoire__index-btn${row.id === page?.id ? ' is-active' : ''}" data-shared="${escapeHtml(row.id)}">${escapeHtml(row.title)}</button>`).join('') || '<p class="hud-muted">No shared pages yet.</p>'}
+    </div>
+    ${page ? `
+      <article class="hud-grimoire__entry">
+        <h4>${escapeHtml(page.title)}</h4>
+        <p class="hud-grimoire__meta">By ${escapeHtml(page.authorName)} · taken ${escapeHtml(writtenOn(page.receivedAt) || 'recently')}</p>
+        <div class="hud-grimoire__prose">${sanitizeGrimoireMarkup(page.body)}</div>
+        <button type="button" class="hud-btn secondary" id="grimoire-shared-delete">Remove from Shared</button>
+      </article>` : ''}`;
+  section.querySelectorAll('[data-shared]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = (btn as HTMLElement).dataset.shared ?? '';
+      publish('grimoire_write', { sharedActive: id }, setSharedGrimoireActive(book(), id));
+      paint(section, 'Shared');
+    });
+  });
+  if (!page) return;
+  section.querySelector('#grimoire-shared-delete')?.addEventListener('click', () => {
+    if (!window.confirm('Remove this page from Shared?')) return;
+    network.send('grimoire_write', { sharedDeleteId: page.id });
+  });
 }
 
 function paintNotes(section: Element, current: GrimoireState): void {

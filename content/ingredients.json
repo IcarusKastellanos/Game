@@ -7388,5 +7388,20 @@
       "traditional_european"
     ],
     "adminOnly": true
+  },
+  {
+    "id": "grimoire_manuscript",
+    "name": "Grimoire Manuscript",
+    "category": "books",
+    "correspondences": [
+      "writing",
+      "knowledge"
+    ],
+    "description": "A page copied from a personal grimoire. Trade it for coin, or right-click to take the writing into your Shared section.",
+    "rarity": "uncommon",
+    "basePotency": 0,
+    "traditions": [
+      "traditional_european"
+    ]
   }
 ]

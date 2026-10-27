@@ -29,7 +29,9 @@ export class HUDWindows {
       if (
         active instanceof HTMLElement &&
         active.closest('.hud-grimoire') &&
-        (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement)
+        (active instanceof HTMLTextAreaElement ||
+          active instanceof HTMLInputElement ||
+          active.isContentEditable)
       ) {
         return;
       }

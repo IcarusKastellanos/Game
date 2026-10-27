@@ -18,6 +18,15 @@ import {
   shareSpellIntoGrimoire,
   customizeGrimoire,
   setGrimoireNotes,
+  upsertAuthoredGrimoirePage,
+  receiveSharedGrimoirePage,
+  manuscriptMetadataFromPage,
+  readManuscriptMeta,
+  applyManuscriptEditToGrimoire,
+  applyManuscriptEditToInventory,
+  purgeManuscriptFromGrimoire,
+  purgeManuscriptFromInventory,
+  GRIMOIRE_MANUSCRIPT_ITEM_ID,
   withGrimoire,
 } from '../dist/index.js';
 
@@ -146,4 +155,46 @@ test('the book keeps a personal hand, and notes stay five pages', () => {
   assert.equal(book.npcs[0].relationship, 100);
   const same = recordGrimoireNpc(book, { npcId: 'npc_mara', name: 'Mara', relationship: 100 });
   assert.equal(same, book);
+});
+
+test('author pages censor filter words and manuscripts open into Shared', () => {
+  const saved = upsertAuthoredGrimoirePage(
+    defaultGrimoire(),
+    { title: 'Night rite', body: '<b>salt</b> and shit' },
+    ['shit']
+  );
+  assert.equal(saved.status, 'saved');
+  assert.match(saved.page.body, /<b>salt<\/b>/);
+  assert.match(saved.page.body, /\*\*\*\*/);
+  assert.doesNotMatch(saved.page.body, /shit/i);
+
+  const meta = manuscriptMetadataFromPage(saved.page, 'Mara', 'player_1');
+  const slot = { itemId: GRIMOIRE_MANUSCRIPT_ITEM_ID, quantity: 1, metadata: meta };
+  assert.equal(readManuscriptMeta(slot)?.manuscriptAuthor, 'Mara');
+
+  const received = receiveSharedGrimoirePage(saved.grimoire, readManuscriptMeta(slot));
+  assert.equal(received.status, 'added');
+  assert.equal(received.grimoire.sharedPages.length, 1);
+  assert.equal(received.grimoire.sharedPages[0].authorName, 'Mara');
+  assert.match(received.grimoire.sharedPages[0].body, /\*\*\*\*/);
+
+  const skipped = recordGrimoireIngredients(defaultGrimoire(), [GRIMOIRE_MANUSCRIPT_ITEM_ID], Date.now());
+  assert.equal(skipped.ingredients.length, 0);
+
+  const again = receiveSharedGrimoirePage(received.grimoire, readManuscriptMeta(slot));
+  assert.equal(again.status, 'again');
+  assert.equal(again.grimoire.sharedPages.length, 1);
+  assert.equal(again.grimoire.sharedPages[0].manuscriptPageId, saved.page.id);
+
+  const editedBook = applyManuscriptEditToGrimoire(again.grimoire, saved.page.id, 'Clean rite', '<i>ash</i>');
+  assert.equal(editedBook.sharedPages[0].title, 'Clean rite');
+  assert.equal(editedBook.authored[0].title, 'Clean rite');
+  const editedSlot = applyManuscriptEditToInventory([slot], saved.page.id, 'Clean rite', '<i>ash</i>')[0];
+  assert.equal(readManuscriptMeta(editedSlot)?.manuscriptTitle, 'Clean rite');
+
+  const purgedBook = purgeManuscriptFromGrimoire(editedBook, saved.page.id);
+  assert.equal(purgedBook.sharedPages.length, 0);
+  assert.equal(purgedBook.authored.length, 0);
+  const purgedInv = purgeManuscriptFromInventory([editedSlot], saved.page.id);
+  assert.equal(purgedInv[0].itemId, '');
 });

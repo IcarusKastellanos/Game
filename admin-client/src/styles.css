@@ -81,6 +81,28 @@ body {
 .mod-grid h3 { font-size: 0.95rem; margin-bottom: 0.4rem; color: var(--text); }
 .mod-grid ul { margin-left: 1.1rem; color: var(--muted); line-height: 1.45; }
 .mod-grid li { margin: 0.35rem 0; }
+.check-row { display: flex; align-items: center; gap: 8px; color: var(--muted); margin: 8px 0 12px; font-size: 0.9rem; }
+.manuscript-admin { display: grid; grid-template-columns: 280px 1fr; gap: 16px; margin-top: 8px; }
+.manuscript-admin__list ul { list-style: none; max-height: 56vh; overflow: auto; }
+.manuscript-admin__list li + li { margin-top: 4px; }
+.ms-pick {
+  width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px;
+  background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 6px;
+  padding: 8px 10px; cursor: pointer; font: inherit;
+}
+.ms-pick strong { font-size: 0.95rem; }
+.ms-pick span { color: var(--muted); font-size: 0.8rem; }
+.ms-pick i { color: var(--accent); font-style: normal; font-size: 0.75rem; letter-spacing: 0.04em; }
+.ms-pick.is-active { border-color: var(--accent); background: rgba(228, 194, 122, 0.08); }
+.manuscript-admin__sheet label { display: block; margin-top: 10px; color: var(--muted); font-size: 0.85rem; }
+.manuscript-admin__sheet input,
+.manuscript-admin__sheet textarea {
+  width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--panel2); color: var(--text); font: inherit;
+}
+.manuscript-admin__sheet textarea { font-family: Georgia, 'Palatino Linotype', serif; line-height: 1.45; }
+.warn-text { color: #e8a0a8; margin: 8px 0; }
+@media (max-width: 900px) { .manuscript-admin { grid-template-columns: 1fr; } }
 .muted { color: var(--muted); }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
 .stat { background: var(--panel2); border-radius: 8px; padding: 1rem; }

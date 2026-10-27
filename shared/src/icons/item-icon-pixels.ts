@@ -178,6 +178,14 @@ const ITEM_DRAWERS: Record<string, Drawer> = {
     rect(p, 5, 6, 5, 1, C.purple);
     rect(p, 5, 8, 4, 1, C.gold);
   },
+  grimoire_manuscript: (p) => {
+    outlineRect(p, 3, 3, 10, 11, C.brown);
+    rect(p, 4, 4, 8, 9, C.paper);
+    rect(p, 5, 6, 6, 1, C.purple);
+    rect(p, 5, 8, 5, 1, C.grey);
+    rect(p, 5, 10, 4, 1, C.grey);
+    px(p, 11, 5, C.gold);
+  },
   familiar_food: (p) => {
     outlineRect(p, 3, 9, 10, 5, C.brownL);
     rect(p, 5, 7, 6, 3, C.red);

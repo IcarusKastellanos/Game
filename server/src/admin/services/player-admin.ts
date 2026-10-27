@@ -51,6 +51,13 @@ export function getAdminInventorySlots(rows: DbInventoryRow[]) {
     .filter((slot) => !isEmptyInventorySlot(slot));
 }
 
+export async function persistInventoryGridForModeration(
+  playerId: string,
+  grid: InventorySlot[]
+): Promise<void> {
+  return persistInventoryGrid(playerId, grid);
+}
+
 async function persistInventoryGrid(playerId: string, grid: InventorySlot[]): Promise<void> {
   await prisma.inventoryItem.deleteMany({ where: { playerId } });
   const slotsToSave = applySlotIndicesForSave(grid).filter((slot) => slot.itemId && slot.quantity > 0);

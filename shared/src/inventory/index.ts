@@ -333,6 +333,19 @@ export function removeItemFromInventory(
   return { inventory: grid, ok: true };
 }
 
+/** Remove one slot by index, returning the cleared inventory and the removed slot when present. */
+export function takeInventorySlot(
+  inventory: InventorySlot[],
+  slotIndex: number
+): { inventory: InventorySlot[]; slot: InventorySlot | null } {
+  const grid = normalizeInventoryLayout(inventory);
+  if (slotIndex < 0 || slotIndex >= grid.length) return { inventory: grid, slot: null };
+  const slot = coerceInventorySlot(grid[slotIndex]);
+  if (isEmptyInventorySlot(slot)) return { inventory: grid, slot: null };
+  grid[slotIndex] = { ...EMPTY_INVENTORY_SLOT };
+  return { inventory: grid, slot };
+}
+
 export function hasItemInInventory(inventory: InventorySlot[], itemId: string, quantity: number): boolean {
   return totalItemQuantity(normalizeInventoryLayout(inventory), itemId) >= quantity;
 }

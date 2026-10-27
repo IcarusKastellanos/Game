@@ -2,16 +2,22 @@ import type { PlayerProgression } from '@witchcraft/shared';
 import {
   customizeGrimoire,
   defaultGrimoire,
+  deleteAuthoredGrimoirePage,
+  deleteSharedGrimoirePage,
   licenseUnlocksSpirit,
   recordGrimoireSpirit,
   selectGrimoireSpirit,
+  setAuthoredGrimoireActive,
   setGrimoireNotes,
   setGrimoireNpcNote,
   setGrimoireSpellNote,
   setGrimoireSpiritNote,
+  setSharedGrimoireActive,
+  upsertAuthoredGrimoirePage,
   type GrimoireInk,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
+import { getChatFilterWords } from '../systems/chat-filter.js';
 
 const INKS = new Set<GrimoireInk>(['iron', 'violet', 'gold', 'moss', 'blood']);
 
@@ -24,10 +30,17 @@ export function mergeGrimoireWrite(
     spellNote?: { spellId?: string; note?: string };
     npcNote?: { npcId?: string; note?: string };
     spiritNote?: { spiritId?: string; note?: string };
+    authoredPage?: { id?: string; title?: string; body?: string };
+    authoredDeleteId?: string;
+    authoredActive?: string;
+    sharedDeleteId?: string;
+    sharedActive?: string;
   }
-): PlayerProgression | null {
+): { progression: PlayerProgression | null; message?: string; level?: 'info' | 'warn' | 'success' } {
   let next = progression.grimoire ?? defaultGrimoire();
   const started = next;
+  let message: string | undefined;
+  let level: 'info' | 'warn' | 'success' | undefined;
   if (raw.custom && typeof raw.custom === 'object') {
     const ink = INKS.has(raw.custom.ink as GrimoireInk) ? (raw.custom.ink as GrimoireInk) : undefined;
     next = customizeGrimoire(next, {
@@ -53,8 +66,34 @@ export function mergeGrimoireWrite(
   if (raw.spiritNote && typeof raw.spiritNote.spiritId === 'string') {
     next = setGrimoireSpiritNote(next, raw.spiritNote.spiritId, String(raw.spiritNote.note ?? ''));
   }
-  if (next === started) return null;
-  return { ...progression, grimoire: next };
+  if (typeof raw.authoredDeleteId === 'string') {
+    next = deleteAuthoredGrimoirePage(next, raw.authoredDeleteId);
+  }
+  if (raw.authoredPage && typeof raw.authoredPage === 'object') {
+    const saved = upsertAuthoredGrimoirePage(next, raw.authoredPage, getChatFilterWords());
+    next = saved.grimoire;
+    if (saved.status === 'full') {
+      message = 'Your Author section is full. Clear a page before writing another.';
+      level = 'warn';
+    } else if (saved.status === 'empty') {
+      message = 'Write something on the page before saving it.';
+      level = 'warn';
+    } else {
+      message = 'Author page saved.';
+      level = 'success';
+    }
+  }
+  if (typeof raw.authoredActive === 'string') {
+    next = setAuthoredGrimoireActive(next, raw.authoredActive);
+  }
+  if (typeof raw.sharedDeleteId === 'string') {
+    next = deleteSharedGrimoirePage(next, raw.sharedDeleteId);
+  }
+  if (typeof raw.sharedActive === 'string') {
+    next = setSharedGrimoireActive(next, raw.sharedActive);
+  }
+  if (next === started) return { progression: null, message, level };
+  return { progression: { ...progression, grimoire: next }, message, level };
 }
 
 export function petitionGrimoireSpirit(
@@ -99,12 +138,11 @@ export function recallGrimoireSpirit(
   const book = progression.grimoire ?? defaultGrimoire();
   const known = book.spirits.find((s) => s.spiritId === spiritId);
   if (!known) {
-    return { progression, message: 'You have not met that spirit.', level: 'warn' };
+    return { progression, message: 'That spirit is not written in your book yet.', level: 'warn' };
   }
-  const next = selectGrimoireSpirit(book, spiritId);
   return {
-    progression: next === book ? progression : { ...progression, grimoire: next },
-    message: `${known.name} is the name your book would call. The calling rite will use it once that rite is bound.`,
+    progression: { ...progression, grimoire: selectGrimoireSpirit(book, spiritId) },
+    message: `${known.name} is the name your book would call.`,
     level: 'info',
   };
 }
