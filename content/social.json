@@ -1,0 +1,239 @@
+{
+  "scopes": [
+    { "id": "town", "label": "Hearth town", "kind": "settlement" },
+    { "id": "occult_merchants", "label": "Occult merchants", "kind": "faction" },
+    { "id": "magical_council", "label": "Magical Council", "kind": "institution" }
+  ],
+  "axes": ["affinity", "trust", "respect", "fear", "familiarity"],
+  "defaultAxes": ["familiarity"],
+  "stages": [
+    { "id": "hostile", "label": "Hostile", "rank": -40, "when": { "affinityMax": -40 } },
+    { "id": "disliked", "label": "Disliked", "rank": -20, "when": { "affinityMax": -15 } },
+    { "id": "suspicious", "label": "Suspicious", "rank": -10, "when": { "grudge": "*" } },
+    { "id": "stranger", "label": "Stranger", "rank": 0, "when": { "familiarityMax": 4 } },
+    { "id": "acquaintance", "label": "Acquaintance", "rank": 10, "when": { "familiarityMax": 14 } },
+    { "id": "trusted", "label": "Trusted", "rank": 40, "when": { "trustMin": 12, "familiarityMin": 16 } },
+    { "id": "close", "label": "Close", "rank": 50, "when": { "affinityMin": 24, "trustMin": 18 } },
+    { "id": "friendly", "label": "Friendly", "rank": 30, "when": { "affinityMin": 10, "familiarityMin": 24 } },
+    { "id": "familiar", "label": "Familiar", "rank": 20, "when": { "familiarityMin": 15 } }
+  ],
+  "npcs": {
+    "npc_mara": {
+      "axes": ["affinity", "trust", "respect", "familiarity"],
+      "acceptsGifts": true,
+      "appreciatedGifts": ["rosemary", "frankincense"],
+      "shopDiscount": { "minStage": "friendly", "multiplier": 0.9 },
+      "acknowledgements": [
+        { "memoryId": "quest_complete", "text": "You came back. That working you finished for me was real." },
+        { "memoryId": "broke_promise", "text": "I remember the word you broke." },
+        { "memoryId": "gift", "text": "The gift is still on my shelf. Thank you." }
+      ]
+    },
+    "npc_tom": {
+      "axes": ["familiarity", "affinity"],
+      "acceptsGifts": true,
+      "appreciatedGifts": ["bread", "herbal_tea"]
+    },
+    "npc_elena": { "axes": ["familiarity", "trust"] },
+    "npc_librarian": { "axes": ["familiarity", "respect"] },
+    "npc_cafe_owner": { "axes": ["familiarity", "affinity"] },
+    "npc_circle_leader": { "axes": ["familiarity", "respect", "trust"] },
+    "npc_council_clerk": { "axes": ["trust", "respect", "familiarity"] },
+    "npc_temple_healer": { "axes": ["trust", "familiarity", "respect"] },
+    "npc_seal_yard_foreman": { "axes": ["respect", "familiarity"] },
+    "npc_psychic_tent_reader": { "axes": ["familiarity", "fear"] }
+  },
+  "events": [
+    {
+      "id": "dialogue_regard",
+      "scope": "npc",
+      "source": "dialogue",
+      "repeat": "always",
+      "effects": [{ "target": "axis", "axis": "familiarity", "amount": 1 }],
+      "feedback": "The conversation settles a little more between you."
+    },
+    {
+      "id": "dialogue_slight",
+      "scope": "npc",
+      "source": "dialogue",
+      "repeat": "always",
+      "effects": [
+        { "target": "axis", "axis": "affinity", "amount": -1 },
+        { "target": "axis", "axis": "trust", "amount": -1 }
+      ],
+      "feedback": "That answer left a mark."
+    },
+    {
+      "id": "shop_purchase",
+      "scope": "npc",
+      "source": "shop",
+      "repeat": "always",
+      "effects": [{ "target": "axis", "axis": "familiarity", "amount": 1 }]
+    },
+    {
+      "id": "shop_noticed",
+      "scope": "npc",
+      "source": "shop",
+      "repeat": "once",
+      "effects": [],
+      "feedback": "They are starting to know your face."
+    },
+    {
+      "id": "quest_complete",
+      "scope": "both",
+      "source": "quest",
+      "repeat": "once",
+      "effects": [
+        { "target": "axis", "axis": "familiarity", "amount": 2 },
+        { "target": "axis", "axis": "trust", "amount": 6 },
+        { "target": "axis", "axis": "respect", "amount": 3 },
+        { "target": "reputation", "reputation": "town", "amount": 2 },
+        {
+          "target": "memory",
+          "memory": {
+            "id": "quest_complete",
+            "kind": "completed_quest",
+            "importance": 8,
+            "visible": true,
+            "text": "You finished a task they set in your hands."
+          }
+        }
+      ],
+      "feedback": "They trust you more for seeing the work through."
+    },
+    {
+      "id": "faction_occult_merchants",
+      "scope": "reputation",
+      "source": "quest",
+      "repeat": "once",
+      "effects": [{ "target": "reputation", "reputation": "occult_merchants", "amount": 1 }]
+    },
+    {
+      "id": "faction_magical_council",
+      "scope": "reputation",
+      "source": "quest",
+      "repeat": "once",
+      "effects": [{ "target": "reputation", "reputation": "magical_council", "amount": 1 }]
+    },
+    {
+      "id": "promise_kept",
+      "scope": "npc",
+      "source": "promise",
+      "repeat": "once",
+      "effects": [
+        { "target": "axis", "axis": "trust", "amount": 6 },
+        { "target": "axis", "axis": "respect", "amount": 4 },
+        { "target": "clearGrudge", "grudge": "broke_promise" },
+        {
+          "target": "memory",
+          "memory": {
+            "id": "kept_promise",
+            "kind": "kept_promise",
+            "importance": 7,
+            "visible": true,
+            "text": "You kept your word."
+          }
+        }
+      ],
+      "feedback": "They believe your word a little more."
+    },
+    {
+      "id": "promise_broken",
+      "scope": "npc",
+      "source": "promise",
+      "repeat": "once",
+      "effects": [
+        { "target": "axis", "axis": "trust", "amount": -10 },
+        { "target": "grudge", "grudge": "broke_promise" },
+        {
+          "target": "memory",
+          "memory": {
+            "id": "broke_promise",
+            "kind": "broke_promise",
+            "importance": 9,
+            "visible": true,
+            "text": "You broke a promise."
+          }
+        }
+      ],
+      "feedback": "They will remember that you broke your word."
+    },
+    {
+      "id": "gift_appreciated",
+      "scope": "npc",
+      "source": "gift",
+      "repeat": "always",
+      "effects": [
+        { "target": "axis", "axis": "affinity", "amount": 6 },
+        { "target": "axis", "axis": "familiarity", "amount": 2 },
+        {
+          "target": "memory",
+          "memory": {
+            "id": "gift",
+            "kind": "delivered_item",
+            "importance": 5,
+            "visible": true,
+            "text": "You gave them something they were glad to receive."
+          }
+        }
+      ],
+      "feedback": "The gift pleases them."
+    },
+    {
+      "id": "steal_from_npc",
+      "scope": "npc",
+      "source": "crime",
+      "repeat": "always",
+      "effects": [
+        { "target": "axis", "axis": "affinity", "amount": -8 },
+        { "target": "axis", "axis": "trust", "amount": -6 },
+        { "target": "grudge", "grudge": "theft" },
+        {
+          "target": "memory",
+          "memory": {
+            "id": "theft",
+            "kind": "stole",
+            "importance": 8,
+            "visible": true,
+            "text": "You took from them."
+          }
+        }
+      ],
+      "feedback": "They know you took from them."
+    },
+    {
+      "id": "return_stolen",
+      "scope": "npc",
+      "source": "crime",
+      "repeat": "once",
+      "effects": [
+        { "target": "axis", "axis": "affinity", "amount": 4 },
+        { "target": "axis", "axis": "trust", "amount": 2 },
+        { "target": "clearGrudge", "grudge": "theft" },
+        {
+          "target": "memory",
+          "memory": {
+            "id": "returned_theft",
+            "kind": "returned_item",
+            "importance": 6,
+            "visible": true,
+            "text": "You brought back what you took."
+          }
+        }
+      ],
+      "feedback": "Returning it mends only part of the hurt."
+    },
+    {
+      "id": "community_aid",
+      "scope": "both",
+      "source": "community",
+      "repeat": "once",
+      "effects": [
+        { "target": "axis", "axis": "affinity", "amount": 2 },
+        { "target": "reputation", "reputation": "town", "amount": 3 },
+        { "target": "reputation", "reputation": "public", "amount": 1 }
+      ],
+      "feedback": "The town and this person both noticed."
+    }
+  ]
+}

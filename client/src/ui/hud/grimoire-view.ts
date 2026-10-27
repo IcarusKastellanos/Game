@@ -489,8 +489,10 @@ function paintPeople(section: Element, current: GrimoireState): void {
     <article class="hud-grimoire__entry">
       <h4>${escapeHtml(entry.name)}</h4>
       ${proseBlock('npcs', entry.npcId, '')}
-      <p class="hud-grimoire__meta">${escapeHtml(grimoireBondLabel(entry.relationship))} · regard ${entry.relationship}</p>
-      <p>${escapeHtml(bondSentence(entry.name, entry.relationship))} First written ${escapeHtml(writtenOn(entry.metAt) || 'when you spoke')}.</p>
+      <p class="hud-grimoire__meta">${entry.stageLabel ? escapeHtml(entry.stageLabel) : `${escapeHtml(grimoireBondLabel(entry.relationship))} · regard ${entry.relationship}`}</p>
+      ${entry.stageLabel
+        ? `${(entry.regard ?? []).map((line) => `<p>${escapeHtml(line)}</p>`).join('')}${(entry.memories ?? []).map((line) => `<p>${escapeHtml(line)}</p>`).join('')}<p>First written ${escapeHtml(writtenOn(entry.metAt) || 'when you spoke')}.</p>`
+        : `<p>${escapeHtml(bondSentence(entry.name, entry.relationship))} First written ${escapeHtml(writtenOn(entry.metAt) || 'when you spoke')}.</p>`}
       <label class="hud-grimoire__field">What you want to remember
         <textarea id="grimoire-npc-note" class="hud-grimoire__margin" maxlength="280">${escapeHtml(entry.note ?? '')}</textarea>
       </label>

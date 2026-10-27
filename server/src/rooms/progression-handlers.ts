@@ -2,7 +2,6 @@ import type { Client } from '@colyseus/core';
 import type { ClientMessage, MagicTradition, PlayerProgression, PlayerStats, HexagramEnchantPayload, AuraState } from '@witchcraft/shared';
 import {
   BOOK_CONTENT,
-  applyNpcRelationshipDelta,
   discoverCorrespondences,
   // eligibleSpecialtyTraditions — TEMPORARY: tradition specialty offers deactivated
   clampPlayerStatValue,
@@ -22,9 +21,10 @@ import {
   malevolentGrimoireWard,
   recordGrimoireCast,
   recordGrimoireIngredients,
-  recordGrimoireNpc,
   recordGrimoireStudied,
   withGrimoire,
+  applySocialEvent,
+  withBondJournal,
   type ReputationTrack,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
@@ -137,18 +137,44 @@ export function sendWorldState(client: Client): void {
   });
 }
 
+/** Apply one content social event. Familiarity is mirrored; public reputation moves only when the event says so. */
+export function applyPlayerSocialEvent(
+  ctx: HandlerCtx,
+  input: { eventId: string; npcId?: string; scale?: number; idempotencyKey?: string }
+): boolean {
+  const result = applySocialEvent(ctx.data.progression, ctx.player.stats, input);
+  if (!result.applied) return false;
+  ctx.data.progression = result.progression;
+  ctx.player.stats = result.stats;
+  ctx.data.stats = result.stats;
+  if (input.npcId) {
+    const name = contentRegistry.npcs.get(input.npcId)?.name ?? input.npcId;
+    ctx.data.progression = withBondJournal(ctx.data.progression, input.npcId, name);
+  }
+  ctx.sendProgression(ctx.client, ctx.data.progression);
+  const lines = [...new Set([result.feedback, result.notable].filter((line): line is string => !!line))];
+  if (lines.length) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: lines.join(' '),
+      level: 'info',
+    });
+  }
+  return true;
+}
+
 export function handleDialogueProgression(
   ctx: HandlerCtx,
   dialogueTreeId: string,
   relationshipDelta?: number,
-  npcId?: string
+  npcId?: string,
+  socialEvent?: string
 ): void {
   const { data, player } = ctx;
   const tree = dialogueSystemGetNpcId(dialogueTreeId);
   const resolvedNpcId = npcId ?? tree;
 
   if (relationshipDelta && resolvedNpcId) {
-    data.progression = applyNpcRelationshipDelta(data.progression, resolvedNpcId, relationshipDelta);
     const track = reputationTrackForNpc(resolvedNpcId);
     // Positive relationship deltas use help_npc / study weights; negative use harm.
     const sourceId = relationshipDelta >= 0 ? 'help_npc' : 'harm_npc';
@@ -161,18 +187,22 @@ export function handleDialogueProgression(
       applied.source != null
         ? applied.stats
         : applyReputation(player.stats, relationshipDelta, track);
+    data.stats = player.stats;
   }
 
   if (resolvedNpcId) {
-    const npc = contentRegistry.npcs.get(resolvedNpcId);
-    const relationship = data.progression.npcRelationships[resolvedNpcId] ?? 0;
-    data.progression = withGrimoire(data.progression, (grimoire) =>
-      recordGrimoireNpc(grimoire, {
+    if (socialEvent) {
+      applyPlayerSocialEvent(ctx, { eventId: socialEvent, npcId: resolvedNpcId });
+    }
+    if (relationshipDelta) {
+      applyPlayerSocialEvent(ctx, {
+        eventId: relationshipDelta > 0 ? 'dialogue_regard' : 'dialogue_slight',
         npcId: resolvedNpcId,
-        name: npc?.name ?? resolvedNpcId,
-        relationship,
-      })
-    );
+        scale: Math.abs(relationshipDelta),
+      });
+    }
+    const npc = contentRegistry.npcs.get(resolvedNpcId);
+    data.progression = withBondJournal(data.progression, resolvedNpcId, npc?.name ?? resolvedNpcId);
   }
 
   if (resolvedNpcId === 'npc_mara' && !data.progression.questProgress.quest_first_steps) {
@@ -672,9 +702,9 @@ export async function tickStudyCircleEvents(clients: Client[]): Promise<void> {
 
 export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
   const quest = questSystem.quests.get(questId);
-  if (!quest?.rewards) return;
+  if (!quest) return;
   const { player, data } = ctx;
-  if (quest.rewards.items) {
+  if (quest.rewards?.items) {
     let inv = player.inventory;
     for (const item of quest.rewards.items) {
       inv = addItemToInventory(inv, item.itemId, item.quantity);
@@ -687,7 +717,7 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
       )
     );
   }
-  if (quest.rewards.stats) {
+  if (quest.rewards?.stats) {
     let stats = player.stats;
     for (const [k, v] of Object.entries(quest.rewards.stats)) {
       const key = k as keyof PlayerStats;
@@ -697,7 +727,7 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
     }
     player.stats = stats;
   }
-  const publicRepReward = quest.rewards.publicReputation ?? quest.rewards.reputation;
+  const publicRepReward = quest.rewards?.publicReputation ?? quest.rewards?.reputation;
   if (publicRepReward) {
     const source =
       publicRepReward >= 0
@@ -711,10 +741,10 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
       source.source != null ? source.stats : applyReputation(player.stats, publicRepReward, 'public');
   }
 
-  let spiritualRepReward = quest.rewards.spiritualReputation;
+  let spiritualRepReward = quest.rewards?.spiritualReputation;
   if (
     spiritualRepReward == null &&
-    quest.rewards.reputation &&
+    quest.rewards?.reputation &&
     (questId.includes('circle') || questId.includes('rowan') || questId.includes('study'))
   ) {
     spiritualRepReward = Math.ceil(quest.rewards.reputation * 0.6);
@@ -728,10 +758,26 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
         ? source.stats
         : applyReputation(player.stats, spiritualRepReward, 'spiritual');
   }
-  if (quest.rewards.licenses?.length) {
+  if (quest.rewards?.licenses?.length) {
     data.progression = grantLicenses(data.progression, quest.rewards.licenses);
   }
-  grantXp(ctx, 'quest_complete');
+  if (quest.npcId) {
+    applyPlayerSocialEvent(ctx, {
+      eventId: 'quest_complete',
+      npcId: quest.npcId,
+      idempotencyKey: questId,
+    });
+    const faction = contentRegistry.npcs.get(quest.npcId)?.faction;
+    if (faction) {
+      applyPlayerSocialEvent(ctx, {
+        eventId: `faction_${faction}`,
+        npcId: quest.npcId,
+        idempotencyKey: questId,
+      });
+    }
+  }
+  data.stats = player.stats;
+  if (quest.rewards) grantXp(ctx, 'quest_complete');
   syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);
