@@ -26,8 +26,29 @@ import {
 } from '@witchcraft/shared';
 import { getAdminPermissions } from '../rbac.js';
 import { grimoireCatalog, grimoireRecordExists, setGrimoireEntry } from '../../content/grimoire-entries.js';
-import { hydrateNpcSprite, npcToDb } from '../../content/npc-sprites.js';
-import { persistDialogueDefinitions, persistNpcDefinitions } from '../../content/npc-content-persist.js';
+import { hydrateNpcSprite } from '../../content/npc-sprites.js';
+import {
+  dialogueRevision,
+  npcRevision,
+  saveDialogueDefinition,
+  saveNpcDefinition,
+} from '../../content/npc-content-persist.js';
+import { ContentSaveError } from '../../content/versioned-content.js';
+
+function revisionField(body: unknown): number {
+  if (!body || typeof body !== 'object') return Number.NaN;
+  const revision = (body as { revision?: unknown }).revision;
+  return typeof revision === 'number' ? revision : Number.NaN;
+}
+
+function respondContentSaveError(res: import('express').Response, error: unknown): void {
+  if (error instanceof ContentSaveError) {
+    res.status(error.status).json({ error: error.message, revision: error.revision });
+    return;
+  }
+  const message = error instanceof Error ? error.message : 'Save failed.';
+  res.status(500).json({ error: message });
+}
 
 function hydrateItemIcon(item: ContentIngredient & { data?: { iconPixels?: string[] | null } }): ContentIngredient {
   if (item.iconPixels?.length === 256) return item;
@@ -335,49 +356,54 @@ contentRouter.delete('/items/:id', requirePerm('content.item.edit'), async (req:
 
 // --- NPCs ---
 contentRouter.get('/npcs', requirePerm('content.npc.view'), (_req, res) => {
-  res.json([...contentRegistry.npcs.values()].map((n) => hydrateNpcSprite(n as ContentNpc & { data?: { spritePixels?: string[] | null } })));
+  res.json(
+    [...contentRegistry.npcs.values()].map((n) => ({
+      ...hydrateNpcSprite(n as ContentNpc & { data?: { spritePixels?: string[] | null } }),
+      revision: npcRevision(n.id),
+    }))
+  );
 });
 
 contentRouter.put('/npcs/:id', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
-  const npc = { ...req.body, id: param(req, 'id') } as ContentNpc;
-  contentRegistry.npcs.set(npc.id, npc);
-  const dbRow = npcToDb(npc);
-  await prisma.contentNpc.upsert({
-    where: { id: npc.id },
-    create: dbRow as never,
-    update: dbRow as never,
-  });
-  persistNpcDefinitions();
-  await writeAuditLog(auditContext(req), {
-    action: 'content.npc.update',
-    objectType: 'npc',
-    objectId: npc.id,
-    newValue: npc,
-  });
-  res.json(npc);
+  const id = param(req, 'id');
+  try {
+    const { npc, revision } = await saveNpcDefinition(req.body, id, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.npc.update',
+      objectType: 'npc',
+      objectId: id,
+      newValue: npc,
+    });
+    res.json({ ...npc, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
 });
 
 contentRouter.get('/dialogues', requirePerm('content.npc.view'), (_req, res) => {
-  res.json([...contentRegistry.dialogues.values()]);
+  res.json([...contentRegistry.dialogues.values()].map((dialogue) => ({ ...dialogue, revision: dialogueRevision(dialogue.id) })));
 });
 
 contentRouter.get('/dialogues/:id', requirePerm('content.npc.view'), (req, res) => {
   const dlg = contentRegistry.dialogues.get(param(req, 'id'));
   if (!dlg) return res.status(404).json({ error: 'Not found' });
-  res.json(dlg);
+  res.json({ ...dlg, revision: dialogueRevision(dlg.id) });
 });
 
 contentRouter.put('/dialogues/:id', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
-  const dlg = { ...req.body, id: param(req, 'id') };
-  contentRegistry.dialogues.set(dlg.id, dlg);
-  persistDialogueDefinitions();
-  await writeAuditLog(auditContext(req), {
-    action: 'content.dialogue.update',
-    objectType: 'dialogue',
-    objectId: dlg.id,
-    newValue: dlg,
-  });
-  res.json(dlg);
+  const id = param(req, 'id');
+  try {
+    const { dialogue, revision } = await saveDialogueDefinition(req.body, id, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.dialogue.update',
+      objectType: 'dialogue',
+      objectId: id,
+      newValue: dialogue,
+    });
+    res.json({ ...dialogue, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
 });
 
 // --- Maps ---

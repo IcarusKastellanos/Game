@@ -24,6 +24,8 @@ export * from './progression/recognition.js';
 export * from './progression/licenses.js';
 export * from './chat/filter.js';
 export * from './grimoire/markup.js';
+export * from './dialogue/index.js';
+export * from './social/index.js';
 export * from './hexagram/index.js';
 export * from './pocket-spell/index.js';
 export * from './cleanser/index.js';

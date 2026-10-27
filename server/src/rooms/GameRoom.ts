@@ -76,8 +76,13 @@ import {
   receiveSharedGrimoirePage,
   recordGrimoireCast,
   recordGrimoireIngredients,
-  recordGrimoireNpc,
   shareSpellIntoGrimoire,
+  bondAllowsQuest,
+  bondGreeting,
+  bondShopMultiplier,
+  npcAcceptsGifts,
+  takeAppreciatedGift,
+  withBondJournal,
   takeInventorySlot,
   withGrimoire,
   type SurvivalActivity,
@@ -109,7 +114,7 @@ import {
   type PersistedPlayer,
 } from '../services/player-service.js';
 import { prisma } from '../services/db.js';
-import { dialogueSystem, publicDialogueChoices, resolveTaglockFromInventory } from '../systems/dialogue-system.js';
+import { dialogueSystem, resolveTaglockFromInventory } from '../systems/dialogue-system.js';
 import { applySpellToTarget, placeWardAtPoint } from '../systems/ward-placement.js';
 import { computeAltarBuffs } from '../systems/altar-buffs.js';
 import { getIngameAdminByGameUsername } from '../admin/rbac.js';
@@ -138,6 +143,7 @@ import {
   checkInteractAvailable,
   tickStudyCircleEvents,
   completeQuestRewards,
+  applyPlayerSocialEvent,
   syncRecognition,
   type HandlerCtx,
 } from './progression-handlers.js';
@@ -145,7 +151,17 @@ import { mergeGrimoireWrite, petitionGrimoireSpirit, recallGrimoireSpirit } from
 import { tickWorldClock, getWorldHour } from '../systems/world-clock.js';
 import { getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
 import { questSystem } from '../systems/quest-system.js';
-import { craftStationTypeFromInteractable, isCraftingInteractable, TILE_SIZE, isWithinInteractRange, type MagicTradition } from '@witchcraft/shared';
+import {
+  craftStationTypeFromInteractable,
+  isCraftingInteractable,
+  TILE_SIZE,
+  isWithinInteractRange,
+  buildNpcInteractionOffers,
+  dialogueChoiceId,
+  nearestNpcInteractable,
+  type MagicTradition,
+  type MapInteractable,
+} from '@witchcraft/shared';
 // eligibleSpecialtyTraditions — TEMPORARY: tradition specialty offers deactivated
 
 /** Max spell casts per player within the rolling window. */
@@ -187,7 +203,7 @@ export class GameRoom extends Room<GameRoomState> {
       'move', 'change_scene', 'interact', 'cast_spell', 'altar_update',
       'buy_item', 'use_item', 'care_familiar', 'choose_familiar', 'collect_taglock',
       'whisper',
-      'place_ward', 'inspect_aura', 'dialogue_choice', 'npc_talk', 'chat', 'admin_command',
+      'place_ward', 'inspect_aura', 'dialogue_choice', 'npc_talk', 'npc_action', 'chat', 'admin_command',
       'visit_apartment', 'leave_apartment',
       'apartment_invite', 'apartment_invite_response',
       'friend_request', 'friend_respond', 'friend_remove', 'friends_refresh',
@@ -614,10 +630,13 @@ export class GameRoom extends Room<GameRoomState> {
         this.handlePlaceWard(client, player, msg.wardPointId, msg.spellId);
         break;
       case 'dialogue_choice':
-        this.handleDialogueChoice(client, player, msg.dialogueTreeId, msg.nodeId, msg.choiceIndex);
+        this.handleDialogueChoice(client, player, msg.dialogueTreeId, msg.nodeId, msg.choiceId, msg.choiceIndex);
         break;
       case 'npc_talk':
         this.handleNpcTalk(client, player, msg.npcId);
+        break;
+      case 'npc_action':
+        this.handleNpcAction(client, player, msg.npcId, msg.actionId);
         break;
       case 'grimoire_write':
         this.handleGrimoireWrite(client, msg);
@@ -998,6 +1017,11 @@ export class GameRoom extends Room<GameRoomState> {
       this.wakeFromRest(client.sessionId);
     }
 
+    if ((target.type === 'shop' || target.type === 'npc') && !this.playerWithinInteractable(player, target)) {
+      this.warnPlayer(client, 'Step closer before you speak.');
+      return;
+    }
+
     const availability = checkInteractAvailable(target.type, target.data as Record<string, unknown>, targetId);
     if (!availability.available) {
       client.send('notification', {
@@ -1054,13 +1078,20 @@ export class GameRoom extends Room<GameRoomState> {
       case 'altar':
         client.send('open_ui', { ui: 'altar' });
         break;
-      case 'shop':
+      case 'shop': {
+        const shopId = typeof target.data?.shopId === 'string' ? target.data.shopId : '';
+        const keeperId = shopId ? contentRegistry.shops.get(shopId)?.npcId : undefined;
+        if (keeperId && contentRegistry.npcs.has(keeperId)) {
+          this.openNpcActions(client, player, keeperId, shopId);
+          break;
+        }
         this.syncPlayerShopStock(client);
-        client.send('open_ui', { ui: 'shop', shopId: target.data?.shopId });
+        client.send('open_ui', { ui: 'shop', shopId });
         break;
+      }
       case 'npc': {
         const npcId = target.data?.npcId as string;
-        if (npcId) this.openNpcDialogue(client, player, npcId);
+        if (npcId) this.openNpcActions(client, player, npcId);
         break;
       }
       case 'ward_point':
@@ -1697,21 +1728,41 @@ export class GameRoom extends Room<GameRoomState> {
     player: PlayerSchema,
     dialogueTreeId: string,
     nodeId: string,
-    choiceIndex: number
+    choiceId: string,
+    choiceIndex?: number
   ) {
+    const tree = dialogueSystem.getTree(dialogueTreeId) ?? contentRegistry.dialogues.get(dialogueTreeId);
+    const npcId = tree?.npcId;
+    if (!tree || !npcId) {
+      this.warnPlayer(client, 'That conversation is no longer available.');
+      return;
+    }
+    const present = this.requireNpcPresent(client, player, npcId);
+    if (!present) return;
+
+    const node = tree.nodes.find((entry) => entry.id === nodeId);
+    const resolvedId =
+      choiceId?.trim() ||
+      (node && choiceIndex != null && node.choices[choiceIndex]
+        ? dialogueChoiceId(node.id, node.choices[choiceIndex], choiceIndex)
+        : '');
     const progression = this.playerData.get(client.sessionId)?.progression;
-    const result = dialogueSystem.resolveChoice(dialogueTreeId, nodeId, choiceIndex, {
+    const result = dialogueSystem.resolve(dialogueTreeId, nodeId, resolvedId, {
       inventory: player.inventory,
       progression,
       stats: player.stats,
       coins: player.coins,
     });
-    if (!result) {
-      client.send('notification', {
-        type: 'notification',
-        message:
-          'That path is closed — recognition, a Magical Council credential, exam eligibility, or coins may be required.',
-        level: 'warn',
+    if (!result.ok) {
+      this.warnPlayer(client, result.reason);
+      const spoken = progression ?? defaultProgression();
+      client.send('dialogue_update', {
+        ended: false,
+        nodeId,
+        message: node?.text ?? '',
+        dialogueTreeId,
+        choices: dialogueSystem.publish(dialogueTreeId, nodeId, spoken, player.stats, player.coins),
+        notice: result.reason,
       });
       return;
     }
@@ -1735,13 +1786,12 @@ export class GameRoom extends Room<GameRoomState> {
       player.stats = stats;
     }
 
-    const tree = contentRegistry.dialogues.get(dialogueTreeId);
     this.withProgression(client, player, (ctx) => {
       if (result.progression) {
         ctx.data.progression = result.progression;
         ctx.sendProgression(ctx.client, ctx.data.progression);
       }
-      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, tree?.npcId);
+      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, npcId, result.socialEvent);
       syncRecognition(ctx);
     });
 
@@ -1765,109 +1815,183 @@ export class GameRoom extends Room<GameRoomState> {
       dialogueTreeId,
       choices: result.ended
         ? []
-        : publicDialogueChoices(dialogueTreeId, result.nextNodeId, spoken, player.stats, player.coins),
+        : dialogueSystem.publish(dialogueTreeId, result.nextNodeId, spoken, player.stats, player.coins),
     });
   }
 
   /** Speak with an NPC who is standing at a nearby counter or map post. */
   private handleNpcTalk(client: Client, player: PlayerSchema, npcId: string): void {
-    if (!npcId || !contentRegistry.npcs.has(npcId)) return;
-    this.wakeFromRest(client.sessionId);
-
-    const mapDef = contentRegistry.getMapForScene(player.scene);
-    if (!mapDef) return;
-    const px = player.x * TILE_SIZE + TILE_SIZE / 2;
-    const py = player.y * TILE_SIZE + TILE_SIZE / 2;
-    const stand = mapDef.interactables.find((inter) => {
-      if (!isWithinInteractRange(px, py, inter)) return false;
-      if (inter.type === 'npc') return inter.data?.npcId === npcId;
-      if (inter.type !== 'shop') return false;
-      const shopId = typeof inter.data?.shopId === 'string' ? inter.data.shopId : undefined;
-      return shopId ? contentRegistry.shops.get(shopId)?.npcId === npcId : false;
-    });
-    if (!stand) {
-      client.send('notification', {
-        type: 'notification',
-        message: 'Step up to their counter before you speak.',
-        level: 'warn',
-      });
-      return;
-    }
-
-    const availability = checkInteractAvailable(stand.type, stand.data as Record<string, unknown>, stand.id);
-    if (!availability.available) {
-      client.send('notification', {
-        type: 'notification',
-        message: availability.message ?? 'Not available.',
-        level: 'warn',
-      });
-      return;
-    }
-
-    const progression = this.playerData.get(client.sessionId)?.progression;
-    const requiredLicense = stand.data?.requiresLicense as string | undefined;
-    const placeId = typeof stand.data?.placeId === 'string' ? stand.data.placeId : undefined;
-    if (progression && requiredLicense && !holdsActiveLicense(progression, requiredLicense)) {
-      client.send('notification', {
-        type: 'notification',
-        message: licenseGateMessage(requiredLicense),
-        level: 'warn',
-      });
-      return;
-    }
-    if (progression && placeId && !licenseUnlocksPlace(placeId, progression)) {
-      client.send('notification', {
-        type: 'notification',
-        message: 'This place admits only Magical Council credential holders.',
-        level: 'warn',
-      });
-      return;
-    }
-
-    this.openNpcDialogue(client, player, npcId);
+    this.handleNpcAction(client, player, npcId, 'talk');
   }
 
-  private openNpcDialogue(client: Client, player: PlayerSchema, npcId: string): void {
+  private handleNpcAction(client: Client, player: PlayerSchema, npcId: string, actionId: string): void {
+    if (!npcId || !contentRegistry.npcs.has(npcId)) return;
+    this.wakeFromRest(client.sessionId);
+    const present = this.requireNpcPresent(client, player, npcId);
+    if (!present) return;
+    if (!this.npcMaySpeak(client, player, npcId)) return;
+
+    const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
+    const contextShopId = present.type === 'shop' && typeof present.data?.shopId === 'string' ? present.data.shopId : undefined;
+    const npc = contentRegistry.npcs.get(npcId)!;
+    const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
+    const offers = this.npcActionOffers(npc, dialogue, contextShopId ?? npc.shopId, progression);
+    const offer = offers.find((entry) => entry.id === actionId);
+    if (!offer) {
+      this.warnPlayer(client, 'That is not something they will do right now.');
+      return;
+    }
+
+    if (offer.id === 'goodbye') {
+      client.send('open_ui', { ui: 'none' });
+      return;
+    }
+    if (offer.id === 'trade') {
+      if (!offer.shopId) {
+        this.warnPlayer(client, 'There is no counter here.');
+        return;
+      }
+      this.syncPlayerShopStock(client);
+      client.send('open_ui', { ui: 'shop', shopId: offer.shopId });
+      return;
+    }
+    if (offer.id === 'gift' && npcAcceptsGifts(npcId)) {
+      this.giveAppreciatedGift(client, player, npcId);
+      return;
+    }
+    this.openNpcDialogue(client, player, npcId, offer.nodeId ?? 'start');
+  }
+
+  private npcActionOffers(
+    npc: NonNullable<ReturnType<typeof contentRegistry.npcs.get>>,
+    dialogue: ReturnType<typeof dialogueSystem.getTree>,
+    contextShopId: string | undefined,
+    progression: NonNullable<ReturnType<GameRoom['playerData']['get']>>['progression']
+  ) {
+    return buildNpcInteractionOffers({
+      npc,
+      dialogue,
+      contextShopId,
+      quests: [...questSystem.quests.values()].filter((quest) => bondAllowsQuest(progression, quest)),
+      questProgress: progression.questProgress,
+      acceptsGifts: npcAcceptsGifts(npc.id),
+    });
+  }
+
+  private giveAppreciatedGift(client: Client, player: PlayerSchema, npcId: string): void {
+    const taken = takeAppreciatedGift(player.inventory, npcId);
+    if (!taken.ok) {
+      this.warnPlayer(client, taken.reason);
+      return;
+    }
+    player.inventory = taken.inventory;
+    this.withProgression(client, player, (ctx) => {
+      applyPlayerSocialEvent(ctx, { eventId: 'gift_appreciated', npcId });
+    });
+    this.sendPlayerSync(client, player);
+  }
+
+  private openNpcActions(client: Client, player: PlayerSchema, npcId: string, contextShopId?: string): void {
+    if (!this.npcMaySpeak(client, player, npcId)) return;
+    const npc = contentRegistry.npcs.get(npcId);
+    if (!npc) return;
+    const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
+    const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
+    const offers = this.npcActionOffers(npc, dialogue, contextShopId, progression);
+    client.send('open_ui', {
+      ui: 'npc_actions',
+      npcId,
+      name: npc.name,
+      role: npc.role,
+      shopId: contextShopId ?? npc.shopId,
+      options: offers,
+    });
+  }
+
+  private openNpcDialogue(client: Client, player: PlayerSchema, npcId: string, nodeId = 'start'): void {
     const npc = contentRegistry.npcs.get(npcId);
     if (!npc?.dialogueTreeId) return;
+    if (!this.npcMaySpeak(client, player, npcId)) return;
 
-    const npcLevel = assignedUnlockLevel('npcIds', npcId);
-    if (npcLevel != null && !meetsAssignedUnlock('npcIds', npcId, player.stats.experience ?? 0)) {
-      client.send('notification', {
-        type: 'notification',
-        message: levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)),
-        level: 'warn',
-      });
-      return;
-    }
     const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
-    if (!licenseUnlocksNpc(npcId, progression)) {
-      client.send('notification', {
-        type: 'notification',
-        message: 'This practitioner only speaks with Magical Council credential holders.',
-        level: 'warn',
-      });
-      return;
-    }
-
+    const tree = dialogueSystem.getTree(npc.dialogueTreeId);
+    const node = tree?.nodes.find((entry) => entry.id === nodeId);
+    const remembered = nodeId === 'start' ? bondGreeting(npcId, progression) : null;
     client.send('open_ui', {
       ui: 'dialogue',
       npcId,
       dialogueTreeId: npc.dialogueTreeId,
-      nodeId: 'start',
-      choices: publicDialogueChoices(npc.dialogueTreeId, 'start', progression, player.stats, player.coins),
+      nodeId,
+      text: remembered || (node?.text ?? ''),
+      choices: dialogueSystem.publish(npc.dialogueTreeId, nodeId, progression, player.stats, player.coins),
     });
 
     const met = this.playerData.get(client.sessionId);
     if (!met) return;
-    const relationship = met.progression.npcRelationships[npcId] ?? 0;
-    const next = withGrimoire(met.progression, (grimoire) =>
-      recordGrimoireNpc(grimoire, { npcId, name: npc.name, relationship })
-    );
+    const next = withBondJournal(met.progression, npcId, npc.name);
     if (next !== met.progression) {
       met.progression = next;
       client.send('progression_update', { progression: met.progression });
     }
+  }
+
+  private requireNpcPresent(client: Client, player: PlayerSchema, npcId: string) {
+    const stand = this.npcStand(player, npcId);
+    if (!stand) {
+      this.warnPlayer(client, 'Step up to their counter before you speak.');
+      return null;
+    }
+    const availability = checkInteractAvailable(stand.type, stand.data as Record<string, unknown>, stand.id);
+    if (!availability.available) {
+      this.warnPlayer(client, availability.message ?? 'Not available.');
+      return null;
+    }
+    const progression = this.playerData.get(client.sessionId)?.progression;
+    const requiredLicense = stand.data?.requiresLicense as string | undefined;
+    const placeId = typeof stand.data?.placeId === 'string' ? stand.data.placeId : undefined;
+    if (progression && requiredLicense && !holdsActiveLicense(progression, requiredLicense)) {
+      this.warnPlayer(client, licenseGateMessage(requiredLicense));
+      return null;
+    }
+    if (progression && placeId && !licenseUnlocksPlace(placeId, progression)) {
+      this.warnPlayer(client, 'This place admits only Magical Council credential holders.');
+      return null;
+    }
+    return stand;
+  }
+
+  private npcMaySpeak(client: Client, player: PlayerSchema, npcId: string): boolean {
+    const npc = contentRegistry.npcs.get(npcId);
+    if (!npc) return false;
+    const npcLevel = assignedUnlockLevel('npcIds', npcId);
+    if (npcLevel != null && !meetsAssignedUnlock('npcIds', npcId, player.stats.experience ?? 0)) {
+      this.warnPlayer(client, levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)));
+      return false;
+    }
+    const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
+    if (!licenseUnlocksNpc(npcId, progression)) {
+      this.warnPlayer(client, 'This practitioner only speaks with Magical Council credential holders.');
+      return false;
+    }
+    return true;
+  }
+
+  private npcStand(player: PlayerSchema, npcId: string) {
+    const mapDef = contentRegistry.getMapForScene(player.scene);
+    if (!mapDef) return null;
+    return nearestNpcInteractable(player.x, player.y, npcId, mapDef.interactables, (shopId) =>
+      contentRegistry.shops.get(shopId)?.npcId
+    );
+  }
+
+  private playerWithinInteractable(player: PlayerSchema, inter: MapInteractable): boolean {
+    const px = player.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = player.y * TILE_SIZE + TILE_SIZE / 2;
+    return isWithinInteractRange(px, py, inter);
+  }
+
+  private warnPlayer(client: Client, message: string): void {
+    client.send('notification', { type: 'notification', message, level: 'warn' });
   }
 
   noteGatheredItems(sessionId: string, entries: { itemId: string; count: number }[]): void {
@@ -2141,13 +2265,14 @@ export class GameRoom extends Room<GameRoomState> {
 
   private handleBuy(client: Client, player: PlayerSchema, shopId: string, itemId: string, quantity: number) {
     const data = this.playerData.get(client.sessionId);
+    const shopNpcId = contentRegistry.shops.get(shopId)?.npcId;
     const result = shopSystem.buy(
       shopId,
       itemId,
       quantity,
       player.inventory,
       player.coins,
-      shopPriceMultiplier(player.stats),
+      shopPriceMultiplier(player.stats) * bondShopMultiplier(data?.progression, shopNpcId),
       player.stats,
       data?.progression
     );
@@ -2159,6 +2284,12 @@ export class GameRoom extends Room<GameRoomState> {
           recordGrimoireIngredients(grimoire, [{ itemId, count: quantity }])
         );
         client.send('progression_update', { progression: data.progression });
+      }
+      if (data && shopNpcId) {
+        this.withProgression(client, player, (ctx) => {
+          applyPlayerSocialEvent(ctx, { eventId: 'shop_purchase', npcId: shopNpcId });
+          applyPlayerSocialEvent(ctx, { eventId: 'shop_noticed', npcId: shopNpcId });
+        });
       }
     }
     client.send('shop_result', {

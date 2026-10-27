@@ -23,6 +23,7 @@ type NpcRecord = {
   faction?: string;
   secrets?: string[];
   spritePixels?: string[];
+  revision?: number;
 };
 
 type EdgeMeta = { relationshipDelta?: number; grantItem?: string; statBoost?: Record<string, number> };
@@ -53,9 +54,12 @@ export async function renderNpcEditor(
   const npc = npcs.find((n) => n.id === npcId);
   if (!npc) { el.textContent = 'NPC not found'; return; }
 
-  let dialogue: { id: string; npcId: string; nodes: { id: string; text: string; choices: unknown[] }[] };
+  let npcRevision = npc.revision ?? 0;
+  let dialogueRevision = 0;
+  let dialogue: { id: string; npcId: string; nodes: { id: string; text: string; choices: unknown[] }[]; revision?: number };
   try {
     dialogue = await api(`/content/dialogues/${npc.dialogueTreeId}`);
+    dialogueRevision = dialogue.revision ?? 0;
   } catch {
     dialogue = {
       id: npc.dialogueTreeId,
@@ -291,9 +295,8 @@ export async function renderNpcEditor(
       const dlgData = graphToDialogue(npcData.dialogueTreeId, npcData.id, graph!.getNodes(), edges);
       dlgData.nodes = dlgData.nodes.map((node) => ({
         ...node,
-        choices: (node.choices as { label: string; next: string }[]).map((choice, ci) => {
-          const edge = edges.find((e) => e.from === node.id && e.to === choice.next && e.label === choice.label)
-            ?? edges.filter((e) => e.from === node.id)[ci];
+        choices: (node.choices as { label: string; next: string; id?: string }[]).map((choice, ci) => {
+          const edge = edges.filter((e) => e.from === node.id)[ci];
           const meta = edge ? edgeMeta.get(edge.id) : undefined;
           return {
             ...choice,
@@ -304,8 +307,16 @@ export async function renderNpcEditor(
         }),
       }));
 
-      await api(`/content/npcs/${npcId}`, { method: 'PUT', body: JSON.stringify(npcData) });
-      await api(`/content/dialogues/${dlgData.id}`, { method: 'PUT', body: JSON.stringify(dlgData) });
+      const savedNpc = await api<{ revision: number }>(`/content/npcs/${npcId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...npcData, revision: npcRevision }),
+      });
+      npcRevision = savedNpc.revision ?? npcRevision;
+      const savedDialogue = await api<{ revision: number }>(`/content/dialogues/${dlgData.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...dlgData, revision: dialogueRevision }),
+      });
+      dialogueRevision = savedDialogue.revision ?? dialogueRevision;
       await api('/content/reload', { method: 'POST', body: '{}' });
       alert('Saved & reloaded');
       onBack();

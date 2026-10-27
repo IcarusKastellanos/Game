@@ -114,7 +114,7 @@ export class ShopPanel {
     this.scroller.innerHTML = `<p class="ledger-lead">${intro}</p>${speak}<div class="ledger-wares">${wares}</div>`;
     this.scroller.querySelector<HTMLButtonElement>('[data-talk]')?.addEventListener('click', () => {
       if (!keeper || !this.visible) return;
-      network.send('npc_talk', { npcId: keeper.id });
+      network.send('npc_action', { npcId: keeper.id, actionId: 'talk' });
     });
     this.scroller.querySelectorAll<HTMLButtonElement>('.ledger-buy').forEach((btn) => {
       btn.addEventListener('click', () => {

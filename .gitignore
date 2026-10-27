@@ -12,3 +12,4 @@ coverage/
 backups/
 _recover_*
 *.dump
+content/content-revisions.json

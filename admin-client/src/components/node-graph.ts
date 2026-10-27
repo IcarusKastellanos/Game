@@ -364,14 +364,13 @@ export function graphToDialogue(
       };
       const linked = edgeMap.get(n.id) ?? [];
       const choices = linked.length
-        ? linked.map((e) => {
-            const prev = raw.choices?.find((c) => c.next === e.to);
+        ? linked.map((e, index) => {
+            const prev = (raw.choices?.[index] ?? {}) as Record<string, unknown>;
             return {
-              label: e.label ?? prev?.label ?? 'Continue',
+              ...prev,
+              label: e.label ?? (typeof prev.label === 'string' ? prev.label : 'Continue'),
               next: e.to,
-              ...(prev?.relationshipDelta != null ? { relationshipDelta: prev.relationshipDelta } : {}),
-              ...(prev?.statBoost ? { statBoost: prev.statBoost } : {}),
-              ...(prev?.grantItem ? { grantItem: prev.grantItem } : {}),
+              id: typeof prev.id === 'string' && prev.id.trim() ? prev.id : e.id,
             };
           })
         : raw.choices ?? [];

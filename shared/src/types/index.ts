@@ -463,8 +463,28 @@ export interface ContentNpc {
   shopId?: string;
   faction?: string;
   secrets?: string[];
+  /** Actions offered at this NPC. Omitted lists are derived from dialogue, shop, and quests. */
+  capabilities?: NpcCapability[];
   /** Custom 16×16 overworld sprite pixels (admin-painted or imported) */
   spritePixels?: string[];
+}
+
+export type NpcActionId =
+  | 'talk'
+  | 'trade'
+  | 'quests'
+  | 'gift'
+  | 'favor'
+  | 'train'
+  | 'rumors'
+  | 'goodbye';
+
+export interface NpcCapability {
+  action: NpcActionId;
+  label?: string;
+  /** Dialogue node this action opens. */
+  nodeId?: string;
+  shopId?: string;
 }
 
 export interface ContentFamiliarTemplate {

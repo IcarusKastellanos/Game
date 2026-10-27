@@ -15,8 +15,9 @@ export type ClientMessage =
   | { type: 'whisper'; targetPlayerId: string; message: string }
   | { type: 'place_ward'; wardPointId: string; spellId: string }
   | { type: 'inspect_aura'; targetPlayerId: string }
-  | { type: 'dialogue_choice'; dialogueTreeId: string; nodeId: string; choiceIndex: number }
+  | { type: 'dialogue_choice'; dialogueTreeId: string; nodeId: string; choiceId: string; choiceIndex?: number }
   | { type: 'npc_talk'; npcId: string }
+  | { type: 'npc_action'; npcId: string; actionId: string }
   | { type: 'admin_command'; command: string }
   | { type: 'admin_action'; action: string; targetSessionId?: string; args?: string[] }
   | { type: 'chat'; message: string; channel?: 'global' | 'local' | 'whisper'; targetPlayerId?: string; targetDisplayName?: string }

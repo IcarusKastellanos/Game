@@ -2,6 +2,7 @@ import type { MagicTradition } from '../types/index.js';
 import { getAllBookContent, getBookContent } from './progression-content.js';
 import { parseActiveVows, parseLicensureMarks } from './licenses.js';
 import { backfillGrimoireIngredients, defaultGrimoire, parseGrimoire, type GrimoireState } from './grimoire.js';
+import { emptySocial, parsePlayerSocial } from '../social/index.js';
 
 export {
   GRIMOIRE_INKS,
@@ -154,6 +155,8 @@ export interface PlayerProgression {
   shopStockDay?: string;
   /** Personal record of workings, ingredients, spirits, people, and the book's own hand. */
   grimoire: GrimoireState;
+  /** Per-NPC bonds and community reputation. Separate from public and spiritual reputation. */
+  social?: import('../social/index.js').PlayerSocial;
 }
 
 export interface ContentRecipe {
@@ -243,6 +246,8 @@ export interface ContentQuest {
   name: string;
   description: string;
   npcId?: string;
+  /** Bond stage id required before this quest is offered. */
+  minStage?: string;
   startStage: string;
   nodes: ContentQuestNode[];
   /** Minimum Practitioner Level to accept / complete this quest. */
@@ -305,6 +310,7 @@ export function defaultProgression(): PlayerProgression {
     shopStock: {},
     shopStockDay: '',
     grimoire: defaultGrimoire(),
+    social: emptySocial(),
   };
 }
 
@@ -333,11 +339,12 @@ export function parseProgression(raw: unknown): PlayerProgression {
   const base = defaultProgression();
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Record<string, unknown>;
+  const npcRelationships =
+    o.npcRelationships && typeof o.npcRelationships === 'object'
+      ? (o.npcRelationships as Record<string, number>)
+      : base.npcRelationships;
   return {
-    npcRelationships:
-      o.npcRelationships && typeof o.npcRelationships === 'object'
-        ? (o.npcRelationships as Record<string, number>)
-        : base.npcRelationships,
+    npcRelationships,
     discoveredCorrespondences: Array.isArray(o.discoveredCorrespondences)
       ? (o.discoveredCorrespondences as string[])
       : base.discoveredCorrespondences,
@@ -379,6 +386,7 @@ export function parseProgression(raw: unknown): PlayerProgression {
     shopStock: parseShopStock(o.shopStock),
     shopStockDay: typeof o.shopStockDay === 'string' ? o.shopStockDay : '',
     grimoire: parseGrimoire(o.grimoire),
+    social: parsePlayerSocial(o.social, npcRelationships),
   };
 }
 
