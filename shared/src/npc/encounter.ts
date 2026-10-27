@@ -12,7 +12,8 @@ import {
   type NpcUiFeedback,
 } from '../social/index.js';
 import { describeGiftWindow, type GiftItemFacts } from '../social/interactions.js';
-import { knowledgeKnownByNpc, playerKnowsKnowledge } from './knowledge.js';
+import { formatClueLine, listDiscoveredCluesForNpc } from './discovery.js';
+import { knowledgeKnownByNpc, playerKnowsKnowledge, type KnowledgeNpcFact } from './knowledge.js';
 import { listLessonOffers } from './lessons.js';
 import { personalityPrefersGuard, personalityPrefersHumor, type PersonalityProfile } from './personality.js';
 
@@ -216,16 +217,17 @@ export function buildPeopleDossierPatch(input: {
     if (lessons.some((lesson) => lesson.completed)) services.push('Has taught you.');
     if (lessons.some((lesson) => lesson.available || lesson.completed)) services.push('Offers lessons.');
   }
-  const knowledge = knowledgeKnownByNpc(input.npc.id);
-  const discoveredRumors = knowledge
-    .filter((entry) => playerKnowsKnowledge(input.progression, entry))
-    .map((entry) => entry.text);
+  const facts = discoveredNpcFacts(input.npc.id, input.progression);
+  const discoveredRumors = listDiscoveredCluesForNpc(input.npc.id, input.progression).map(formatClueLine);
 
-  const knownLocations: string[] = [];
-  if (input.npc.locationId) knownLocations.push(input.npc.locationId.replace(/_/g, ' '));
+  const knownLocations: string[] = [...facts.locations];
+  if (!knownLocations.length && input.npc.locationId) {
+    // Meeting someone reveals where you found them; deeper sites come from discovery facts.
+    knownLocations.push(input.npc.locationId.replace(/_/g, ' '));
+  }
 
-  const knownSchedule: string[] = [];
-  if (feedback.showSchedule) {
+  const knownSchedule: string[] = [...facts.schedules];
+  if (feedback.showSchedule && !knownSchedule.length) {
     for (const row of input.npc.schedule ?? []) {
       if (row.interaction === 'away') continue;
       const activity = row.activity || row.label;
@@ -236,15 +238,24 @@ export function buildPeopleDossierPatch(input: {
     }
   }
 
+  for (const interest of facts.interests) {
+    if (!knownLikes.includes(interest)) knownLikes.push(interest);
+  }
+
   const dialogueState = input.progression.dialogueState?.[input.npc.dialogueTreeId];
-  const unlockedTopics = (dialogueState?.completedNodeIds ?? [])
-    .filter((id) => id !== 'start' && id !== 'end')
-    .slice(0, 8)
-    .map((id) => id.replace(/_/g, ' '));
+  const unlockedTopics = [
+    ...facts.topics,
+    ...(dialogueState?.completedNodeIds ?? [])
+      .filter((id) => id !== 'start' && id !== 'end')
+      .slice(0, 8)
+      .map((id) => id.replace(/_/g, ' ')),
+  ].slice(0, 12);
+
+  const biography = facts.biographies[0] || input.npc.biography;
 
   return {
     role: input.npc.role,
-    ...(input.npc.biography ? { biography: input.npc.biography } : {}),
+    ...(biography ? { biography } : {}),
     ...(knownLocations.length ? { knownLocations } : {}),
     ...(knownSchedule.length ? { knownSchedule } : {}),
     ...(knownLikes.length ? { knownLikes } : {}),
@@ -252,10 +263,67 @@ export function buildPeopleDossierPatch(input: {
     ...(services.length ? { services } : {}),
     ...(discoveredRumors.length ? { discoveredRumors } : {}),
     ...(unlockedTopics.length ? { unlockedTopics } : {}),
+    ...(facts.histories.length && feedback.showMilestones
+      ? { memories: [...facts.histories, ...(journal.memories ?? [])].slice(0, 8) }
+      : feedback.showMilestones
+        ? { memories: journal.memories }
+        : {}),
     ...(feedback.showStage ? { stageLabel: journal.stageLabel } : {}),
     ...(feedback.showRegard ? { regard: journal.regard } : {}),
-    ...(feedback.showMilestones ? { memories: journal.memories } : {}),
   };
+}
+
+function discoveredNpcFacts(
+  npcId: string,
+  progression: PlayerProgression
+): {
+  biographies: string[];
+  locations: string[];
+  schedules: string[];
+  interests: string[];
+  histories: string[];
+  topics: string[];
+} {
+  const biographies: string[] = [];
+  const locations: string[] = [];
+  const schedules: string[] = [];
+  const interests: string[] = [];
+  const histories: string[] = [];
+  const topics: string[] = [];
+  for (const entry of knowledgeKnownByNpc(npcId)) {
+    if (!playerKnowsKnowledge(progression, entry) || !entry.npcFact) continue;
+    pushFact(entry.npcFact, { biographies, locations, schedules, interests, histories, topics });
+  }
+  return { biographies, locations, schedules, interests, histories, topics };
+}
+
+function pushFact(
+  fact: KnowledgeNpcFact,
+  bags: {
+    biographies: string[];
+    locations: string[];
+    schedules: string[];
+    interests: string[];
+    histories: string[];
+    topics: string[];
+  }
+): void {
+  const target =
+    fact.field === 'biography'
+      ? bags.biographies
+      : fact.field === 'location'
+        ? bags.locations
+        : fact.field === 'schedule'
+          ? bags.schedules
+          : fact.field === 'interest'
+            ? bags.interests
+            : fact.field === 'history'
+              ? bags.histories
+              : fact.field === 'topic'
+                ? bags.topics
+                : null;
+  if (!target || target.includes(fact.value)) return;
+  target.push(fact.value);
 }
 
 function enrichOffer(

@@ -46,6 +46,7 @@ export type GiftResolution = {
   reason?: string;
   reaction?: string;
   tier?: string;
+  preferenceId?: string;
   nextGiftAt?: number;
   progression: PlayerProgression;
   stats: PlayerStats;
@@ -221,6 +222,7 @@ export function resolveNpcGift(
     duplicate: false,
     reaction,
     tier: tierId,
+    ...(matched?.preference ? { preferenceId: matched.preference.id } : {}),
     nextGiftAt: bond.giftNextAt,
     progression: commit(progression, social, input.npcId),
     stats,

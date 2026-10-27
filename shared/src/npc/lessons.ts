@@ -6,6 +6,7 @@ import { removeItemFromInventory } from '../inventory/index.js';
 import { bondBlockReason, type BondGate } from '../social/index.js';
 import { holdsActiveLicense, issueLicense } from '../progression/licenses.js';
 import { grantSkillXp, type TechnicalSkillKey } from '../progression/skill-xp.js';
+import { tryRevealKnowledge } from './knowledge.js';
 
 export type LessonTeachKind =
   | 'spell'
@@ -232,9 +233,17 @@ export function purchaseLesson(input: {
       notification,
     };
   } else if (teach.kind === 'knowledge') {
-    const discovered = new Set(progression.discoveredKnowledge ?? []);
-    discovered.add(teach.targetId);
-    progression = { ...progression, discoveredKnowledge: [...discovered] };
+    const revealed = tryRevealKnowledge({
+      knowledgeId: teach.targetId,
+      npcId: input.npcId,
+      progression,
+      stats: input.stats,
+      now: input.now,
+      source: 'lesson',
+    });
+    if (!revealed.ok) return { ok: false, reason: revealed.reason };
+    progression = revealed.progression;
+    if (!revealed.alreadyKnown) notification = revealed.text;
   }
 
   return {

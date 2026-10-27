@@ -56,6 +56,22 @@
         "stage": "acquaintance"
       },
       "nodeId": "study"
+    },
+    {
+      "id": "lesson_agatha_herbal_hint",
+      "npcId": "npc_librarian",
+      "label": "Herbal Notes",
+      "description": "Agatha shares a calm tea blend from her teaching notes.",
+      "teaches": {
+        "kind": "knowledge",
+        "targetId": "recipe_hint_herbal"
+      },
+      "costCoins": 12,
+      "requires": {
+        "stage": "familiar"
+      },
+      "requiresLessonIds": ["lesson_agatha_catalog"],
+      "nodeId": "study"
     }
   ]
 }

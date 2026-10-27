@@ -32,6 +32,7 @@ export * from './npc/knowledge.js';
 export * from './npc/lessons.js';
 export * from './npc/behavior.js';
 export * from './npc/encounter.js';
+export * from './npc/discovery.js';
 export * from './quests/engine.js';
 export * from './social/index.js';
 export * from './hexagram/index.js';

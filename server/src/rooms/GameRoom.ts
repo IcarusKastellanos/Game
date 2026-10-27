@@ -162,6 +162,7 @@ import {
   grantPendingQuestRewards,
   settleQuestSignal,
   applyPlayerSocialEvent,
+  applyPlayerDiscovery,
   syncRecognition,
   type HandlerCtx,
 } from './progression-handlers.js';
@@ -2095,6 +2096,15 @@ export class GameRoom extends Room<GameRoomState> {
         idempotencyKey: operationId,
       });
       this.noteQuest(client, player, { type: 'bond', npcId });
+      if (result.preferenceId) {
+        this.withProgression(client, player, (ctx) =>
+          applyPlayerDiscovery(ctx, {
+            source: 'gift',
+            npcId,
+            giftPreferenceId: result.preferenceId,
+          })
+        );
+      }
       this.sendPlayerSync(client, player);
       client.send('progression_update', { progression: data.progression });
     }
@@ -2169,10 +2179,14 @@ export class GameRoom extends Room<GameRoomState> {
     const progression = data?.progression ?? defaultProgression();
     const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
     const notice = activityNoticeFor(npcId);
-    const encounter = this.buildEncounter(npc, dialogue, contextShopId, progression, player, notice);
-    const dossier = buildPeopleDossierPatch({ npc, progression });
+    this.withProgression(client, player, (ctx) =>
+      applyPlayerDiscovery(ctx, { source: 'meet', npcId })
+    );
+    const refreshed = this.playerData.get(client.sessionId)?.progression ?? progression;
+    const encounter = this.buildEncounter(npc, dialogue, contextShopId, refreshed, player, notice);
+    const dossier = buildPeopleDossierPatch({ npc, progression: refreshed });
     if (data) {
-      data.progression = withBondJournal(progression, npcId, npc.name, dossier);
+      data.progression = withBondJournal(refreshed, npcId, npc.name, dossier);
       client.send('progression_update', { progression: data.progression });
     }
     client.send('open_ui', {
