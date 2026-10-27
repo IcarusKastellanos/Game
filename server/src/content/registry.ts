@@ -110,6 +110,7 @@ export class ContentRegistry {
     craftingSystem.loadFromJson(loadJson<ContentRecipe>('recipes.json'));
     hexagramEnchantSystem.loadFromJson(loadJson<ContentHexagramRecipe>('hexagram-recipes.json'));
     questSystem.loadFromJson(loadJson<ContentQuest>('quests.json'));
+    questSystem.loadStore();
     dialogueSystem.loadFromJson([...this.dialogues.values()]);
 
     setSocialContent(loadJsonFile('social.json'));

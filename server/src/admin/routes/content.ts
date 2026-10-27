@@ -33,6 +33,8 @@ import {
   saveDialogueDefinition,
   saveNpcDefinition,
 } from '../../content/npc-content-persist.js';
+import { questRevision, saveQuestDefinition } from '../../content/quest-content-persist.js';
+import { broadcastSharedQuestMirror } from '../../rooms/game-room-registry.js';
 import { ContentSaveError } from '../../content/versioned-content.js';
 
 function revisionField(body: unknown): number {
@@ -374,7 +376,7 @@ contentRouter.put('/npcs/:id', requirePerm('content.npc.edit'), async (req: Admi
       objectId: id,
       newValue: npc,
     });
-    res.json({ ...npc, revision });
+    res.json({ ...hydrateNpcSprite(npc), revision });
   } catch (error) {
     respondContentSaveError(res, error);
   }
@@ -388,6 +390,33 @@ contentRouter.get('/dialogues/:id', requirePerm('content.npc.view'), (req, res) 
   const dlg = contentRegistry.dialogues.get(param(req, 'id'));
   if (!dlg) return res.status(404).json({ error: 'Not found' });
   res.json({ ...dlg, revision: dialogueRevision(dlg.id) });
+});
+
+contentRouter.get('/quests', requirePerm('content.quest.edit'), (_req, res) => {
+  res.json(questSystem.list().map((quest) => ({ ...quest, revision: questRevision(quest.id) })));
+});
+
+contentRouter.get('/quests/:id', requirePerm('content.quest.edit'), (req, res) => {
+  const quest = questSystem.quests.get(param(req, 'id'));
+  if (!quest) return res.status(404).json({ error: 'Not found' });
+  res.json({ ...quest, revision: questRevision(quest.id) });
+});
+
+contentRouter.put('/quests/:id', requirePerm('content.quest.edit'), async (req: AdminRequest, res) => {
+  const id = param(req, 'id');
+  try {
+    const { quest, revision } = saveQuestDefinition(req.body, id, revisionField(req.body));
+    broadcastSharedQuestMirror();
+    await writeAuditLog(auditContext(req), {
+      action: 'content.quest.update',
+      objectType: 'quest',
+      objectId: id,
+      newValue: quest,
+    });
+    res.json({ ...quest, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
 });
 
 contentRouter.put('/dialogues/:id', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {

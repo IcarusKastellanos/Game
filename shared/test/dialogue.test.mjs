@@ -9,6 +9,7 @@ import {
   defaultProgression,
   nearestNpcInteractable,
   publishDialogueChoices,
+  questBlockReason,
   resolveDialogueChoice,
   setLicensesContent,
   setRecognitionContent,
@@ -43,6 +44,18 @@ function tree(id) {
   return dialogues.find((entry) => entry.id === id);
 }
 
+function visibleQuests(npcId, progression) {
+  return quests.filter((quest) => {
+    if ((quest.offer ?? 'on_talk') === 'event') return false;
+    const involved = quest.npcId === npcId || (quest.npcIds ?? []).includes(npcId);
+    if (!involved) return false;
+    const current = progression.questProgress?.[quest.id];
+    if (current?.completedAt || current?.failedAt || current?.abandonedAt) return false;
+    if (current) return true;
+    return questBlockReason(quest, progression, { stats: DEFAULT_STATS }) == null;
+  });
+}
+
 test('existing NPC content loads and shopkeepers offer talk and trade', () => {
   for (const id of ['npc_mara', 'npc_tom', 'npc_elena']) {
     const person = npc(id);
@@ -61,20 +74,25 @@ test('existing NPC content loads and shopkeepers offer talk and trade', () => {
     assert.ok(offers.some((offer) => offer.id === 'goodbye'));
     assert.equal(offers.some((offer) => offer.id === 'gift'), false);
   }
+  const fresh = defaultProgression();
   const maraOffers = buildNpcInteractionOffers({
     npc: npc('npc_mara'),
     dialogue: tree('mara_intro'),
     contextShopId: 'metaphysical_shop',
-    quests,
-    questProgress: {},
+    quests: visibleQuests('npc_mara', fresh),
+    questProgress: fresh.questProgress,
   });
   assert.ok(maraOffers.some((offer) => offer.id === 'quests'));
+  const finished = {
+    ...defaultProgression(),
+    questProgress: { quest_first_steps: { questId: 'quest_first_steps', stage: 'complete', startedAt: 1, completedAt: 1 } },
+  };
   const after = buildNpcInteractionOffers({
     npc: npc('npc_mara'),
     dialogue: tree('mara_intro'),
     contextShopId: 'metaphysical_shop',
-    quests,
-    questProgress: { quest_first_steps: { completedAt: 1 } },
+    quests: visibleQuests('npc_mara', finished),
+    questProgress: finished.questProgress,
   });
   assert.equal(after.some((offer) => offer.id === 'quests'), false);
 

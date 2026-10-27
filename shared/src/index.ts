@@ -26,6 +26,7 @@ export * from './chat/filter.js';
 export * from './grimoire/markup.js';
 export * from './dialogue/index.js';
 export * from './npc/schedule.js';
+export * from './quests/engine.js';
 export * from './social/index.js';
 export * from './hexagram/index.js';
 export * from './pocket-spell/index.js';
