@@ -26,7 +26,10 @@ export class ChatPanel {
   private inputEl!: HTMLInputElement;
   private shellEl!: HTMLDivElement;
   private expanded = true;
+  private unread = 0;
   private prefs: ChatPreferences = loadChatPrefs();
+  private iconBtn!: HTMLButtonElement;
+  private unreadEl!: HTMLSpanElement;
   private resizing: 'width' | 'height' | null = null;
   private resizeStart = { x: 0, y: 0, width: 0, logHeight: 0 };
 
@@ -51,7 +54,7 @@ export class ChatPanel {
     tabs.innerHTML = `
       <button type="button" id="chat-tab-local" class="chat-tab active">Local</button>
       <button type="button" id="chat-tab-global" class="chat-tab">Global</button>
-      <button type="button" id="chat-collapse" class="chat-collapse" title="Toggle log">▾</button>`;
+      <button type="button" id="chat-collapse" class="chat-collapse" title="Collapse chat" aria-label="Collapse chat">▾</button>`;
 
     this.logEl = document.createElement('div');
     this.logEl.className = 'chat-panel-log';
@@ -71,10 +74,26 @@ export class ChatPanel {
     resizeN.className = 'chat-panel-resize chat-panel-resize--n';
     resizeN.title = 'Drag to resize chat height';
 
+    this.iconBtn = document.createElement('button');
+    this.iconBtn.type = 'button';
+    this.iconBtn.className = 'chat-panel-icon';
+    this.iconBtn.title = 'Open chat';
+    this.iconBtn.setAttribute('aria-label', 'Open chat');
+    this.iconBtn.innerHTML = `
+      <svg class="chat-panel-icon__glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+      </svg>`;
+    this.unreadEl = document.createElement('span');
+    this.unreadEl.className = 'chat-panel-icon__count';
+    this.unreadEl.hidden = true;
+    this.iconBtn.appendChild(this.unreadEl);
+    this.iconBtn.addEventListener('click', () => this.toggleExpanded(true));
+
     this.root.appendChild(this.shellEl);
     this.root.appendChild(this.inputEl);
     this.root.appendChild(resizeE);
     this.root.appendChild(resizeN);
+    this.root.appendChild(this.iconBtn);
     document.body.appendChild(this.root);
 
     this.applySize(false);
@@ -96,7 +115,11 @@ export class ChatPanel {
 
     tabs.querySelector('#chat-tab-local')!.addEventListener('click', () => this.setChannel('local'));
     tabs.querySelector('#chat-tab-global')!.addEventListener('click', () => this.setChannel('global'));
-    tabs.querySelector('#chat-collapse')!.addEventListener('click', () => this.toggleExpanded());
+    tabs.querySelector('#chat-collapse')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleExpanded(false);
+    });
 
     resizeE.addEventListener('pointerdown', (e) => this.beginResize(e, 'width'));
     resizeN.addEventListener('pointerdown', (e) => this.beginResize(e, 'height'));
@@ -106,6 +129,7 @@ export class ChatPanel {
 
     this.setChannel('local');
     this.log('System', 'Chat ready. Local = this room. Global = all players. /msg "Name" message', 'system');
+    if (this.prefs.collapsed) this.toggleExpanded(false);
   }
 
   private beginResize(e: PointerEvent, mode: 'width' | 'height'): void {
@@ -151,6 +175,11 @@ export class ChatPanel {
       this.prefs.width = Math.max(280, Math.min(this.prefs.width, window.innerWidth - 24));
       this.prefs.logHeight = Math.max(80, Math.min(this.prefs.logHeight, window.innerHeight * 0.5));
     }
+    if (!this.expanded) {
+      this.root.style.width = '';
+      this.publishLayoutSoon();
+      return;
+    }
     this.root.style.width = `${this.prefs.width}px`;
     this.shellEl.style.height = `${this.prefs.logHeight}px`;
     this.publishLayoutSoon();
@@ -174,10 +203,31 @@ export class ChatPanel {
 
   toggleExpanded(show?: boolean): void {
     this.expanded = show ?? !this.expanded;
-    this.shellEl.classList.toggle('collapsed', !this.expanded);
-    const btn = document.getElementById('chat-collapse');
-    if (btn) btn.textContent = this.expanded ? '▾' : '▸';
-    this.publishLayoutSoon();
+    this.root.classList.toggle('chat-panel-root--collapsed', !this.expanded);
+    this.iconBtn.setAttribute('aria-pressed', this.expanded ? 'false' : 'true');
+    this.iconBtn.hidden = this.expanded;
+    if (this.expanded) {
+      this.unread = 0;
+      this.updateUnread();
+      this.applySize(false);
+      this.logEl.scrollTop = this.logEl.scrollHeight;
+    } else {
+      this.inputEl.blur();
+      this.root.style.width = '';
+      this.publishLayoutSoon();
+    }
+    this.prefs.collapsed = !this.expanded;
+    saveChatPrefs(this.prefs);
+  }
+
+  private updateUnread(): void {
+    if (this.unread <= 0) {
+      this.unreadEl.hidden = true;
+      this.unreadEl.textContent = '';
+      return;
+    }
+    this.unreadEl.hidden = false;
+    this.unreadEl.textContent = this.unread > 9 ? '9+' : String(this.unread);
   }
 
   private setChannel(channel: 'local' | 'global'): void {
@@ -240,6 +290,10 @@ export class ChatPanel {
     line.innerHTML = `<span style="opacity:0.7">${tags[ch]}</span> <b>${from.replace(/</g, '&lt;')}</b>: ${safe}`;
     this.logEl.appendChild(line);
     this.logEl.scrollTop = this.logEl.scrollHeight;
+    if (!this.expanded && channel !== 'system') {
+      this.unread += 1;
+      this.updateUnread();
+    }
   }
 
   private onChat = (
