@@ -1,5 +1,7 @@
-import { formatContentLabel } from '@witchcraft/shared';
+import { defaultProgression, formatContentLabel } from '@witchcraft/shared';
 import { gameState } from '../../data/game-state.js';
+import { isLicenseSpellHidden } from '../license-spell-visibility.js';
+import { GRIMOIRE_NOTE_PAGES, loadGrimoireNotes, saveGrimoireNotes } from './grimoire-notes.js';
 import { network } from '../../net/NetworkManager.js';
 import { escapeHtml } from '../ledger-chrome.js';
 import { HUDWindowShell } from './HUDWindowShell.js';
@@ -16,6 +18,7 @@ const GRIMOIRE_SECTIONS = [
 
 export class HUDWindows {
   private shells = new Map<HUDWindowId, HUDWindowShell>();
+  private grimoireTab = 'Correspondences';
 
   constructor() {
     this.create('grimoire', 'Grimoire', 'What you have learned, written in one place', 'Record');
@@ -27,7 +30,12 @@ export class HUDWindows {
     this.create('settings', 'Settings', 'How the workbench sits with you', 'Comfort');
     this.renderAll();
     window.addEventListener('game:player-sync', () => this.renderDynamic());
-    window.addEventListener('game:progression-update', () => this.renderGrimoire());
+    window.addEventListener('game:progression-update', () => {
+      if (document.activeElement instanceof HTMLTextAreaElement && document.activeElement.id === 'grimoire-note') {
+        return;
+      }
+      this.renderGrimoire();
+    });
   }
 
   private create(id: HUDWindowId, title: string, subtitle: string, kicker: string): void {
@@ -95,30 +103,77 @@ export class HUDWindows {
     const books = prog?.readBooks ?? [];
     const recipes = prog?.discoveredRecipes ?? [];
 
+    if (!GRIMOIRE_SECTIONS.includes(this.grimoireTab)) this.grimoireTab = 'Correspondences';
+
     w.setBodyHtml(`
       <div class="hud-grimoire">
         <nav class="hud-grimoire__tabs">
-          ${GRIMOIRE_SECTIONS.map((s, i) => `<button type="button" class="hud-grimoire__tab${i === 0 ? ' is-active' : ''}" data-tab="${s}">${s}</button>`).join('')}
+          ${GRIMOIRE_SECTIONS.map((s) => `<button type="button" class="hud-grimoire__tab${s === this.grimoireTab ? ' is-active' : ''}" data-tab="${s}">${s}</button>`).join('')}
         </nav>
         <div class="hud-grimoire__page">
-          <div class="hud-grimoire__section" id="grimoire-section">
-            <h3>Correspondences</h3>
-            <p>You have written down ${discovered.length} ingredients, read ${books.length} books, and learned ${recipes.length} recipes.</p>
-            <ul class="hud-grimoire__list">${discovered.slice(0, 24).map((id) => `<li>${escapeHtml(formatContentLabel(id))}</li>`).join('') || '<li class="hud-muted">Discover more by reading, crafting, and experimenting.</li>'}</ul>
-            <p class="hud-muted">Press <kbd>J</kbd> for the correspondence journal. The rest of these pages are still being copied.</p>
-          </div>
+          <div class="hud-grimoire__section" id="grimoire-section"></div>
         </div>
       </div>`);
 
+    const paint = (tab: string): void => {
+      this.grimoireTab = tab;
+      w.body.querySelectorAll('.hud-grimoire__tab').forEach((b) => {
+        b.classList.toggle('is-active', (b as HTMLElement).dataset.tab === tab);
+      });
+      const section = w.body.querySelector('#grimoire-section');
+      if (!section) return;
+      if (tab === 'Notes') {
+        section.innerHTML = this.notesHtml();
+        this.bindNotes(section);
+        return;
+      }
+      if (tab === 'Correspondences') {
+        section.innerHTML = `
+            <h3>Correspondences</h3>
+            <p>You have written down ${discovered.length} ingredients, read ${books.length} books, and learned ${recipes.length} recipes.</p>
+            <ul class="hud-grimoire__list">${discovered.slice(0, 24).map((id) => `<li>${escapeHtml(formatContentLabel(id))}</li>`).join('') || '<li class="hud-muted">Discover more by reading, crafting, and experimenting.</li>'}</ul>
+            <p class="hud-muted">Press <kbd>J</kbd> for the correspondence journal.</p>`;
+        return;
+      }
+      section.innerHTML = `<h3>${escapeHtml(tab)}</h3><p>These pages are still being copied. What you have already learned stays listed under Correspondences.</p>`;
+    };
+
     w.body.querySelectorAll('.hud-grimoire__tab').forEach((btn) => {
+      btn.addEventListener('click', () => paint((btn as HTMLElement).dataset.tab ?? 'Correspondences'));
+    });
+    paint(this.grimoireTab);
+  }
+
+  private notesHtml(): string {
+    const notes = loadGrimoireNotes();
+    const marks = Array.from({ length: GRIMOIRE_NOTE_PAGES }, (_, i) => {
+      const label = ['I', 'II', 'III', 'IV', 'V'][i];
+      return `<button type="button" class="hud-grimoire__mark${i === notes.active ? ' is-active' : ''}" data-note="${i}">${label}</button>`;
+    }).join('');
+    return `
+      <h3>Notes</h3>
+      <p class="hud-muted">Five bookmarks. The page saves itself as you write.</p>
+      <div class="hud-grimoire__marks">${marks}</div>
+      <textarea id="grimoire-note" class="hud-grimoire__note" spellcheck="false">${escapeHtml(notes.pages[notes.active] ?? '')}</textarea>`;
+  }
+
+  private bindNotes(section: Element): void {
+    const field = section.querySelector('#grimoire-note') as HTMLTextAreaElement | null;
+    if (!field) return;
+    const marks = () => loadGrimoireNotes();
+    field.addEventListener('input', () => {
+      const notes = marks();
+      notes.pages[notes.active] = field.value;
+      saveGrimoireNotes(notes);
+    });
+    section.querySelectorAll('.hud-grimoire__mark').forEach((btn) => {
       btn.addEventListener('click', () => {
-        w.body.querySelectorAll('.hud-grimoire__tab').forEach((b) => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        const tab = (btn as HTMLElement).dataset.tab ?? 'Notes';
-        const section = w.body.querySelector('#grimoire-section');
-        if (section) {
-          section.innerHTML = `<h3>${escapeHtml(tab)}</h3><p>These pages are still being copied. What you have already learned stays listed under Correspondences.</p>`;
-        }
+        const notes = marks();
+        notes.pages[notes.active] = field.value;
+        notes.active = Number((btn as HTMLElement).dataset.note) || 0;
+        saveGrimoireNotes(notes);
+        section.innerHTML = this.notesHtml();
+        this.bindNotes(section);
       });
     });
   }
@@ -127,7 +182,8 @@ export class HUDWindows {
     const w = this.shells.get('spells');
     if (!w) return;
     const pockets = gameState.progression?.pocketSpells ?? [];
-    const spells = gameState.content?.spells ?? [];
+    const progression = gameState.progression ?? defaultProgression();
+    const spells = (gameState.content?.spells ?? []).filter((spell) => !isLicenseSpellHidden(spell, progression));
 
     w.setBodyHtml(`
       <div class="hud-spells">
@@ -266,16 +322,22 @@ export class HUDWindows {
       navigationBar.setCollapsed(collapsed);
     });
 
-    w.body.querySelector('#set-scale')?.addEventListener('input', (e) => {
-      const v = Number((e.target as HTMLInputElement).value) / 100;
-      themeManager.setScale(v);
-      const note = w.body.querySelector('#set-scale-note');
-      if (note) {
-        note.textContent = `Scale: ${Math.round(themeManager.getScale() * 100)}% of window fit · Applied size: ${Math.round(
-          themeManager.getCombinedScale() * 100
-        )}%`;
-      }
-    });
+    const slider = w.body.querySelector('#set-scale') as HTMLInputElement | null;
+    const note = w.body.querySelector('#set-scale-note');
+    const preview = (): void => {
+      if (!slider || !note) return;
+      note.textContent = `Scale: ${slider.value}% — applied when you release the slider. Current size: ${Math.round(
+        themeManager.getCombinedScale() * 100
+      )}%.`;
+    };
+    const apply = (): void => {
+      if (!slider) return;
+      themeManager.setScale(Number(slider.value) / 100);
+      preview();
+    };
+    slider?.addEventListener('input', preview);
+    slider?.addEventListener('change', apply);
+    preview();
   }
 }
 

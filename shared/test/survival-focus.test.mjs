@@ -9,6 +9,13 @@ test('applySurvivalTick: hunger decreases while idle', () => {
   assert.ok(after.hunger >= 0);
 });
 
+test('hunger drains at two thirds of the old half-point per minute', () => {
+  const before = { ...DEFAULT_STATS, hunger: 50, stamina: 100 };
+  const after = applySurvivalTick(before, 60000, 'idle');
+  const dropped = before.hunger - after.hunger;
+  assert.ok(Math.abs(dropped - 1 / 3) < 0.02);
+});
+
 test('applySurvivalTick: stamina regenerates faster while sleeping', () => {
   const before = { ...DEFAULT_STATS, hunger: 80, stamina: 40, health: 90 };
   const idle = applySurvivalTick(before, 60000, 'idle');

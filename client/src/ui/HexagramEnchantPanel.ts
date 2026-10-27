@@ -17,11 +17,14 @@ import {
   totalItemQuantity,
   playerLevel,
   meetsMinLevel,
+  defaultProgression,
+  type PlayerProgression,
 } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import { iconImgHtml } from '../graphics/ItemIconGenerator';
 import { bindDomInputs } from './input-focus';
+import { isLicenseSpellHidden } from './license-spell-visibility';
 
 type HexRecipeRow = Pick<
   ContentHexagramRecipe,
@@ -54,6 +57,16 @@ interface Particle {
   maxLife: number;
   hue: number;
 }
+
+const SOCKET_PURPOSE: Record<HexagramSocketId, string> = {
+  power: 'The north point. It is the charge — the force this working spends.',
+  protection: 'The upper-right point. It is the ward — what keeps the working from turning back on you.',
+  communication: 'The lower-right point. It is the voice — how the working speaks or carries a message.',
+  binding: 'The south point. It is the knot — what holds the effect in place.',
+  influence: 'The lower-left point. It is the lean — how the working moves luck, will, or attention.',
+  offering: 'The upper-left point. It is the gift — what you give so the working is accepted.',
+  core: 'The center. It is the heart of the figure — the ingredient the enchantment is built around.',
+};
 
 const CANVAS = { w: 520, h: 480 };
 const THEME_COLORS: Record<string, { stroke: string; glow: string; particle: number }> = {
@@ -164,6 +177,7 @@ export class HexagramEnchantPanel {
             <canvas id="hex-canvas" width="${CANVAS.w}" height="${CANVAS.h}"></canvas>
             <div class="hex-recipe-picker" id="hex-recipe-picker"></div>
             <div class="hex-actions">
+              <button type="button" class="hex-btn secondary" id="hex-fill">Fill from inventory</button>
               <button type="button" class="hex-btn secondary" id="hex-clear">Clear Hexagram</button>
               <button type="button" class="hex-btn secondary" id="hex-undo">Undo</button>
               <button type="button" class="hex-btn primary" id="hex-begin" disabled>Begin Enchantment</button>
@@ -178,10 +192,13 @@ export class HexagramEnchantPanel {
     bindDomInputs(this.root);
 
     this.root.querySelector('.hex-close')!.addEventListener('click', () => this.hide());
+    this.root.querySelector('#hex-fill')!.addEventListener('click', () => this.fillFromInventory());
     this.root.querySelector('#hex-clear')!.addEventListener('click', () => this.clearHexagram());
     this.root.querySelector('#hex-undo')!.addEventListener('click', () => this.undo());
     this.root.querySelector('#hex-begin')!.addEventListener('click', () => this.beginEnchantment());
 
+    this.canvas.addEventListener('pointermove', (e) => this.showSocketTip(e));
+    this.canvas.addEventListener('pointerleave', () => this.hideSocketTip());
     this.canvas.addEventListener('dragover', (e) => e.preventDefault());
     this.canvas.addEventListener('drop', (e) => this.onCanvasDrop(e));
     this.canvas.addEventListener('contextmenu', (e) => {
@@ -224,6 +241,7 @@ export class HexagramEnchantPanel {
   hide(): void {
     this.visible = false;
     this.root.style.display = 'none';
+    this.hideSocketTip();
     this.stopAnim();
     if (gameState.activeUI === 'hexagram') gameState.activeUI = 'none';
   }
@@ -265,8 +283,16 @@ export class HexagramEnchantPanel {
     return meetsMinLevel(this.getPlayerExperience(), recipe.minLevel);
   }
 
+  private isLicenseHidden(recipe: HexRecipeRow): boolean {
+    if (!recipe.spellId) return false;
+    const spell = gameState.content?.spells.find((s) => s.id === recipe.spellId);
+    const progression = (gameState.progression as PlayerProgression | undefined) ?? defaultProgression();
+    return isLicenseSpellHidden(spell, progression);
+  }
+
   private filteredRecipes(): HexRecipeRow[] {
     return this.recipes.filter((r) => {
+      if (this.isLicenseHidden(r)) return false;
       if (this.categoryTab !== 'all' && r.category !== this.categoryTab) return false;
       return true;
     });
@@ -562,6 +588,54 @@ export class HexagramEnchantPanel {
     return out;
   }
 
+  private canvasPoint(e: MouseEvent): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = rect.width > 0 ? ((e.clientX - rect.left) / rect.width) * this.canvas.width : e.offsetX;
+    const y = rect.height > 0 ? ((e.clientY - rect.top) / rect.height) * this.canvas.height : e.offsetY;
+    return { x, y };
+  }
+
+  private ensureSocketTip(): HTMLDivElement {
+    let tip = document.getElementById('hex-socket-tip') as HTMLDivElement | null;
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'hex-socket-tip';
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+
+  private hideSocketTip(): void {
+    const tip = document.getElementById('hex-socket-tip');
+    if (tip) tip.style.display = 'none';
+  }
+
+  private showSocketTip(e: MouseEvent): void {
+    const point = this.canvasPoint(e);
+    const sock = this.hitSocket(point.x, point.y);
+    if (!sock) {
+      this.hideSocketTip();
+      return;
+    }
+    const tip = this.ensureSocketTip();
+    const recipe = this.selectedRecipe();
+    const req = recipe?.sockets.find((s) => s.socket === sock);
+    const accepts = req ? this.formatSocketRequirement(req) : 'Whatever the chosen enchantment names for this point.';
+    tip.innerHTML = `
+      <strong>${HEXAGRAM_SOCKET_LABELS[sock]}</strong>
+      <p>${this.escape(SOCKET_PURPOSE[sock])}</p>
+      <p class="hex-tip-accepts"><span>What can go here</span> ${this.escape(accepts)}</p>`;
+    tip.style.display = 'block';
+    const width = tip.offsetWidth || 220;
+    const height = tip.offsetHeight || 80;
+    let left = e.clientX + 14;
+    let top = e.clientY + 14;
+    if (left + width > window.innerWidth - 8) left = e.clientX - width - 14;
+    if (top + height > window.innerHeight - 8) top = e.clientY - height - 14;
+    tip.style.left = `${Math.max(8, left)}px`;
+    tip.style.top = `${Math.max(8, top)}px`;
+  }
+
   private hitSocket(x: number, y: number): HexagramSocketId | null {
     for (const [id, p] of Object.entries(this.socketPixels()) as [HexagramSocketId, { x: number; y: number; r: number }][]) {
       if (Math.hypot(x - p.x, y - p.y) <= p.r * 1.4) return id;
@@ -578,6 +652,38 @@ export class HexagramEnchantPanel {
     this.sockets[sock] = itemId;
     this.spawnParticles(e.offsetX, e.offsetY, 12);
     this.render();
+  }
+
+  private fillFromInventory(): void {
+    const recipe = this.selectedRecipe();
+    if (!recipe || !this.isRecipeUnlocked(recipe)) return;
+    this.pushUndo();
+    let placed = false;
+    for (const req of recipe.sockets) {
+      if (this.sockets[req.socket]) continue;
+      const itemId = this.inventoryItemForSocket(req);
+      if (!itemId) continue;
+      this.sockets[req.socket] = itemId;
+      placed = true;
+    }
+    if (placed) this.render();
+    else this.undoStack.pop();
+  }
+
+  private inventoryItemForSocket(req: HexRecipeRow['sockets'][number]): string | null {
+    const owned: string[] = [];
+    for (const slot of gameState.localPlayer?.inventory ?? []) {
+      if (!slot?.itemId || slot.quantity <= 0) continue;
+      if (this.availableQty(slot.itemId) <= 0) continue;
+      if (!owned.includes(slot.itemId)) owned.push(slot.itemId);
+    }
+    for (const id of req.itemIds ?? []) {
+      if (owned.includes(id)) return id;
+    }
+    for (const id of owned) {
+      if (socketAcceptsItem(req, id, this.itemCategories()[id])) return id;
+    }
+    return null;
   }
 
   private tryAutoPlace(itemId: string): void {

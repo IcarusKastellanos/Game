@@ -18,6 +18,14 @@ test('applySurvivalTick regenerates stamina faster while eating than idle', () =
   assert.ok(idle.hunger < 60);
 });
 
+test('skill practice cost climbs with the current rank', () => {
+  const low = skillXpThreshold(1);
+  const mid = skillXpThreshold(5);
+  const high = skillXpThreshold(12);
+  assert.ok(mid > low);
+  assert.ok(high > mid);
+});
+
 test('grantSkillXp levels technical skills from pool thresholds', () => {
   const need = skillXpThreshold(DEFAULT_STATS.ritualSkill ?? 0);
   const { stats, progression, gainedLevels, xp } = grantSkillXp(

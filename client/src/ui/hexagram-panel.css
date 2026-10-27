@@ -472,3 +472,40 @@
     overflow-y: auto;
   }
 }
+
+#hex-socket-tip {
+  position: fixed;
+  z-index: 4000;
+  display: none;
+  width: min(260px, calc(100vw - 16px));
+  padding: 10px 12px;
+  background: #140c1c;
+  color: #f3e6c8;
+  border: 1px solid #c4a15a;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #000a;
+  font-family: Georgia, 'Palatino Linotype', serif;
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+#hex-socket-tip strong {
+  display: block;
+  margin-bottom: 4px;
+  font-family: Cinzel, Georgia, serif;
+  letter-spacing: 0.04em;
+  color: #e8c98a;
+}
+
+#hex-socket-tip p {
+  margin: 0 0 6px;
+}
+
+#hex-socket-tip .hex-tip-accepts span {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b7a8c4;
+}

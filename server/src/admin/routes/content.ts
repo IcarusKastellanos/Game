@@ -12,6 +12,7 @@ import { questSystem } from '../../systems/quest-system.js';
 import { shopSystem } from '../../systems/shop-system.js';
 import { readContentJson, writeContentJson } from '../../content/json-persist.js';
 import { saveLevelDocument } from '../../content/level-sync.js';
+import { rehydrateContentOverlays } from '../../content/rehydrate.js';
 import { licenseEditorCatalog, loadLicensesDocumentFromDisk, saveLicensesDocument } from '../../content/license-sync.js';
 import type { ContentRecipe, ContentHexagramRecipe } from '@witchcraft/shared';
 import { LEVEL_STAT_FLOOR_KEYS, getLevelDocument, getLicensesDocument } from '@witchcraft/shared';
@@ -254,9 +255,18 @@ contentRouter.get('/items', requirePerm('content.item.view'), (_req, res) => {
   res.json([...contentRegistry.ingredients.values()].map((item) => hydrateItemIcon(item)));
 });
 
+function persistIngredientFile(item: ContentIngredient): void {
+  const list = readContentJson<ContentIngredient>('ingredients.json');
+  const index = list.findIndex((row) => row.id === item.id);
+  if (index === -1) list.push(item);
+  else list[index] = { ...list[index], ...item };
+  writeContentJson('ingredients.json', list);
+}
+
 contentRouter.put('/items/:id', requirePerm('content.item.edit'), async (req: AdminRequest, res) => {
   const item = { ...req.body, id: param(req, 'id') } as ContentIngredient;
   contentRegistry.ingredients.set(item.id, item);
+  persistIngredientFile(item);
   const dbRow = ingredientToDb(item);
   await prisma.contentIngredient.upsert({
     where: { id: item.id },
@@ -282,6 +292,7 @@ contentRouter.post('/items', requirePerm('content.item.edit'), async (req: Admin
   const item = req.body as ContentIngredient;
   if (!item.id) return res.status(400).json({ error: 'id required' });
   contentRegistry.ingredients.set(item.id, item);
+  persistIngredientFile(item);
   const dbRow = ingredientToDb(item);
   await prisma.contentIngredient.upsert({
     where: { id: item.id },
@@ -515,6 +526,11 @@ contentRouter.get('/levels', requirePerm('content.spell.view'), (_req, res) => {
 contentRouter.put('/levels', requirePerm('content.spell.edit'), async (req: AdminRequest, res) => {
   const before = getLevelDocument();
   const document = saveLevelDocument(req.body?.document ?? req.body);
+  try {
+    await rehydrateContentOverlays();
+  } catch (err) {
+    console.warn('[levels] overlay rehydrate failed:', err);
+  }
   await writeAuditLog(auditContext(req), {
     action: 'content.levels.update',
     objectType: 'level_document',
@@ -548,7 +564,7 @@ contentRouter.put('/licenses', requirePerm('content.spell.edit'), async (req: Ad
 // --- Reload ---
 contentRouter.post('/reload', requirePerm('system.reload'), async (req: AdminRequest, res) => {
   contentRegistry.load();
-  const merged = await contentRegistry.mergePublishedMaps();
+  const merged = await rehydrateContentOverlays();
   const { ensureCanonicalMapProjects } = await import('../../content/canonical-maps.js');
   await ensureCanonicalMapProjects();
   await writeAuditLog(auditContext(req), {

@@ -1,20 +1,26 @@
 :root {
-  --bg: #0f0e14;
-  --panel: #1a1824;
-  --panel2: #242033;
-  --border: #3d3654;
-  --text: #e8e0f0;
-  --muted: #9a8fb0;
-  --accent: #c9a227;
-  --accent2: #7b5ea7;
-  --danger: #c44;
-  --success: #4a8;
-  --sidebar-w: 240px;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  --bg: #110d16;
+  --panel: #1c1626;
+  --panel2: #2a2236;
+  --border: rgba(212, 175, 106, 0.28);
+  --text: #f6efe2;
+  --muted: #b7a8c4;
+  --accent: #e4c27a;
+  --accent2: #6d4c86;
+  --danger: #a33b4a;
+  --success: #3f8f72;
+  --sidebar-w: 232px;
+  font-family: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); min-height: 100vh; }
+body {
+  background:
+    radial-gradient(ellipse at top, rgba(109, 76, 134, 0.22), transparent 42%),
+    var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
 
 .login-wrap {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -33,12 +39,24 @@ body { background: var(--bg); color: var(--text); min-height: 100vh; }
   padding: 1rem 0; flex-shrink: 0;
 }
 .sidebar .brand {
-  padding: 0 1rem 1rem; font-weight: 700; color: var(--accent);
-  border-bottom: 1px solid var(--border); margin-bottom: 0.5rem;
+  padding: 0.25rem 1rem 1rem;
+  font-family: Cinzel, Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.35rem;
+}
+.nav-label {
+  padding: 0.9rem 1rem 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8d7a9e;
 }
 .sidebar nav a {
-  display: block; padding: 0.55rem 1rem; color: var(--muted); text-decoration: none;
-  font-size: 0.85rem; border-left: 3px solid transparent;
+  display: block; padding: 0.48rem 1rem; color: var(--muted); text-decoration: none;
+  font-size: 0.92rem; border-left: 3px solid transparent;
 }
 .sidebar nav a:hover, .sidebar nav a.active {
   color: var(--text); background: var(--panel2); border-left-color: var(--accent);
@@ -55,7 +73,15 @@ body { background: var(--bg); color: var(--text); min-height: 100vh; }
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
   padding: 1rem; margin-bottom: 1rem;
 }
-.card h2 { font-size: 0.95rem; color: var(--accent); margin-bottom: 0.75rem; }
+.card h2 { font-family: Cinzel, Georgia, serif; font-size: 1rem; font-weight: 600; letter-spacing: 0.04em; color: var(--accent); margin-bottom: 0.75rem; }
+.lede { color: var(--muted); font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.85rem; max-width: 68ch; }
+.chip-list { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.75rem; }
+.chip-list li { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 4px 4px 12px; }
+.mod-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.mod-grid h3 { font-size: 0.95rem; margin-bottom: 0.4rem; color: var(--text); }
+.mod-grid ul { margin-left: 1.1rem; color: var(--muted); line-height: 1.45; }
+.mod-grid li { margin: 0.35rem 0; }
+.muted { color: var(--muted); }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
 .stat { background: var(--panel2); border-radius: 8px; padding: 1rem; }
 .stat .val { font-size: 1.75rem; font-weight: 700; color: var(--accent); }

@@ -20,6 +20,7 @@ import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import { getItemIconUrl, iconImgHtml } from '../graphics/ItemIconGenerator';
 import { bindDomInputs } from './input-focus';
+import { isLicenseSpellHidden } from './license-spell-visibility';
 
 interface PentacleSlot {
   itemId: string;
@@ -156,6 +157,10 @@ export class AltarPanel {
 
   private getProgression(): PlayerProgression {
     return (gameState.progression as PlayerProgression | undefined) ?? defaultProgression();
+  }
+
+  private isSpellListed(spell: ContentSpell): boolean {
+    return !isLicenseSpellHidden(spell, this.getProgression());
   }
 
   private isSpellUnlocked(spell: ContentSpell): boolean {
@@ -430,6 +435,7 @@ export class AltarPanel {
             <div class="altar-canvas-hint">Candles above · herbs left · incense right · right-click to return</div>
             ${this.renderAmbianceRow()}
             <div class="altar-cast-row">
+              <button type="button" id="altar-fill">Fill from inventory</button>
               <button type="button" id="cast-sigil">✦ CAST SIGIL ✦</button>
               <label class="altar-cast-options"><input type="checkbox" id="magic-only" ${this.magicOnly ? 'checked' : ''}/> Raw magic only (weak)</label>
               ${this.canFamiliarAssist() ? `
@@ -526,7 +532,7 @@ export class AltarPanel {
         <span class="altar-spell-caret">${this.spellDropdownOpen ? '▴' : '▾'}</span>
       </button>
       <div id="altar-spell-menu" class="altar-spell-menu${this.spellDropdownOpen ? ' open' : ''}">
-        ${spells.map((s) => {
+        ${spells.filter((s) => this.isSpellListed(s)).map((s) => {
           const unlocked = this.isSpellUnlocked(s);
           const sel = this.selectedSpellId === s.id && unlocked;
           const lockedCls = unlocked ? '' : ' locked';
@@ -704,6 +710,7 @@ export class AltarPanel {
 
   private bindEvents(met: typeof gameState.metPlayers): void {
     document.getElementById('altar-close')!.onclick = () => this.hide();
+    document.getElementById('altar-fill')!.onclick = () => this.fillFromInventory();
     document.getElementById('cast-sigil')!.onclick = () => this.cast();
 
     this.root.querySelectorAll('.inv-row').forEach((row) => {
@@ -795,6 +802,18 @@ export class AltarPanel {
       (e.target as HTMLSelectElement).value = '';
       this.renderTaglocks(met);
     });
+  }
+
+  /** Place every required ingredient of the selected working that the bag can spare. */
+  private fillFromInventory(): void {
+    const spell = this.selectedSpellId
+      ? gameState.getSpells().find((s) => s.id === this.selectedSpellId)
+      : null;
+    if (!spell || !this.isSpellUnlocked(spell)) return;
+    for (const ingredient of spell.ingredients) {
+      this.addItemToPentacle(ingredient.itemId, ingredient.quantity);
+    }
+    this.render();
   }
 
   /** Right-click inventory — place on pentacle (full spell qty if selected) */

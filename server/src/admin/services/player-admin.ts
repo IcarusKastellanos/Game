@@ -2,6 +2,10 @@ import { prisma } from '../../services/db.js';
 import { writeAuditLog, type AuditContext } from '../audit.js';
 import {
   magicalEnergyCap,
+  playerLevelFromExperience,
+  experienceForLevel,
+  experienceCap,
+  getMaxPlayerLevel,
   migrateInventoryToGrid,
   loadInventoryFromDbRows,
   applySlotIndicesForSave,
@@ -281,6 +285,35 @@ export async function moderatePlayer(
     reason,
   });
   return mod;
+}
+
+/** Add practitioner XP, or raise the player one or more levels on the live curve. */
+export async function grantPlayerExperience(
+  ctx: AuditContext,
+  playerId: string,
+  grant: { xp?: number; levels?: number },
+  reason?: string
+) {
+  const stats = await prisma.playerStats.findUnique({ where: { playerId } });
+  if (!stats) throw new Error('Player not found');
+
+  let experience = Math.max(0, stats.experience ?? 0);
+  const addLevels = Math.max(0, Math.floor(grant.levels ?? 0));
+  if (addLevels > 0) {
+    const current = playerLevelFromExperience(experience);
+    const target = Math.min(getMaxPlayerLevel(), current + addLevels);
+    experience = Math.max(experience, experienceForLevel(target));
+  }
+  const addXp = Math.max(0, Math.floor(grant.xp ?? 0));
+  if (addXp > 0) experience = Math.min(experienceCap(), experience + addXp);
+  experience = Math.min(experienceCap(), experience);
+
+  await updatePlayerStats(ctx, playerId, { experience }, reason ?? 'Admin experience grant');
+  return {
+    experience,
+    level: playerLevelFromExperience(experience),
+    maxLevel: getMaxPlayerLevel(),
+  };
 }
 
 export async function healPlayer(ctx: AuditContext, playerId: string, reason?: string) {

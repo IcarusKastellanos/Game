@@ -57,8 +57,37 @@ function syncCurveFile(doc: LevelDocument): void {
   writeContentObject('progression/level-curve.json', curve);
 }
 
+/**
+ * contentRegistry.load() rereads maps.json and ingredients.json. Keep the live
+ * apartment/town and any editor-saved sprites so a level save cannot wipe them
+ * before the database overlay is applied again.
+ */
+function preserveLiveOverlays(): () => void {
+  const maps = new Map(contentRegistry.maps);
+  const icons = new Map<string, string[]>();
+  for (const [id, item] of contentRegistry.ingredients) {
+    if (item.iconPixels?.length === 256) icons.set(id, [...item.iconPixels]);
+  }
+  const sprites = new Map<string, string[]>();
+  for (const [id, npc] of contentRegistry.npcs) {
+    if (npc.spritePixels?.length === 256) sprites.set(id, [...npc.spritePixels]);
+  }
+  return () => {
+    for (const [id, map] of maps) contentRegistry.maps.set(id, map);
+    for (const [id, pixels] of icons) {
+      const item = contentRegistry.ingredients.get(id);
+      if (item) contentRegistry.ingredients.set(id, { ...item, iconPixels: pixels });
+    }
+    for (const [id, pixels] of sprites) {
+      const npc = contentRegistry.npcs.get(id);
+      if (npc) contentRegistry.npcs.set(id, { ...npc, spritePixels: pixels });
+    }
+  };
+}
+
 /** Persist the level document and push unlocks into spell/recipe/shop/quest content. */
 export function saveLevelDocument(raw: unknown): LevelDocument {
+  const restoreOverlays = preserveLiveOverlays();
   // normalizeLevelDocument drops legacy keys (e.g. familiarIds) and enforces exclusive unlocks.
   const doc = normalizeLevelDocument(raw);
   writeContentObject('progression/levels.json', doc);
@@ -69,5 +98,6 @@ export function saveLevelDocument(raw: unknown): LevelDocument {
   syncListMinLevel<ContentQuest>('quests.json', doc, 'questIds');
   syncShopListings(doc);
   contentRegistry.load();
+  restoreOverlays();
   return doc;
 }
