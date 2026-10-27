@@ -204,6 +204,12 @@ export class ChatPanel {
     const text = this.inputEl.value.trim();
     if (!text) return;
 
+    if (text.toLowerCase() === '/apanel') {
+      this.inputEl.value = '';
+      window.dispatchEvent(new CustomEvent('game:toggle-admin-panel'));
+      return;
+    }
+
     if (isPlayerSilenced(this.localAura())) {
       this.inputEl.value = '';
       this.log('System', SILENCED_CHAT_MESSAGE, 'system');

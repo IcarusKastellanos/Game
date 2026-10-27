@@ -311,7 +311,7 @@ export class HUDWindows {
           <li><kbd>M</kbd> Map · <kbd>I</kbd> Inventory · <kbd>J</kbd> Journal</li>
           <li><kbd>Y</kbd> Ledger · <kbd>X</kbd> Aura · <kbd>F</kbd> Familiar · <kbd>P</kbd> Friends</li>
         </ul>
-        ${gameState.isAdmin ? '<p class="hud-muted">Admin: F1 console · admin panel port 5174</p>' : ''}
+        ${gameState.isAdmin ? '<p class="hud-muted">Admin: /apanel opens the panel · ` opens the console · admin site on port 5174</p>' : ''}
       </div>`);
 
     w.body.querySelector('#set-nav-collapsed')?.addEventListener('change', (e) => {
