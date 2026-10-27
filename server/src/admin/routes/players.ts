@@ -15,6 +15,7 @@ import {
   getAdminInventorySlots,
   moderatePlayer,
   healPlayer,
+  grantPlayerExperience,
   modifyAura,
   updatePlayerProfile,
   deletePlayer,
@@ -127,6 +128,29 @@ playersRouter.post('/:id/recipes/forget', requirePerm('player.edit'), async (req
       req.body?.reason ?? 'Admin revoke recipe'
     );
     res.json({ ok: true, progression });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(message === 'Player not found' ? 404 : 400).json({ error: message });
+  }
+});
+
+playersRouter.post('/:id/experience', requirePerm('player.edit'), async (req: AdminRequest, res) => {
+  const xp = Number(req.body?.xp ?? 0);
+  const levels = Number(req.body?.levels ?? 0);
+  if ((!Number.isFinite(xp) || xp === 0) && (!Number.isFinite(levels) || levels === 0)) {
+    return res.status(400).json({ error: 'xp or levels required' });
+  }
+  try {
+    const result = await grantPlayerExperience(
+      auditContext(req),
+      param(req, 'id'),
+      {
+        xp: Number.isFinite(xp) ? xp : 0,
+        levels: Number.isFinite(levels) ? levels : 0,
+      },
+      req.body?.reason ?? 'Admin experience grant'
+    );
+    res.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     res.status(message === 'Player not found' ? 404 : 400).json({ error: message });

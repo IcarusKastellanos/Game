@@ -69,7 +69,8 @@ export { getMaxPlayerLevel };
 
 // ── Survival (hunger / stamina) ─────────────────────────────────────────────
 // Rates default from progression-content (hydrated from content/progression/stats.json on server boot).
-export const HUNGER_DECAY_PER_MINUTE = 0.5;
+/** Two-thirds of the previous 0.5-per-minute drain. Live ticks read getSurvivalConfig(). */
+export const HUNGER_DECAY_PER_MINUTE = 1 / 3;
 export const HUNGER_LOW_THRESHOLD = 20;
 export const HUNGER_CRITICAL_THRESHOLD = 10;
 export const STAMINA_REGEN_PER_MINUTE = { idle: 3, eating: 6, sleeping: 12 } as const;

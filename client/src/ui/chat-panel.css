@@ -25,6 +25,10 @@
 }
 
 .chat-panel-shell.collapsed {
+  height: auto;
+}
+
+.chat-panel-shell.collapsed .chat-panel-log {
   display: none;
 }
 

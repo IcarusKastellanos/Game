@@ -104,6 +104,7 @@ import { handleIngameAdminPanel } from '../admin/ingame-panel.js';
 import { setOnlinePlayerCount } from '../admin/services/dashboard.js';
 import { assertPlayerAuth } from '../services/player-auth.js';
 import { chatService, type ChatPayload } from '../services/chat-service.js';
+import { censorChatMessage } from '../systems/chat-filter.js';
 import type { PermissionSlug } from '@witchcraft/shared';
 import { registerGameRoom, unregisterGameRoom } from './game-room-registry.js';
 import { SlidingWindowRateLimiter } from '../utils/rate-limit.js';
@@ -2151,13 +2152,13 @@ export class GameRoom extends Room<GameRoomState> {
         this.sendSystemChat(client, 'Usage: /msg "Display Name" your message');
         return;
       }
-      this.deliverWhisper(client, player, parsed.target.sessionId, parsed.message, ts);
+      this.deliverWhisper(client, player, parsed.target.sessionId, censorChatMessage(parsed.message), ts);
       return;
     }
 
     // /g or /global prefix
     if (raw.startsWith('/g ') || raw.startsWith('/global ')) {
-      const text = raw.replace(/^\/(g|global)\s+/i, '').trim();
+      const text = censorChatMessage(raw.replace(/^\/(g|global)\s+/i, '').trim());
       if (!text) return;
       const payload: ChatPayload = {
         from: player.displayName,
@@ -2172,12 +2173,13 @@ export class GameRoom extends Room<GameRoomState> {
     }
 
     const channel = msg.channel ?? 'local';
+    const spoken = censorChatMessage(raw);
 
     if (channel === 'global') {
       const payload: ChatPayload = {
         from: player.displayName,
         fromSessionId: client.sessionId,
-        message: raw,
+        message: spoken,
         channel: 'global',
         scene: this.state.scene,
         timestamp: ts,
@@ -2190,7 +2192,7 @@ export class GameRoom extends Room<GameRoomState> {
     const payload: ChatPayload = {
       from: player.displayName,
       fromSessionId: client.sessionId,
-      message: raw,
+      message: spoken,
       channel: 'local',
       scene: player.scene,
       timestamp: ts,

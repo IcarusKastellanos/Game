@@ -17,6 +17,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   protected controller!: PlayerController;
   protected remotePlayers = new Map<string, Phaser.GameObjects.Sprite>();
   protected remoteNameLabels = new Map<string, Phaser.GameObjects.Text>();
+  private speechBubbles = new Map<string, { root: Phaser.GameObjects.Container; until: number }>();
   protected interactables!: Phaser.GameObjects.Group;
   protected furnitureLayer!: Phaser.GameObjects.Group;
   protected floorLayer!: Phaser.GameObjects.Group;
@@ -114,6 +115,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
         window.removeEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
         window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
         window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+        window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
       });
       window.addEventListener('game:admin-tp', this.onAdminTp as EventListener);
       window.addEventListener('game:admin-heal', this.onAdminHeal as EventListener);
@@ -123,6 +125,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       window.addEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
       window.addEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
       window.addEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+      window.addEventListener('game:chat', this.onLocalSpeech as EventListener);
 
       // Register sync handler only after player sprite exists
       network.onPlayersChange = () => this.syncRemotePlayers();
@@ -194,6 +197,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     applyWorldDepthSort(this.player, this.furnitureLayer, this.remotePlayers, this.remoteNameLabels);
     network.tickWorldSync(delta);
     this.syncRemotePlayers();
+    this.tickSpeechBubbles();
   }
 
   shutdown(): void {
@@ -209,6 +213,9 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     window.removeEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
     window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
     window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+    window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
+    this.speechBubbles.forEach((bubble) => bubble.root.destroy());
+    this.speechBubbles.clear();
     network.onPlayersChange = undefined;
     this.remotePlayers.forEach((s) => s.destroy());
     this.remotePlayers.clear();
@@ -431,5 +438,81 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     this.remotePlayers.delete(sessionId);
     this.remoteNameLabels.get(sessionId)?.destroy();
     this.remoteNameLabels.delete(sessionId);
+    this.speechBubbles.get(sessionId)?.root.destroy();
+    this.speechBubbles.delete(sessionId);
+  }
+
+  private onLocalSpeech = (ev: Event): void => {
+    const detail = (ev as CustomEvent<{ channel?: string; message?: string; fromSessionId?: string; from?: string }>).detail;
+    if (!detail || detail.channel !== 'local' || !detail.message?.trim()) return;
+    const sessionId = this.sessionForSpeaker(detail.fromSessionId, detail.from);
+    if (!sessionId) return;
+    this.showSpeechBubble(sessionId, detail.message.trim());
+  };
+
+  private sessionForSpeaker(sessionId?: string, name?: string): string | null {
+    if (sessionId) return sessionId;
+    if (!name) return null;
+    if (gameState.displayName === name) return network.getLocalSessionId();
+    let found: string | null = null;
+    network.forEachSyncedPlayer((id, player) => {
+      if (player.displayName === name) found = id;
+    });
+    return found;
+  }
+
+  private speakerPoint(sessionId: string): { x: number; y: number } | null {
+    if (sessionId === network.getLocalSessionId() && this.player?.active) {
+      return { x: this.player.x, y: this.player.y - 28 };
+    }
+    const remote = this.remotePlayers.get(sessionId);
+    if (!remote?.active) return null;
+    return { x: remote.x, y: remote.y - 28 };
+  }
+
+  private showSpeechBubble(sessionId: string, message: string): void {
+    this.speechBubbles.get(sessionId)?.root.destroy();
+    const spoken = message.length > 140 ? `${message.slice(0, 137)}…` : message;
+    const label = this.add
+      .text(0, 0, spoken, {
+        fontFamily: 'Georgia, "Palatino Linotype", serif',
+        fontSize: '7px',
+        color: '#3b2412',
+        align: 'center',
+        wordWrap: { width: 92 },
+      })
+      .setOrigin(0.5, 0.5);
+    const width = Math.max(56, label.width + 18);
+    const height = label.height + 14;
+    const plate = this.add.graphics();
+    plate.fillStyle(0xf8edd4, 0.96);
+    plate.lineStyle(2, 0xc4a15a, 1);
+    plate.fillRoundedRect(-width / 2, -height - 8, width, height, 8);
+    plate.strokeRoundedRect(-width / 2, -height - 8, width, height, 8);
+    plate.fillStyle(0xf8edd4, 0.96);
+    plate.fillTriangle(-6, -8, 6, -8, 0, 2);
+    label.setPosition(0, -height / 2 - 8);
+    const root = this.add.container(0, 0, [plate, label]);
+    root.setDepth(8000);
+    const point = this.speakerPoint(sessionId);
+    if (point) root.setPosition(point.x, point.y);
+    this.speechBubbles.set(sessionId, {
+      root,
+      until: this.time.now + Math.min(9000, 2800 + spoken.length * 45),
+    });
+  }
+
+  private tickSpeechBubbles(): void {
+    const now = this.time.now;
+    for (const [sessionId, bubble] of this.speechBubbles) {
+      if (now >= bubble.until) {
+        bubble.root.destroy();
+        this.speechBubbles.delete(sessionId);
+        continue;
+      }
+      const point = this.speakerPoint(sessionId);
+      if (!point) continue;
+      bubble.root.setPosition(point.x, point.y);
+    }
   }
 }

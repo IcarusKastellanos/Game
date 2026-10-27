@@ -22,6 +22,7 @@ export * from './progression/level-curve.js';
 export * from './progression/level-profiles.js';
 export * from './progression/recognition.js';
 export * from './progression/licenses.js';
+export * from './chat/filter.js';
 export * from './hexagram/index.js';
 export * from './pocket-spell/index.js';
 export * from './cleanser/index.js';

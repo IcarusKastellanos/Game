@@ -8,24 +8,26 @@ import { renderMapBuilder } from './map-builder/index.js';
 import { renderHudBuilder } from './hud-builder/index.js';
 import { renderLevelEditor } from './editors/level-editor.js';
 import { renderLicenseEditor } from './editors/license-editor.js';
+import { renderModerator } from './editors/moderator.js';
 
-type Page = 'dashboard' | 'players' | 'spells' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
+type Page = 'dashboard' | 'players' | 'moderator' | 'spells' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
 
-const NAV: { id: Page; label: string; perm?: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', perm: 'dashboard.view' },
-  { id: 'players', label: 'Player Manager', perm: 'player.view' },
-  { id: 'spells', label: 'Spell Editor', perm: 'content.spell.view' },
-  { id: 'levels', label: 'Level Editor', perm: 'content.spell.view' },
-  { id: 'licenses', label: 'License Editor', perm: 'content.spell.view' },
-  { id: 'recipes', label: 'Recipe Manager', perm: 'content.item.view' },
-  { id: 'items', label: 'Item Editor', perm: 'content.item.view' },
-  { id: 'npcs', label: 'NPC Builder', perm: 'content.npc.view' },
-  { id: 'maps', label: 'Map Builder', perm: 'content.map.view' },
-  { id: 'hud', label: 'Player HUD', perm: 'content.hud.view' },
-  { id: 'wards', label: 'Ward Manager', perm: 'ward.view' },
-  { id: 'spirits', label: 'Spirit Builder', perm: 'content.spirit.edit' },
-  { id: 'events', label: 'Event Manager', perm: 'content.event.edit' },
-  { id: 'audit', label: 'Audit Log', perm: 'audit.view' },
+const NAV: { id: Page; label: string; perm?: string; group: string }[] = [
+  { id: 'dashboard', label: 'Dashboard', perm: 'dashboard.view', group: 'Overview' },
+  { id: 'players', label: 'Player Manager', perm: 'player.view', group: 'People' },
+  { id: 'moderator', label: 'Moderator', perm: 'player.moderate', group: 'People' },
+  { id: 'spells', label: 'Spell Editor', perm: 'content.spell.view', group: 'Content' },
+  { id: 'levels', label: 'Level Editor', perm: 'content.spell.view', group: 'Content' },
+  { id: 'licenses', label: 'License Editor', perm: 'content.spell.view', group: 'Content' },
+  { id: 'recipes', label: 'Recipe Manager', perm: 'content.item.view', group: 'Content' },
+  { id: 'items', label: 'Item Editor', perm: 'content.item.view', group: 'Content' },
+  { id: 'npcs', label: 'NPC Builder', perm: 'content.npc.view', group: 'World' },
+  { id: 'maps', label: 'Map Builder', perm: 'content.map.view', group: 'World' },
+  { id: 'hud', label: 'Player HUD', perm: 'content.hud.view', group: 'World' },
+  { id: 'wards', label: 'Ward Manager', perm: 'ward.view', group: 'World' },
+  { id: 'spirits', label: 'Spirit Builder', perm: 'content.spirit.edit', group: 'World' },
+  { id: 'events', label: 'Event Manager', perm: 'content.event.edit', group: 'World' },
+  { id: 'audit', label: 'Audit Log', perm: 'audit.view', group: 'Records' },
 ];
 
 let session: Awaited<ReturnType<typeof getMe>>['session'] | null = null;
@@ -77,12 +79,18 @@ function renderLogin(root: HTMLElement): void {
 function renderShell(root: HTMLElement): void {
   const perms = new Set(session?.permissions ?? []);
   const navItems = NAV.filter((n) => !n.perm || perms.has(n.perm));
+  let lastGroup = '';
+  const navHtml = navItems.map((n) => {
+    const heading = n.group !== lastGroup ? `<div class="nav-label">${n.group}</div>` : '';
+    lastGroup = n.group;
+    return `${heading}<a href="#" data-page="${n.id}">${n.label}</a>`;
+  }).join('');
 
   root.innerHTML = `
     <div class="layout">
       <aside class="sidebar">
         <div class="brand">Witchcraft Admin</div>
-        <nav id="nav">${navItems.map((n) => `<a href="#" data-page="${n.id}">${n.label}</a>`).join('')}</nav>
+        <nav id="nav">${navHtml}</nav>
       </aside>
       <div class="main">
         <div class="topbar">
@@ -119,6 +127,7 @@ async function loadPage(): Promise<void> {
   switch (currentPage) {
     case 'dashboard': return renderDashboard(el);
     case 'players': return renderPlayers(el);
+    case 'moderator': return renderModerator(el);
     case 'spells':
       if (editSpellId === '__new__' || editSpellId) {
         return renderSpellEditor(el, editSpellId, () => { editSpellId = null; void loadPage(); });
@@ -223,14 +232,16 @@ async function showPlayer(id: string): Promise<void> {
     }
     return 'crafts';
   };
-  const playerLevel = Math.min(10, 1 + Math.floor((stats.experience ?? 0) / 100));
   const statFields = ['health', 'hunger', 'stamina', 'magicalEnergy', 'protection', 'intuition', 'spiritualAwareness', 'ritualSkill', 'experience', 'reputation', 'publicReputation', 'spiritualReputation', 'morality', 'divinationSkill', 'herbalism', 'cursecraft', 'warding', 'healing', 'willpower', 'memory', 'presence', 'authority', 'mediumship', 'potionMaking', 'spiritNegotiation'];
   const el = document.getElementById('content')!;
   el.innerHTML = `
     <button class="btn secondary" id="back">← Back</button>
     <div class="card mt"><h2>${p.displayName} (<span style="color:#fc8">${p.username}</span>)</h2>
-      <p style="font-size:11px;color:#888;">Level ${playerLevel} · XP ${stats.experience ?? 0}</p>
-      <div class="flex mt" style="gap:8px;flex-wrap:wrap;">
+      <p class="lede">Practitioner XP ${stats.experience ?? 0}. Add XP adds that many points. Add Player Level raises one rank on the live curve.</p>
+      <div class="flex mt" style="gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="grant-xp" type="number" min="1" value="100" style="width:110px;" />
+        <button class="btn" id="add-xp" type="button">Add XP</button>
+        <button class="btn" id="add-level" type="button">Add Player Level</button>
         <button class="btn" id="heal">Heal</button>
         <button class="btn danger" id="ban">Ban</button>
         <button class="btn danger" id="delete-player">Delete from DB</button>
@@ -318,6 +329,32 @@ async function showPlayer(id: string): Promise<void> {
   document.getElementById('recipe-filter')!.onchange = renderRecipeList;
   renderRecipeList();
   document.getElementById('back')!.onclick = () => { currentPage = 'players'; void loadPage(); };
+  document.getElementById('add-xp')!.onclick = async () => {
+    const xp = Number((document.getElementById('grant-xp') as HTMLInputElement).value);
+    if (!Number.isFinite(xp) || xp <= 0) return;
+    try {
+      const result = await api<{ level: number; experience: number }>(`/players/${id}/experience`, {
+        method: 'POST',
+        body: JSON.stringify({ xp, reason: 'Admin add XP' }),
+      });
+      alert(`XP is now ${result.experience}. Practitioner level ${result.level}.`);
+      void showPlayer(id);
+    } catch (e) {
+      alert(String(e));
+    }
+  };
+  document.getElementById('add-level')!.onclick = async () => {
+    try {
+      const result = await api<{ level: number; experience: number; maxLevel: number }>(`/players/${id}/experience`, {
+        method: 'POST',
+        body: JSON.stringify({ levels: 1, reason: 'Admin add player level' }),
+      });
+      alert(`Practitioner level ${result.level} of ${result.maxLevel}. XP ${result.experience}.`);
+      void showPlayer(id);
+    } catch (e) {
+      alert(String(e));
+    }
+  };
   document.getElementById('heal')!.onclick = async () => {
     await api(`/players/${id}/heal`, { method: 'POST', body: JSON.stringify({ reason: 'Admin heal' }) });
     alert('Healed');

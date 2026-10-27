@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { contentRegistry } from './content/registry.js';
+import { loadChatFilter } from './systems/chat-filter.js';
 import { mergeIngredientIconsFromDb } from './content/ingredient-icons.js';
 import { mergeNpcSpritesFromDb } from './content/npc-sprites.js';
 import { contentRouter, adminRouter } from './routes/content-admin.js';
@@ -17,6 +18,7 @@ const PORT = Number(process.env.PORT ?? 2567);
 
 async function main() {
   contentRegistry.load();
+  loadChatFilter();
   await mergeIngredientIconsFromDb();
   await mergeNpcSpritesFromDb();
   const mergedMaps = await contentRegistry.mergePublishedMaps();

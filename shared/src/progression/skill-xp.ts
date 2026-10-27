@@ -11,10 +11,13 @@ export function isTechnicalSkillKey(key: string): key is TechnicalSkillKey {
   return (TECHNICAL_SKILL_KEYS as readonly string[]).includes(key);
 }
 
-/** XP required to raise a technical skill by one point at the given skill level. */
+/**
+ * Practice required to raise a technical skill one rank.
+ * The cost climbs with the current rank, so later aptitude takes longer to earn.
+ */
 export function skillXpThreshold(skillLevel: number): number {
   const level = Math.max(0, Math.floor(skillLevel));
-  return Math.max(25, Math.round(40 + level * 20));
+  return Math.max(20, Math.round(24 + level * 10 + level * level * 3));
 }
 
 export function getSkillXp(progression: PlayerProgression, skillKey: TechnicalSkillKey): number {

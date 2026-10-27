@@ -123,7 +123,7 @@ const DEFAULT_FOCUS_WEIGHTS: Record<string, FocusWeightCategory> = {
 };
 
 const DEFAULT_SURVIVAL: SurvivalConfig = {
-  hungerDecayPerMinute: 0.5,
+  hungerDecayPerMinute: 1 / 3,
   lowThreshold: 20,
   criticalThreshold: 10,
   staminaRegenPerMinute: { idle: 3, eating: 6, sleeping: 12 },

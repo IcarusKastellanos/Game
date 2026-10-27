@@ -67,7 +67,6 @@ export class UIScene extends Phaser.Scene {
       openSpells: () => this.openHudWindow('spells'),
       openSocial: () => {
         this.openHudWindow('social');
-        friendsPanel.show();
       },
       openCoven: () => this.openHudWindow('coven'),
       openTeleport: () => this.openHudWindow('teleport'),
@@ -91,6 +90,7 @@ export class UIScene extends Phaser.Scene {
       },
     });
 
+    window.addEventListener('game:open-friends', () => friendsPanel.show());
     window.addEventListener('game:book-open', this.onBookOpen as EventListener);
     window.addEventListener('game:specialty-offer', this.onSpecialtyOffer as EventListener);
 
@@ -111,8 +111,6 @@ export class UIScene extends Phaser.Scene {
     }));
     this.input.keyboard?.on('keydown-K', guard(() => this.openHudWindow('spells')));
     this.input.keyboard?.on('keydown-N', guard(() => {
-      this.closeAll();
-      friendsPanel.show();
       this.openHudWindow('social');
     }));
     this.input.keyboard?.on('keydown-C', guard(() => this.openHudWindow('coven')));

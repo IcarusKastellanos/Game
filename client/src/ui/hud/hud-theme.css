@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=EB+Garamond:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=EB+Garamond:ital@0;1&family=MedievalSharp&display=swap');
 
 :root.practitioner-hud-theme {
   --hud-user-scale: 1;
@@ -1111,6 +1111,49 @@ body.hud-expanded #hud-resources {
   border-bottom: 1px solid rgba(212, 175, 106, 0.12);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.hud-grimoire__marks {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.hud-grimoire__mark {
+  min-width: 36px;
+  padding: 6px 8px;
+  font-family: 'Cinzel', Georgia, serif;
+  letter-spacing: 0.06em;
+  color: var(--text-dim, #b7a8c4);
+  background: rgba(12, 8, 18, 0.35);
+  border: 1px solid rgba(212, 175, 106, 0.28);
+  cursor: pointer;
+}
+
+.hud-grimoire__mark.is-active {
+  color: #2a1608;
+  background: #e8c98a;
+  border-color: #e8c98a;
+}
+
+.hud-grimoire__note {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px 18px;
+  resize: vertical;
+  font-family: 'MedievalSharp', 'Cinzel', Georgia, serif;
+  font-size: 22px;
+  line-height: 1.45;
+  color: #f6ead2;
+  background: rgba(12, 8, 18, 0.45);
+  border: 1px solid rgba(212, 175, 106, 0.4);
+}
+
+.hud-grimoire__note:focus {
+  outline: 1px solid rgba(232, 201, 138, 0.7);
 }
 
 .hud-teleport__door {

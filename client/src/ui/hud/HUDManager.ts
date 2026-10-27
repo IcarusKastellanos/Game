@@ -225,7 +225,9 @@ export class HUDManager {
     window.addEventListener('game:hud-action', (e: Event) => {
       const action = (e as CustomEvent<{ action: string }>).detail.action;
       if (action === 'teleport-home') this.controller?.teleportHome();
-      if (action === 'social-friends') this.controller?.openSocial();
+      if (action === 'social-friends') {
+        window.dispatchEvent(new CustomEvent('game:open-friends'));
+      }
       if (action === 'social-chat') {
         window.dispatchEvent(new CustomEvent('game:focus-chat', { detail: {} }));
       }

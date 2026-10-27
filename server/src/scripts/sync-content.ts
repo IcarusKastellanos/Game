@@ -16,6 +16,12 @@ async function syncContent() {
 
   for (const ing of load<Record<string, unknown>>('ingredients.json')) {
     const iconPixels = ing.iconPixels as string[] | undefined;
+    const existing = await prisma.contentIngredient.findUnique({
+      where: { id: ing.id as string },
+      select: { data: true },
+    });
+    const stored = (existing?.data ?? {}) as { iconPixels?: string[] | null };
+    const keptPixels = stored.iconPixels?.length === 256 ? stored.iconPixels : (iconPixels ?? null);
     await prisma.contentIngredient.upsert({
       where: { id: ing.id as string },
       create: {
@@ -32,7 +38,7 @@ async function syncContent() {
       update: {
         name: ing.name as string,
         description: ing.description as string,
-        data: { iconPixels: iconPixels ?? null },
+        data: { ...(stored ?? {}), iconPixels: keptPixels },
       },
     });
   }

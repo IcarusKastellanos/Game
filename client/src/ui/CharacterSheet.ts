@@ -64,7 +64,7 @@ const GROUP_COPY: Record<'core' | 'mental' | 'technical', { title: string; lead:
   },
   technical: {
     title: 'The craft',
-    lead: 'Practiced skills. Each point is earned; the thin bar beneath is skill practice toward the next.',
+    lead: 'Practiced skills. The rank is your aptitude. Practice fills the bar, and each next rank asks for more than the last.',
   },
 };
 
@@ -425,7 +425,7 @@ export class CharacterSheet {
         <div class="ledger-bar ledger-bar--skill" role="meter" aria-label="Skill practice" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
           <span style="width:${pct}%"></span>
         </div>
-        <p class="dim">Practice ${prog.xp} / ${prog.xpToNext}</p>`;
+        <p class="dim">Practice ${prog.xp} / ${prog.xpToNext}. Rank ${value} is your aptitude.</p>`;
     }
     return `
       <article class="ledger-stat">
