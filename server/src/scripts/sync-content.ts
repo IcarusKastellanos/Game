@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prisma } from '../services/db.js';
+import { isLegacyProceduralIcon } from '../content/legacy-icon-hashes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTENT_DIR = resolve(__dirname, '../../../content');
@@ -21,7 +22,10 @@ async function syncContent() {
       select: { data: true },
     });
     const stored = (existing?.data ?? {}) as { iconPixels?: string[] | null };
-    const keptPixels = stored.iconPixels?.length === 256 ? stored.iconPixels : (iconPixels ?? null);
+    const keptPixels =
+      stored.iconPixels?.length === 256 && !isLegacyProceduralIcon(stored.iconPixels)
+        ? stored.iconPixels
+        : (iconPixels ?? null);
     await prisma.contentIngredient.upsert({
       where: { id: ing.id as string },
       create: {
