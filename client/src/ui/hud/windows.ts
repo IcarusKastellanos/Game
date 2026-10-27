@@ -210,7 +210,7 @@ export class HUDWindows {
       <div class="hud-social">
         <p>The circle is who you write to. The street is who is close enough to greet.</p>
         <div class="hud-social__actions">
-          <button type="button" class="hud-btn" id="social-open-friends">Open the circle <kbd>P</kbd></button>
+          <button type="button" class="hud-btn" id="social-open-friends">Open friends</button>
           <button type="button" class="hud-btn" id="social-open-chat">Open chat</button>
         </div>
         <h3>Nearby practitioners</h3>
@@ -307,9 +307,9 @@ export class HUDWindows {
         <h3>Keys</h3>
         <ul class="hud-list hud-list--keys">
           <li><kbd>B</kbd> Bag · <kbd>G</kbd> Grimoire · <kbd>K</kbd> Spells</li>
-          <li><kbd>N</kbd> Social · <kbd>C</kbd> Coven · <kbd>T</kbd> Wayfinding</li>
+          <li><kbd>N</kbd> or <kbd>P</kbd> Social Circle · <kbd>C</kbd> Coven · <kbd>T</kbd> Wayfinding</li>
           <li><kbd>M</kbd> Map · <kbd>I</kbd> Inventory · <kbd>J</kbd> Journal</li>
-          <li><kbd>Y</kbd> Ledger · <kbd>X</kbd> Aura · <kbd>F</kbd> Familiar · <kbd>P</kbd> Friends</li>
+          <li><kbd>Y</kbd> Ledger · <kbd>X</kbd> Aura · <kbd>F</kbd> Familiar</li>
         </ul>
         ${gameState.isAdmin ? '<p class="hud-muted">Admin: /apanel opens the panel · ` opens the console · admin site on port 5174</p>' : ''}
       </div>`);

@@ -116,7 +116,11 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-C', guard(() => this.openHudWindow('coven')));
     this.input.keyboard?.on('keydown-H', guard(() => this.openHudWindow('teleport')));
     this.input.keyboard?.on('keydown-M', guard(() => this.openHudWindow('map')));
-    this.input.keyboard?.on('keydown-P', guard(() => { this.closeAll(); friendsPanel.show(); }));
+    this.input.keyboard?.on('keydown-P', guard(() => {
+      friendsPanel.hide();
+      hudWindows.renderWindow('social');
+      hudWindows.get('social')?.show();
+    }));
     this.input.keyboard?.on('keydown-X', guard(() => this.togglePanel('aura')));
     this.input.keyboard?.on('keydown-Y', guard(() => this.toggleLedger()));
     window.addEventListener('game:open-character-sheet', () => this.toggleLedger());
