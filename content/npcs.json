@@ -7,11 +7,27 @@
     "schedule": [
       {
         "hour": 9,
-        "locationId": "metaphysical_shop"
+        "endHour": 18,
+        "locationId": "metaphysical_shop",
+        "activity": "tending the counter",
+        "interaction": "open",
+        "movement": "still"
       },
       {
-        "hour": 20,
-        "locationId": "apartment_building"
+        "hour": 18,
+        "endHour": 21,
+        "locationId": "market",
+        "activity": "buying supper",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 21,
+        "endHour": 9,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -31,7 +47,35 @@
     "schedule": [
       {
         "hour": 7,
-        "locationId": "grocery"
+        "endHour": 15,
+        "locationId": "grocery",
+        "activity": "minding the grocery",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 15,
+        "endHour": 18,
+        "locationId": "park",
+        "activity": "walking the green",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 18,
+        "endHour": 21,
+        "locationId": "cafe",
+        "activity": "taking supper",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 21,
+        "endHour": 7,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -47,7 +91,27 @@
     "schedule": [
       {
         "hour": 8,
-        "locationId": "pharmacy"
+        "endHour": 15,
+        "locationId": "pharmacy",
+        "activity": "filling orders",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 15,
+        "endHour": 18,
+        "locationId": "library",
+        "activity": "checking references",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 18,
+        "endHour": 8,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -63,7 +127,44 @@
     "schedule": [
       {
         "hour": 10,
-        "locationId": "library"
+        "endHour": 13,
+        "locationId": "library",
+        "activity": "opening the stacks",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 13,
+        "endHour": 15,
+        "locationId": "cafe",
+        "activity": "taking a meal",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 15,
+        "endHour": 19,
+        "locationId": "library",
+        "activity": "teaching a reading",
+        "interaction": "busy",
+        "movement": "still",
+        "dialogueNodeId": "study"
+      },
+      {
+        "hour": 19,
+        "endHour": 22,
+        "locationId": "park",
+        "activity": "taking the evening air",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 22,
+        "endHour": 10,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -76,12 +177,40 @@
   {
     "id": "npc_cafe_owner",
     "name": "Silas Moore",
-    "role": "Caf\u00e9 Owner",
+    "role": "Café Owner",
     "locationId": "cafe",
     "schedule": [
       {
         "hour": 6,
-        "locationId": "cafe"
+        "endHour": 11,
+        "locationId": "cafe",
+        "activity": "pouring the morning service",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 11,
+        "endHour": 14,
+        "locationId": "market",
+        "activity": "buying provisions",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 14,
+        "endHour": 21,
+        "locationId": "cafe",
+        "activity": "pouring the evening service",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 21,
+        "endHour": 6,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -95,8 +224,36 @@
     "locationId": "study_circle",
     "schedule": [
       {
-        "hour": 18,
-        "locationId": "study_circle"
+        "hour": 8,
+        "endHour": 12,
+        "locationId": "park",
+        "activity": "walking the grounds",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 12,
+        "endHour": 16,
+        "locationId": "library",
+        "activity": "preparing a lesson",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 16,
+        "endHour": 21,
+        "locationId": "study_circle",
+        "activity": "teaching the circle",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 21,
+        "endHour": 8,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -111,8 +268,44 @@
     "locationId": "study_circle",
     "schedule": [
       {
-        "hour": 10,
-        "locationId": "study_circle"
+        "hour": 9,
+        "endHour": 12,
+        "locationId": "council",
+        "activity": "hearing morning petitions",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 12,
+        "endHour": 13,
+        "locationId": "cafe",
+        "activity": "taking a short meal",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 13,
+        "endHour": 17,
+        "locationId": "council",
+        "activity": "hearing afternoon petitions",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 17,
+        "endHour": 19,
+        "locationId": "market",
+        "activity": "running errands",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 19,
+        "endHour": 9,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -130,8 +323,44 @@
     "locationId": "study_circle",
     "schedule": [
       {
+        "hour": 7,
+        "endHour": 9,
+        "locationId": "park",
+        "activity": "saying morning prayers",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
         "hour": 9,
-        "locationId": "study_circle"
+        "endHour": 14,
+        "locationId": "healer_office",
+        "activity": "seeing patients",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 14,
+        "endHour": 16,
+        "locationId": "cafe",
+        "activity": "taking a midday meal",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 16,
+        "endHour": 19,
+        "locationId": "healer_office",
+        "activity": "keeping the evening clinic",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 19,
+        "endHour": 7,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -146,8 +375,44 @@
     "locationId": "study_circle",
     "schedule": [
       {
-        "hour": 8,
-        "locationId": "study_circle"
+        "hour": 7,
+        "endHour": 12,
+        "locationId": "seal_yard",
+        "activity": "running the yard",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 12,
+        "endHour": 13,
+        "locationId": "market",
+        "activity": "taking a quick meal",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 13,
+        "endHour": 17,
+        "locationId": "seal_yard",
+        "activity": "working the afternoon shift",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 17,
+        "endHour": 20,
+        "locationId": "park",
+        "activity": "checking the bounds",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 20,
+        "endHour": 7,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,
@@ -162,8 +427,36 @@
     "locationId": "study_circle",
     "schedule": [
       {
-        "hour": 12,
-        "locationId": "study_circle"
+        "hour": 11,
+        "endHour": 14,
+        "locationId": "market",
+        "activity": "reading palms",
+        "interaction": "busy",
+        "movement": "pace"
+      },
+      {
+        "hour": 14,
+        "endHour": 19,
+        "locationId": "psychic_tent",
+        "activity": "seeing clients",
+        "interaction": "open",
+        "movement": "still"
+      },
+      {
+        "hour": 19,
+        "endHour": 22,
+        "locationId": "cafe",
+        "activity": "taking supper",
+        "interaction": "busy",
+        "movement": "still"
+      },
+      {
+        "hour": 22,
+        "endHour": 11,
+        "locationId": "apartment_building",
+        "activity": "sleeping",
+        "interaction": "away",
+        "movement": "still"
       }
     ],
     "relationshipLevel": 0,

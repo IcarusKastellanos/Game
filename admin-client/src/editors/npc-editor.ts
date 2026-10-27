@@ -10,13 +10,41 @@ import { mountSpritePixelEditor, spritePixelsToDataUrl } from '../components/spr
 
 const NPC_SPRITE_PX = 16;
 
+type ScheduleInteraction = 'open' | 'busy' | 'away';
+
+type ScheduleRow = {
+  hour: number;
+  endHour?: number;
+  locationId: string;
+  activity?: string;
+  days?: number[];
+  interaction?: ScheduleInteraction;
+  season?: string;
+  movement?: 'still' | 'pace';
+  dialogueNodeId?: string;
+  label?: string;
+};
+
+type ScheduleOverride = {
+  id: string;
+  active: boolean;
+  locationId: string;
+  activity?: string;
+  interaction?: ScheduleInteraction;
+  dialogueNodeId?: string;
+  priority?: number;
+};
+
+type NpcPlaceOption = { id: string; label?: string };
+
 type NpcRecord = {
   id: string;
   name: string;
   role: string;
   locationId: string;
   dialogueTreeId: string;
-  schedule: { hour: number; locationId: string }[];
+  schedule: ScheduleRow[];
+  scheduleOverride?: ScheduleOverride;
   relationshipLevel: number;
   magicalKnowledge: number;
   shopId?: string;
@@ -25,6 +53,74 @@ type NpcRecord = {
   spritePixels?: string[];
   revision?: number;
 };
+
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const INTERACTION_OPTIONS = [
+  { value: '', label: 'default' },
+  { value: 'open', label: 'open' },
+  { value: 'busy', label: 'busy' },
+  { value: 'away', label: 'away' },
+];
+
+function interactionOrUndefined(value: string): ScheduleInteraction | undefined {
+  if (value === 'open' || value === 'busy' || value === 'away') return value;
+  return undefined;
+}
+
+function routineRowHtml(
+  row: ScheduleRow,
+  index: number,
+  places: { value: string; label: string }[]
+): string {
+  const options = row.locationId && !places.some((place) => place.value === row.locationId)
+    ? [{ value: row.locationId, label: row.locationId }, ...places]
+    : places;
+  const days = new Set(row.days ?? [0, 1, 2, 3, 4, 5, 6]);
+  const dayBoxes = WEEKDAY_LABELS.map(
+    (label, day) =>
+      `<label class="muted-text"><input type="checkbox" id="routine-day-${index}-${day}" ${days.has(day) ? 'checked' : ''}/> ${label}</label>`
+  ).join(' ');
+  return `<div class="card mt">
+    <div class="form-grid">
+      ${field('Start hour', numberInput(`routine-hour-${index}`, row.hour))}
+      ${field('End hour', `<input id="routine-end-${index}" type="number" step="1" value="${row.endHour ?? ''}" />`)}
+      ${field('Place', selectInput(`routine-place-${index}`, options, row.locationId))}
+      ${field('Activity', textInput(`routine-activity-${index}`, row.activity ?? ''))}
+      ${field('Interaction', selectInput(`routine-interaction-${index}`, INTERACTION_OPTIONS, row.interaction ?? ''))}
+    </div>
+    <div class="mt">${dayBoxes}</div>
+    <button type="button" class="btn secondary mt" data-remove-routine="${index}">Remove row</button>
+  </div>`;
+}
+
+function cleanRoutineRows(rows: ScheduleRow[]): ScheduleRow[] {
+  return rows.map((row) => {
+    const next: ScheduleRow = { hour: row.hour, locationId: row.locationId };
+    if (typeof row.endHour === 'number' && Number.isFinite(row.endHour)) next.endHour = row.endHour;
+    if (row.activity) next.activity = row.activity;
+    if (row.days && row.days.length < 7) next.days = [...row.days];
+    if (row.interaction) next.interaction = row.interaction;
+    if (row.season) next.season = row.season;
+    if (row.movement) next.movement = row.movement;
+    if (row.dialogueNodeId) next.dialogueNodeId = row.dialogueNodeId;
+    if (row.label) next.label = row.label;
+    return next;
+  });
+}
+
+function cleanOverride(override: ScheduleOverride): ScheduleOverride | undefined {
+  const hasBody = override.active || !!override.locationId || !!override.activity || !!override.dialogueNodeId || !!override.interaction;
+  if (!hasBody) return undefined;
+  return {
+    id: override.id || 'override',
+    active: override.active,
+    locationId: override.locationId,
+    ...(override.activity ? { activity: override.activity } : {}),
+    ...(override.interaction ? { interaction: override.interaction } : {}),
+    ...(override.dialogueNodeId ? { dialogueNodeId: override.dialogueNodeId } : {}),
+    ...(typeof override.priority === 'number' ? { priority: override.priority } : {}),
+  };
+}
 
 type EdgeMeta = { relationshipDelta?: number; grantItem?: string; statBoost?: Record<string, number> };
 type AnnotatedEdge = GraphEdge & { meta?: EdgeMeta };
@@ -71,6 +167,13 @@ export async function renderNpcEditor(
     };
   }
 
+  let places: NpcPlaceOption[] = [];
+  try {
+    places = await api<NpcPlaceOption[]>('/content/npc-places');
+  } catch {
+    places = [];
+  }
+
   const graphData = dialogueToGraph({
     nodes: dialogue.nodes as { id: string; text: string; choices: { label: string; next: string }[] }[],
   });
@@ -111,6 +214,7 @@ export async function renderNpcEditor(
           ${field('Magical Knowledge', numberInput('npc-mk', npc.magicalKnowledge ?? 0))}
         </div>
         ${field('Faction', textInput('npc-faction', npc.faction ?? ''))}
+        <div id="npc-routine"></div>
         <h3 class="section-head mt">Overworld Sprite (16×16)</h3>
         <p class="muted-text">Drop an image to import, or paint pixels below. Used on maps when this NPC is placed.</p>
         <div id="npc-sprite-drop"></div>
@@ -156,6 +260,101 @@ export async function renderNpcEditor(
     onError: (msg) => alert(msg),
   });
   updateNpcSpritePreview();
+
+  let routineRows: ScheduleRow[] = (npc.schedule ?? []).map((row) => ({ ...row }));
+  let routineOverride: ScheduleOverride = {
+    id: npc.scheduleOverride?.id || 'override',
+    active: npc.scheduleOverride?.active === true,
+    locationId: npc.scheduleOverride?.locationId ?? '',
+    activity: npc.scheduleOverride?.activity,
+    interaction: npc.scheduleOverride?.interaction,
+    dialogueNodeId: npc.scheduleOverride?.dialogueNodeId,
+    priority: npc.scheduleOverride?.priority,
+  };
+  const routineHost = document.getElementById('npc-routine')!;
+  const placeChoices = places.map((place) => ({
+    value: place.id,
+    label: place.label ? `${place.id} — ${place.label}` : place.id,
+  }));
+
+  const renderRoutine = (): void => {
+    const placeNote = places.length
+      ? places.map((place) => place.id).join(', ')
+      : 'No places loaded.';
+    routineHost.innerHTML = `
+      <h3 class="section-head mt">Daily routine</h3>
+      <p class="muted-text">Known places: ${esc(placeNote)}. Start hour is inclusive and end hour is exclusive. Leave the end blank to run until the next row.</p>
+      <div id="npc-routine-rows">
+        ${routineRows.map((row, index) => routineRowHtml(row, index, placeChoices)).join('')}
+      </div>
+      <button type="button" class="btn secondary mt" id="npc-add-routine">Add row</button>
+      <h3 class="section-head mt">Schedule override</h3>
+      <p class="muted-text">An active override replaces the daily routine until it is turned off.</p>
+      <label class="muted-text"><input type="checkbox" id="npc-override-active" ${routineOverride.active ? 'checked' : ''}/> Active</label>
+      <div class="form-grid">
+        ${field('Override place', selectInput('npc-override-place', [{ value: '', label: '—' }, ...placeChoices], routineOverride.locationId))}
+        ${field('Override activity', textInput('npc-override-activity', routineOverride.activity ?? ''))}
+        ${field('Override interaction', selectInput('npc-override-interaction', [
+          { value: '', label: 'default' },
+          { value: 'open', label: 'open' },
+          { value: 'busy', label: 'busy' },
+          { value: 'away', label: 'away' },
+        ], routineOverride.interaction ?? ''))}
+      </div>`;
+    routineHost.querySelectorAll<HTMLButtonElement>('[data-remove-routine]').forEach((button) => {
+      button.onclick = () => {
+        readRoutineFromDom();
+        routineRows.splice(Number(button.dataset.removeRoutine), 1);
+        renderRoutine();
+      };
+    });
+    document.getElementById('npc-add-routine')!.onclick = () => {
+      readRoutineFromDom();
+      routineRows.push({
+        hour: 9,
+        endHour: 17,
+        locationId: places[0]?.id ?? '',
+        activity: '',
+        interaction: 'open',
+      });
+      renderRoutine();
+    };
+  };
+
+  const readRoutineFromDom = (): void => {
+    routineRows = routineRows.map((row, index) => {
+      const hour = Number((document.getElementById(`routine-hour-${index}`) as HTMLInputElement | null)?.value);
+      const endRaw = (document.getElementById(`routine-end-${index}`) as HTMLInputElement | null)?.value ?? '';
+      const locationId = (document.getElementById(`routine-place-${index}`) as HTMLSelectElement | null)?.value ?? row.locationId;
+      const activity = (document.getElementById(`routine-activity-${index}`) as HTMLInputElement | null)?.value?.trim() ?? '';
+      const interaction = (document.getElementById(`routine-interaction-${index}`) as HTMLSelectElement | null)?.value ?? '';
+      const days = WEEKDAY_LABELS.map((_, day) => day).filter((day) => {
+        return (document.getElementById(`routine-day-${index}-${day}`) as HTMLInputElement | null)?.checked;
+      });
+      return {
+        ...row,
+        hour: Number.isInteger(hour) ? hour : row.hour,
+        ...(endRaw === '' ? { endHour: undefined } : { endHour: Number(endRaw) }),
+        locationId,
+        ...(activity ? { activity } : { activity: undefined }),
+        ...(interaction === 'open' || interaction === 'busy' || interaction === 'away'
+          ? { interaction }
+          : { interaction: undefined }),
+        ...(days.length === 7 ? { days: undefined } : { days }),
+      };
+    });
+    routineOverride = {
+      ...routineOverride,
+      active: (document.getElementById('npc-override-active') as HTMLInputElement | null)?.checked === true,
+      locationId: (document.getElementById('npc-override-place') as HTMLSelectElement | null)?.value ?? '',
+      activity: (document.getElementById('npc-override-activity') as HTMLInputElement | null)?.value?.trim() || undefined,
+      interaction: interactionOrUndefined(
+        (document.getElementById('npc-override-interaction') as HTMLSelectElement | null)?.value ?? ''
+      ),
+    };
+  };
+
+  renderRoutine();
 
   const graphHost = document.getElementById('dlg-graph')!;
   graph = new NodeGraph(graphHost, {
@@ -276,6 +475,7 @@ export async function renderNpcEditor(
 
   document.getElementById('save-npc')!.onclick = async () => {
     try {
+      readRoutineFromDom();
       const npcData: NpcRecord = {
         ...npc,
         id: (document.getElementById('npc-id') as HTMLInputElement).value.trim(),
@@ -287,7 +487,8 @@ export async function renderNpcEditor(
         relationshipLevel: Number((document.getElementById('npc-rel') as HTMLInputElement).value),
         magicalKnowledge: Number((document.getElementById('npc-mk') as HTMLInputElement).value),
         faction: (document.getElementById('npc-faction') as HTMLInputElement).value.trim() || undefined,
-        schedule: npc.schedule ?? [],
+        schedule: cleanRoutineRows(routineRows),
+        scheduleOverride: cleanOverride(routineOverride),
         spritePixels: npcSpritePixels.length === NPC_SPRITE_PX * NPC_SPRITE_PX ? npcSpritePixels : undefined,
       };
 

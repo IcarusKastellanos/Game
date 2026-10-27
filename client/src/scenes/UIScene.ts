@@ -220,7 +220,7 @@ export class UIScene extends Phaser.Scene {
       case 'npc_actions':
         if (d.npcId) {
           gameState.activeUI = 'npc_actions';
-          this.npcActionPanel.show({ npcId: d.npcId, name: d.name, role: d.role, options: d.options });
+          this.npcActionPanel.show({ npcId: d.npcId, name: d.name, role: d.role, options: d.options, notice: d.notice });
         }
         break;
       case 'npc_gift':

@@ -28,6 +28,16 @@ export function shatterWardInLiveRooms(wardId: string, adminName: string): boole
   return false;
 }
 
+/** Push the authoritative NPC world after a content reload. */
+export function broadcastNpcWorldState(): number {
+  let clients = 0;
+  for (const room of rooms) {
+    room.publishNpcWorld(true);
+    clients += room.clients.length;
+  }
+  return clients;
+}
+
 export function broadcastLiveMapsToAllClients(payload: {
   maps: ContentMapDefinition[];
   revision: number;

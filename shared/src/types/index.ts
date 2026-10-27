@@ -451,12 +451,55 @@ export interface ContentShop {
   minLevel?: number;
 }
 
+export type NpcScheduleInteraction = 'open' | 'busy' | 'away';
+
+export type NpcScheduleMovement = 'still' | 'pace';
+
+/** One window in a daily routine. Legacy rows may set only `hour` and `locationId`. */
+export interface NpcScheduleEntry {
+  hour: number;
+  locationId: string;
+  /** Exclusive end. Omitted rows run until the next entry and may wrap past midnight. */
+  endHour?: number;
+  activity?: string;
+  /** 0 Sunday through 6 Saturday. Omitted means every weekday. */
+  days?: number[];
+  /** Named seasons never match while the world has no season. */
+  season?: string;
+  interaction?: NpcScheduleInteraction;
+  movement?: NpcScheduleMovement;
+  dialogueNodeId?: string;
+  label?: string;
+}
+
+/** Special-event precedence. An active override replaces the daily routine. */
+export interface NpcScheduleOverride {
+  id: string;
+  active: boolean;
+  locationId: string;
+  activity?: string;
+  interaction?: NpcScheduleInteraction;
+  dialogueNodeId?: string;
+  priority?: number;
+}
+
+export interface NpcPlace {
+  id: string;
+  sceneId: string;
+  x?: number;
+  y?: number;
+  interactableId?: string;
+  indoors?: boolean;
+  label?: string;
+}
+
 export interface ContentNpc {
   id: string;
   name: string;
   role: string;
   locationId: MapLocationId;
-  schedule: { hour: number; locationId: MapLocationId }[];
+  schedule: NpcScheduleEntry[];
+  scheduleOverride?: NpcScheduleOverride;
   relationshipLevel: number;
   magicalKnowledge: number;
   dialogueTreeId: string;

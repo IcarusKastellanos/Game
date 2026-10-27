@@ -8,6 +8,7 @@ import type {
   ContentMapDefinition,
   ContentNpc,
   ContentShop,
+  NpcPlace,
   ContentSpell,
   ContentTile,
   ContentQuest,
@@ -51,6 +52,7 @@ export class ContentRegistry {
   familiars = new Map<string, ContentFamiliarTemplate>();
   shops = new Map<string, ContentShop>();
   npcs = new Map<string, ContentNpc>();
+  npcPlaces = new Map<string, NpcPlace>();
   tiles = new Map<string, ContentTile>();
   decorations = new Map<string, ContentDecoration>();
   maps = new Map<string, ContentMapDefinition>();
@@ -63,6 +65,7 @@ export class ContentRegistry {
     this.familiars.clear();
     this.shops.clear();
     this.npcs.clear();
+    this.npcPlaces.clear();
     this.tiles.clear();
     this.decorations.clear();
     this.maps.clear();
@@ -84,6 +87,10 @@ export class ContentRegistry {
     shopSystem.captureBaselines(this.shops.values());
     for (const npc of loadJson<ContentNpc>('npcs.json')) {
       this.npcs.set(npc.id, npc);
+    }
+    for (const place of loadJson<NpcPlace>('npc-places.json')) {
+      if (!place?.id || !place.sceneId) continue;
+      this.npcPlaces.set(place.id, place);
     }
     for (const tile of loadJson<ContentTile>('tiles.json')) {
       this.tiles.set(tile.id, tile);

@@ -2,7 +2,7 @@ import * as Colyseus from 'colyseus.js';
 
 import { applyShopStock, gameState, type NearbyPlayer } from '../data/game-state';
 import { triggerScreenDistortion } from '../ui/screen-distortion';
-import type { ContentMapDefinition, WardState, PlayerProgression } from '@witchcraft/shared';
+import type { ContentMapDefinition, NpcPublicPresence, WardState, PlayerProgression } from '@witchcraft/shared';
 import { migrateInventoryToGrid } from '@witchcraft/shared';
 import { connectionMonitor } from './ConnectionMonitor';
 import { apartmentInvitePanel } from '../ui/ApartmentInvitePanel';
@@ -736,9 +736,10 @@ class NetworkManager {
       window.dispatchEvent(new CustomEvent('game:progression-update', { detail: data }));
     });
 
-    this.room.onMessage('world_state', (data: { hour: number; hiddenNpcIds?: string[] }) => {
+    this.room.onMessage('world_state', (data: { hour: number; hiddenNpcIds?: string[]; npcPresences?: NpcPublicPresence[] }) => {
       gameState.worldHour = data.hour;
       gameState.hiddenNpcIds = data.hiddenNpcIds ?? [];
+      gameState.npcPresences = data.npcPresences ?? [];
       window.dispatchEvent(new CustomEvent('game:world-state', { detail: data }));
     });
 

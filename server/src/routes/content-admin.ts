@@ -85,6 +85,8 @@ adminRouter.post('/reload', async (_req: Request, res: Response) => {
   await contentRegistry.mergePublishedMaps();
   const { ensureCanonicalMapProjects } = await import('../content/canonical-maps.js');
   await ensureCanonicalMapProjects();
+  const { broadcastNpcWorldState } = await import('../rooms/game-room-registry.js');
+  broadcastNpcWorldState();
   res.json({ ok: true, message: 'Content registry reloaded from JSON; icons merged from DB.' });
 });
 

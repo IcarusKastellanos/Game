@@ -153,7 +153,7 @@ import {
 } from './progression-handlers.js';
 import { mergeGrimoireWrite, petitionGrimoireSpirit, recallGrimoireSpirit } from './grimoire-handlers.js';
 import { tickWorldClock, getWorldHour } from '../systems/world-clock.js';
-import { getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
+import { activityNoticeFor, currentNpcWorld, npcPresence, npcWorldSignature } from '../systems/npc-schedule.js';
 import { questSystem } from '../systems/quest-system.js';
 import {
   craftStationTypeFromInteractable,
@@ -197,6 +197,7 @@ export class GameRoom extends Room<GameRoomState> {
   );
 
   private studyCircleNotifiedHour = -1;
+  private lastNpcWorldSig = '';
 
   onCreate(options: { scene?: string; shard?: string }) {
     this.autoDispose = false;
@@ -238,13 +239,11 @@ export class GameRoom extends Room<GameRoomState> {
       if (hour !== this.studyCircleNotifiedHour) {
         this.studyCircleNotifiedHour = hour;
         void tickStudyCircleEvents([...this.clients]);
-        this.broadcast('world_state', {
-          hour,
-          hiddenNpcIds: getUnavailableNpcInteractableIds(),
-        });
       }
       this.maybeRestockShopsAtNoon(hour);
     }, 30000);
+
+    this.clock.setInterval(() => this.publishNpcWorld(), 1000);
 
     this.clock.setInterval(() => this.tickMeRegen(), 5000);
     this.clock.setInterval(() => this.tickSurvival(), 30000);
@@ -263,6 +262,15 @@ export class GameRoom extends Room<GameRoomState> {
   onDispose(): void {
     unregisterGameRoom(this);
     unregisterPresenceRoom(this);
+  }
+
+  /** Publish public NPC presence. Clients interpolate walks; this is not a per-frame stream. */
+  publishNpcWorld(force = false): void {
+    const payload = currentNpcWorld();
+    const signature = npcWorldSignature(payload);
+    if (!force && signature === this.lastNpcWorldSig) return;
+    this.lastNpcWorldSig = signature;
+    this.broadcast('world_state', payload);
   }
 
   async onJoin(client: Client, options: { displayName?: string; username?: string; authToken?: string }) {
@@ -2047,6 +2055,7 @@ export class GameRoom extends Room<GameRoomState> {
     const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
     const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
     const offers = this.npcActionOffers(npc, dialogue, contextShopId, progression);
+    const notice = activityNoticeFor(npcId);
     client.send('open_ui', {
       ui: 'npc_actions',
       npcId,
@@ -2054,6 +2063,7 @@ export class GameRoom extends Room<GameRoomState> {
       role: npc.role,
       shopId: contextShopId ?? npc.shopId,
       options: offers,
+      ...(notice ? { notice } : {}),
     });
   }
 
@@ -2064,15 +2074,22 @@ export class GameRoom extends Room<GameRoomState> {
 
     const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
     const tree = dialogueSystem.getTree(npc.dialogueTreeId);
-    const node = tree?.nodes.find((entry) => entry.id === nodeId);
-    const remembered = nodeId === 'start' ? bondGreeting(npcId, progression) : null;
+    const presence = npcPresence(npcId);
+    let openNode = nodeId;
+    if (openNode === 'start' && presence?.dialogueNodeId && tree?.nodes.some((entry) => entry.id === presence.dialogueNodeId)) {
+      openNode = presence.dialogueNodeId;
+    }
+    const node = tree?.nodes.find((entry) => entry.id === openNode);
+    const remembered = openNode === 'start' ? bondGreeting(npcId, progression) : null;
+    const notice = presence?.interaction === 'busy' ? presence.notice : undefined;
     client.send('open_ui', {
       ui: 'dialogue',
       npcId,
       dialogueTreeId: npc.dialogueTreeId,
-      nodeId,
+      nodeId: openNode,
       text: remembered || (node?.text ?? ''),
-      choices: dialogueSystem.publish(npc.dialogueTreeId, nodeId, progression, player.stats, player.coins),
+      choices: dialogueSystem.publish(npc.dialogueTreeId, openNode, progression, player.stats, player.coins),
+      ...(notice ? { notice } : {}),
     });
 
     const met = this.playerData.get(client.sessionId);
