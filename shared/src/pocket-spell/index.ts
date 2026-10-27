@@ -30,6 +30,11 @@ export interface PocketSpellReleaseInput {
   targetIsSelf: boolean;
   /** Optional 0–100 roll for backlash resolution (server provides). */
   backlashRoll?: number;
+  /**
+   * Microscopic ward from the target's grimoire when this exact malevolent spell is indexed there.
+   * Added to ward strength. 0 or 1.
+   */
+  targetGrimoireWard?: number;
 }
 
 export interface PocketSpellReleaseResult {
@@ -135,11 +140,13 @@ export function calculatePocketSpellRelease(input: PocketSpellReleaseInput): Poc
   let casterStrike = 0;
 
   if (needsPenetration && target) {
+    const grimoireWard = Math.max(0, Math.min(1, input.targetGrimoireWard ?? 0));
     targetWardStrength =
       target.protection +
       protectionSkillFromLevel(target.experience) * 0.35 +
       target.warding * 0.45 +
-      computeAuraWardStrength(targetAura);
+      computeAuraWardStrength(targetAura) +
+      grimoireWard;
 
     casterStrike =
       caster.cursecraft * 1.5 +

@@ -66,6 +66,14 @@ import {
   revocationReputationPenalty,
   activeLicenseIds,
   getLicense,
+  backfillGrimoireIngredients,
+  defaultGrimoire,
+  malevolentGrimoireWard,
+  recordGrimoireCast,
+  recordGrimoireIngredients,
+  recordGrimoireNpc,
+  shareSpellIntoGrimoire,
+  withGrimoire,
   type SurvivalActivity,
 } from '@witchcraft/shared';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
@@ -126,6 +134,7 @@ import {
   syncRecognition,
   type HandlerCtx,
 } from './progression-handlers.js';
+import { mergeGrimoireWrite, petitionGrimoireSpirit, recallGrimoireSpirit } from './grimoire-handlers.js';
 import { tickWorldClock, getWorldHour } from '../systems/world-clock.js';
 import { getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
 import { questSystem } from '../systems/quest-system.js';
@@ -181,6 +190,7 @@ export class GameRoom extends Room<GameRoomState> {
       'choose_specialty', 'cast_pocket_spell',
       'craft_recipe', 'hexagram_enchant', 'experiment_ingredients', 'read_book_complete',
       'presence_ready',
+      'grimoire_write', 'grimoire_share', 'grimoire_petition', 'grimoire_recall',
       'admin_action',
     ] as const;
 
@@ -282,6 +292,12 @@ export class GameRoom extends Room<GameRoomState> {
       persisted.progression,
       getWorldHour(),
       localDayKey()
+    );
+    persisted.progression = withGrimoire(persisted.progression, (grimoire) =>
+      backfillGrimoireIngredients(
+        grimoire,
+        persisted.inventory.filter((slot) => slot.itemId && slot.quantity > 0).map((slot) => slot.itemId)
+      )
     );
     this.playerData.set(client.sessionId, persisted);
     this.activeWards.set(client.sessionId, persisted.wards);
@@ -593,6 +609,18 @@ export class GameRoom extends Room<GameRoomState> {
       case 'dialogue_choice':
         this.handleDialogueChoice(client, player, msg.dialogueTreeId, msg.nodeId, msg.choiceIndex);
         break;
+      case 'grimoire_write':
+        this.handleGrimoireWrite(client, msg);
+        break;
+      case 'grimoire_share':
+        this.handleGrimoireShare(client, player, msg);
+        break;
+      case 'grimoire_petition':
+        this.handleGrimoirePetition(client, msg.spiritId);
+        break;
+      case 'grimoire_recall':
+        this.handleGrimoireRecall(client, msg.spiritId);
+        break;
       case 'chat':
         this.handleChat(client, player, msg);
         break;
@@ -689,6 +717,7 @@ export class GameRoom extends Room<GameRoomState> {
       sendPlayerSync: (c, p) => this.sendPlayerSync(c, p),
       sendProgression: (c, prog) => c.send('progression_update', { progression: prog }),
       refreshWardWeb: (sessionId) => this.refreshWardWeb(sessionId),
+      progressionFor: (sessionId) => this.playerData.get(sessionId)?.progression,
       resolvePlayer: (sessionId) => {
         const resolved = this.state.players.get(sessionId);
         if (!resolved) return null;
@@ -711,6 +740,7 @@ export class GameRoom extends Room<GameRoomState> {
       sendPlayerSync: (c, p) => this.sendPlayerSync(c, p),
       sendProgression: (c, prog) => c.send('progression_update', { progression: prog }),
       refreshWardWeb: (sessionId) => this.refreshWardWeb(sessionId),
+      progressionFor: (sessionId) => this.playerData.get(sessionId)?.progression,
       resolvePlayer: (sessionId) => {
         const resolved = this.state.players.get(sessionId);
         if (!resolved) return null;
@@ -1042,6 +1072,17 @@ export class GameRoom extends Room<GameRoomState> {
             dialogueTreeId: npc.dialogueTreeId,
             nodeId: 'start',
           });
+          const met = this.playerData.get(client.sessionId);
+          if (met) {
+            const relationship = met.progression.npcRelationships[npcId] ?? 0;
+            const next = withGrimoire(met.progression, (grimoire) =>
+              recordGrimoireNpc(grimoire, { npcId, name: npc.name, relationship })
+            );
+            if (next !== met.progression) {
+              met.progression = next;
+              client.send('progression_update', { progression: met.progression });
+            }
+          }
         }
         break;
       }
@@ -1148,6 +1189,11 @@ export class GameRoom extends Room<GameRoomState> {
       targetProtection = targetPlayer?.stats.protection;
     }
 
+    const targetGrimoireWard =
+      targetId && targetPlayer && !msg.targetSelf && spellDef
+        ? malevolentGrimoireWard(this.playerData.get(targetId)?.progression.grimoire, spellDef)
+        : 0;
+
     const meCost = msg.magicOnly
       ? (spellDef?.maintenanceCost ?? 5) * 2.5
       : (spellDef?.maintenanceCost ?? 5) +
@@ -1177,6 +1223,7 @@ export class GameRoom extends Room<GameRoomState> {
       timing: msg.timing,
       bindingPenalty,
       progression: this.playerData.get(client.sessionId)?.progression,
+      targetGrimoireWard,
     });
 
     const isShieldBreakerSpell =
@@ -1236,6 +1283,7 @@ export class GameRoom extends Room<GameRoomState> {
             }
           }
         }
+        progression = withGrimoire(progression, (grimoire) => recordGrimoireCast(grimoire, msg.spellId, true));
         const xp = grantExperience(stats, progression, 'spell_cast_success');
         stats = xp.stats;
         if (data) {
@@ -1280,7 +1328,9 @@ export class GameRoom extends Room<GameRoomState> {
         stats = spi.stats;
       } else if (result.diagnostics?.code === 'focus_check') {
         const data = this.playerData.get(client.sessionId);
-        const progression = data?.progression ?? defaultProgression();
+        const progression = withGrimoire(data?.progression ?? defaultProgression(), (grimoire) =>
+          recordGrimoireCast(grimoire, msg.spellId, false)
+        );
         const xp = grantExperience(stats, progression, 'spell_cast_focus_fail');
         stats = xp.stats;
         if (data) {
@@ -1738,6 +1788,146 @@ export class GameRoom extends Room<GameRoomState> {
     });
   }
 
+  noteGatheredItems(sessionId: string, entries: { itemId: string; count: number }[]): void {
+    if (!entries.length) return;
+    const data = this.playerData.get(sessionId);
+    if (!data) return;
+    const next = withGrimoire(data.progression, (grimoire) => recordGrimoireIngredients(grimoire, entries));
+    if (next === data.progression) return;
+    data.progression = next;
+    this.clients.find((c) => c.sessionId === sessionId)?.send('progression_update', { progression: data.progression });
+  }
+
+  indexSharedSpell(
+    sessionId: string,
+    spellId: string,
+    sharedByName: string
+  ): 'added' | 'already' | 'full' | 'missing' {
+    const data = this.playerData.get(sessionId);
+    if (!data) return 'missing';
+    const result = shareSpellIntoGrimoire(data.progression.grimoire ?? defaultGrimoire(), spellId, sharedByName);
+    if (result.status !== 'added') return result.status;
+    data.progression = { ...data.progression, grimoire: result.grimoire };
+    const target = this.clients.find((c) => c.sessionId === sessionId);
+    const spellName = contentRegistry.spells.get(spellId)?.name ?? 'a working';
+    target?.send('progression_update', { progression: data.progression });
+    target?.send('notification', {
+      type: 'notification',
+      message: `${sharedByName} indexes ${spellName} in your grimoire. The page stays sealed until the working is yours to cast.`,
+      level: 'info',
+    });
+    return 'added';
+  }
+
+  private handleGrimoireWrite(client: Client, msg: Extract<ClientMessage, { type: 'grimoire_write' }>): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const next = mergeGrimoireWrite(data.progression, msg);
+    if (!next) return;
+    data.progression = next;
+    client.send('progression_update', { progression: data.progression });
+  }
+
+  private handleGrimoirePetition(client: Client, spiritId: string): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const result = petitionGrimoireSpirit(data.progression, spiritId);
+    if (result.progression !== data.progression) {
+      data.progression = result.progression;
+      client.send('progression_update', { progression: data.progression });
+    }
+    client.send('notification', { type: 'notification', message: result.message, level: result.level });
+  }
+
+  private handleGrimoireRecall(client: Client, spiritId: string): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const result = recallGrimoireSpirit(data.progression, spiritId);
+    if (result.progression !== data.progression) {
+      data.progression = result.progression;
+      client.send('progression_update', { progression: data.progression });
+    }
+    client.send('notification', { type: 'notification', message: result.message, level: result.level });
+  }
+
+  private handleGrimoireShare(
+    client: Client,
+    player: PlayerSchema,
+    msg: Extract<ClientMessage, { type: 'grimoire_share' }>
+  ): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const spell = contentRegistry.spells.get(msg.spellId);
+    const known = data.progression.grimoire?.spells.some((entry) => entry.spellId === msg.spellId);
+    if (!spell || !known) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That working is not in your grimoire.',
+        level: 'warn',
+      });
+      return;
+    }
+
+    let targetSession = msg.targetSessionId ?? '';
+    if (!targetSession && msg.friendPlayerId) {
+      targetSession = findOnlineByDbPlayerId(msg.friendPlayerId)?.sessionId ?? '';
+    }
+    if (!targetSession || targetSession === client.sessionId) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'They are not here to receive the page.',
+        level: 'warn',
+      });
+      return;
+    }
+
+    const online = findOnlineBySessionId(targetSession);
+    if (!online) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'They are not here to receive the page.',
+        level: 'warn',
+      });
+      return;
+    }
+
+    const isFriend = data.friends.some((friend) => friend.playerId === online.dbPlayerId);
+    if (!isFriend) {
+      const targetPlayer = online.room.state.players.get(targetSession);
+      const dx = targetPlayer ? Math.abs(targetPlayer.x - player.x) : 999;
+      const dy = targetPlayer ? Math.abs(targetPlayer.y - player.y) : 999;
+      const near =
+        online.room === this &&
+        !!targetPlayer &&
+        targetPlayer.scene === player.scene &&
+        dx <= 24 &&
+        dy <= 24;
+      if (!near) {
+        client.send('notification', {
+          type: 'notification',
+          message: 'Share a page with someone beside you, or with a friend who is online.',
+          level: 'warn',
+        });
+        return;
+      }
+    }
+
+    const status = online.room.indexSharedSpell(targetSession, spell.id, player.displayName);
+    const message =
+      status === 'added'
+        ? `${spell.name} is indexed in their grimoire.`
+        : status === 'already'
+          ? 'That page is already in their book.'
+          : status === 'full'
+            ? 'Their book has no room for another working.'
+            : 'They are not here to receive the page.';
+    client.send('notification', {
+      type: 'notification',
+      message,
+      level: status === 'added' ? 'success' : 'info',
+    });
+  }
+
   private handleBuy(client: Client, player: PlayerSchema, shopId: string, itemId: string, quantity: number) {
     const data = this.playerData.get(client.sessionId);
     const result = shopSystem.buy(
@@ -1754,7 +1944,9 @@ export class GameRoom extends Room<GameRoomState> {
       player.inventory = result.inventory;
       player.coins -= result.cost;
       if (data && result.progression) {
-        data.progression = result.progression;
+        data.progression = withGrimoire(result.progression, (grimoire) =>
+          recordGrimoireIngredients(grimoire, [{ itemId, count: quantity }])
+        );
         client.send('progression_update', { progression: data.progression });
       }
     }
@@ -3132,6 +3324,11 @@ export class GameRoom extends Room<GameRoomState> {
       playerA.coins = result.aCoins!;
       playerB.inventory = result.bInventory!;
       playerB.coins = result.bCoins!;
+
+      const gainedByA = session.bOffer.items.map((item) => ({ itemId: item.itemId, count: item.quantity }));
+      const gainedByB = session.aOffer.items.map((item) => ({ itemId: item.itemId, count: item.quantity }));
+      findOnlineBySessionId(session.aSessionId)?.room.noteGatheredItems(session.aSessionId, gainedByA);
+      findOnlineBySessionId(session.bSessionId)?.room.noteGatheredItems(session.bSessionId, gainedByB);
 
       const rooms = new Set([refA?.room, refB?.room, this].filter(Boolean));
       for (const room of rooms) {

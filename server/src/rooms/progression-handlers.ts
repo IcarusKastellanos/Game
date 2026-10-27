@@ -19,6 +19,12 @@ import {
   grantExperience,
   evaluateRecognition,
   grantLicenses,
+  malevolentGrimoireWard,
+  recordGrimoireCast,
+  recordGrimoireIngredients,
+  recordGrimoireNpc,
+  recordGrimoireStudied,
+  withGrimoire,
   type ReputationTrack,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
@@ -41,6 +47,7 @@ export type HandlerCtx = {
   sendPlayerSync: (client: Client, player: PlayerSchema) => void;
   sendProgression: (client: Client, progression: PlayerProgression) => void;
   resolvePlayer?: (sessionId: string) => { player: PlayerSchema; client?: Client } | null;
+  progressionFor?: (sessionId: string) => PlayerProgression | undefined;
   refreshWardWeb?: (sessionId: string) => void;
 };
 
@@ -154,6 +161,18 @@ export function handleDialogueProgression(
       applied.source != null
         ? applied.stats
         : applyReputation(player.stats, relationshipDelta, track);
+  }
+
+  if (resolvedNpcId) {
+    const npc = contentRegistry.npcs.get(resolvedNpcId);
+    const relationship = data.progression.npcRelationships[resolvedNpcId] ?? 0;
+    data.progression = withGrimoire(data.progression, (grimoire) =>
+      recordGrimoireNpc(grimoire, {
+        npcId: resolvedNpcId,
+        name: npc?.name ?? resolvedNpcId,
+        relationship,
+      })
+    );
   }
 
   if (resolvedNpcId === 'npc_mara' && !data.progression.questProgress.quest_first_steps) {
@@ -305,6 +324,12 @@ export function handleCraftRecipe(ctx: HandlerCtx, recipeId: string): void {
   }
   player.inventory = result.inventory!;
   data.progression = result.progression!;
+  const recipe = craftingSystem.recipes.get(recipeId);
+  data.progression = withGrimoire(data.progression, (grimoire) => {
+    const studied = recipe?.spellId ? recordGrimoireStudied(grimoire, recipe.spellId) : grimoire;
+    const made = result.outputItemId ? [{ itemId: result.outputItemId, count: recipe?.output?.quantity ?? 1 }] : [];
+    return recordGrimoireIngredients(studied, made);
+  });
   if (result.stats) player.stats = result.stats;
   grantXp(ctx, 'craft_success');
   ctx.sendProgression(client, data.progression);
@@ -347,6 +372,8 @@ export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetP
   }
 
   const beforeQuest = data.progression.questProgress.quest_first_steps?.completedAt;
+  const targetBook = targetIsSelf ? undefined : ctx.progressionFor?.(recipientSessionId)?.grimoire;
+  const grimoireWard = !targetIsSelf && spell ? malevolentGrimoireWard(targetBook, spell) : 0;
   const outcome = resolveAndReleasePocketSpell(
     pocket,
     data.progression,
@@ -354,7 +381,8 @@ export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetP
     resolved.player.stats,
     resolved.player.aura as AuraState,
     targetIsSelf,
-    player.aura as AuraState
+    player.aura as AuraState,
+    grimoireWard
   );
 
   if (!('cast' in outcome)) {
@@ -364,6 +392,9 @@ export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetP
 
   const { cast, resolution, appliedToTarget } = outcome;
   data.progression = cast.progression!;
+  if (cast.spellId) {
+    data.progression = withGrimoire(data.progression, (grimoire) => recordGrimoireCast(grimoire, cast.spellId!, true));
+  }
   player.stats = cast.stats!;
 
   if (appliedToTarget) {
@@ -563,6 +594,10 @@ export function handleHexagramEnchant(
   }
   player.inventory = result.inventory!;
   data.progression = result.progression!;
+  const prepared = hexagramEnchantSystem.recipes.get(payload.recipeId);
+  if (prepared?.spellId) {
+    data.progression = withGrimoire(data.progression, (grimoire) => recordGrimoireStudied(grimoire, prepared.spellId!));
+  }
   if (result.stats) player.stats = result.stats;
   const recipe = hexagramEnchantSystem.recipes.get(payload.recipeId);
   grantXp(ctx, recipe?.effect === 'pocket_spell' ? 'pocket_spell_prepare' : 'hexagram_enchant');
@@ -645,6 +680,12 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
       inv = addItemToInventory(inv, item.itemId, item.quantity);
     }
     player.inventory = inv;
+    data.progression = withGrimoire(data.progression, (grimoire) =>
+      recordGrimoireIngredients(
+        grimoire,
+        quest.rewards?.items?.map((item) => ({ itemId: item.itemId, count: item.quantity })) ?? []
+      )
+    );
   }
   if (quest.rewards.stats) {
     let stats = player.stats;

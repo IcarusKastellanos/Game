@@ -1,6 +1,43 @@
 import type { MagicTradition } from '../types/index.js';
 import { getAllBookContent, getBookContent } from './progression-content.js';
 import { parseActiveVows, parseLicensureMarks } from './licenses.js';
+import { backfillGrimoireIngredients, defaultGrimoire, parseGrimoire, type GrimoireState } from './grimoire.js';
+
+export {
+  GRIMOIRE_INKS,
+  GRIMOIRE_MALEVOLENT_WARD,
+  GRIMOIRE_NOTE_COUNT,
+  backfillGrimoireIngredients,
+  customizeGrimoire,
+  defaultGrimoire,
+  grimoireBondLabel,
+  grimoireKnowsSpell,
+  isMalevolentSpell,
+  malevolentGrimoireWard,
+  parseGrimoire,
+  recordGrimoireCast,
+  recordGrimoireIngredients,
+  recordGrimoireNpc,
+  recordGrimoireSpirit,
+  recordGrimoireStudied,
+  selectGrimoireSpirit,
+  setGrimoireNotes,
+  setGrimoireNpcNote,
+  setGrimoireSpellNote,
+  setGrimoireSpiritNote,
+  shareSpellIntoGrimoire,
+} from './grimoire.js';
+export type {
+  GrimoireCustomization,
+  GrimoireIngredientEntry,
+  GrimoireInk,
+  GrimoireNpcEntry,
+  GrimoireSpellEntry,
+  GrimoireSpellSource,
+  GrimoireSpiritDraft,
+  GrimoireSpiritEncounter,
+  GrimoireState,
+} from './grimoire.js';
 
 export const SPECIALTY_AFFINITY_THRESHOLD = 25;
 export const MAX_POCKET_SPELLS = 3;
@@ -97,6 +134,8 @@ export interface PlayerProgression {
   shopStock?: Record<string, Record<string, number>>;
   /** Local calendar day key (`YYYY-M-D`) of the last noon shop restock for this player. */
   shopStockDay?: string;
+  /** Personal record of workings, ingredients, spirits, people, and the book's own hand. */
+  grimoire: GrimoireState;
 }
 
 export interface ContentRecipe {
@@ -247,7 +286,18 @@ export function defaultProgression(): PlayerProgression {
     storyFlags: [],
     shopStock: {},
     shopStockDay: '',
+    grimoire: defaultGrimoire(),
   };
+}
+
+export function withGrimoire(
+  progression: PlayerProgression,
+  update: (grimoire: GrimoireState) => GrimoireState
+): PlayerProgression {
+  const current = progression.grimoire ?? defaultGrimoire();
+  const next = update(current);
+  if (next === current) return progression;
+  return { ...progression, grimoire: next };
 }
 
 function parseSkillXp(raw: unknown): Partial<Record<string, number>> {
@@ -310,6 +360,7 @@ export function parseProgression(raw: unknown): PlayerProgression {
       : [],
     shopStock: parseShopStock(o.shopStock),
     shopStockDay: typeof o.shopStockDay === 'string' ? o.shopStockDay : '',
+    grimoire: parseGrimoire(o.grimoire),
   };
 }
 
@@ -351,7 +402,10 @@ export function discoverCorrespondences(
 ): PlayerProgression {
   const set = new Set(progression.discoveredCorrespondences);
   for (const id of itemIds) set.add(id);
-  return { ...progression, discoveredCorrespondences: [...set] };
+  return withGrimoire(
+    { ...progression, discoveredCorrespondences: [...set] },
+    (grimoire) => backfillGrimoireIngredients(grimoire, itemIds)
+  );
 }
 
 export function eligibleSpecialtyTraditions(

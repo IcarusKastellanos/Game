@@ -54,7 +54,8 @@ export function resolveAndReleasePocketSpell(
   targetStats: PlayerStats | undefined,
   targetAura: AuraState | undefined,
   targetIsSelf: boolean,
-  casterAura?: AuraState
+  casterAura?: AuraState,
+  targetGrimoireWard = 0
 ): PocketReleaseOutcome | { ok: false; error: string } {
   const spell = contentRegistry.spells.get(pocket.spellId);
   if (!spell) return { ok: false, error: 'Unknown spell.' };
@@ -85,6 +86,7 @@ export function resolveAndReleasePocketSpell(
     targetAura,
     targetIsSelf,
     backlashRoll: Math.random() * 100,
+    targetGrimoireWard,
   });
 
   let casterStatsOut = cast.stats!;
