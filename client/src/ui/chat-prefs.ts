@@ -7,6 +7,8 @@ export interface ChatPreferences {
   width: number;
   /** Message log height in CSS pixels. */
   logHeight: number;
+  /** When true, the box is folded into the chat icon. */
+  collapsed?: boolean;
 }
 
 const DEFAULTS: ChatPreferences = {
@@ -40,6 +42,7 @@ export function loadChatPrefs(): ChatPreferences {
     return {
       width: clamp(Number(parsed.width) || defaultChatWidth(), 280, Math.max(320, vw - 24)),
       logHeight: clamp(Number(parsed.logHeight) || defaultChatLogHeight(), 80, Math.max(120, vh * 0.5)),
+      collapsed: parsed.collapsed === true,
     };
   } catch {
     return { width: defaultChatWidth(), logHeight: defaultChatLogHeight() };
