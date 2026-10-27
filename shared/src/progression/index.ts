@@ -119,6 +119,17 @@ export interface QuestProgress {
   stage: string;
   startedAt: number;
   completedAt?: number;
+  failedAt?: number;
+  abandonedAt?: number;
+  /** Definition version this instance was started or reconciled against. */
+  version?: number;
+  objectives?: Record<string, { count: number; doneAt?: number }>;
+  choices?: string[];
+  onceKeys?: string[];
+  /** Short trail of signals that changed this instance. */
+  history?: { at: number; type: string; detail?: string }[];
+  /** Set when completion rewards have been granted. A second call must not pay again. */
+  rewardsGrantedAt?: number;
 }
 
 export interface PlayerProgression {
@@ -241,27 +252,109 @@ export interface ContentQuestNode {
   complete?: boolean;
 }
 
+export type QuestScope = 'personal' | 'party' | 'world';
+export type QuestOffer = 'on_talk' | 'follow_up' | 'event';
+export type QuestObjectiveType =
+  | 'talk'
+  | 'deliver'
+  | 'collect'
+  | 'defeat'
+  | 'discover'
+  | 'license'
+  | 'bond'
+  | 'interact'
+  | 'quest'
+  | 'schedule'
+  | 'dialogue'
+  | 'help_player'
+  | 'public_event'
+  | 'cast_spell';
+
+export interface QuestObjective {
+  id: string;
+  type: QuestObjectiveType;
+  optional?: boolean;
+  text?: string;
+  npcId?: string;
+  itemId?: string;
+  quantity?: number;
+  spellId?: string;
+  locationId?: string;
+  licenseId?: string;
+  stage?: string;
+  questId?: string;
+  choiceId?: string;
+  /** This objective counts only after the player makes this dialogue choice. */
+  afterChoiceId?: string;
+  eventId?: string;
+  interactableId?: string;
+  hour?: number;
+  count?: number;
+}
+
+export interface QuestRewardGrant {
+  items?: { itemId: string; quantity: number }[];
+  stats?: Record<string, number>;
+  /** Legacy alias → public reputation. */
+  reputation?: number;
+  publicReputation?: number;
+  spiritualReputation?: number;
+  /** Recognition licenses granted on quest complete. */
+  licenses?: string[];
+}
+
+export interface QuestDecision {
+  id: string;
+  choiceId: string;
+  setFlags?: string[];
+  /** Objective ids marked done when this choice is taken. */
+  waiveObjectives?: string[];
+  followUpQuestIds?: string[];
+  /** Used instead of the quest rewards when this choice was taken. */
+  rewards?: QuestRewardGrant;
+}
+
 export interface ContentQuest {
   id: string;
+  /** Bumped when a definition changes. In-progress instances keep their completion. */
+  version?: number;
   name: string;
   description: string;
+  /** Who shares progress. Defaults to personal. */
+  scope?: QuestScope;
   npcId?: string;
+  npcIds?: string[];
   /** Bond stage id required before this quest is offered. */
   minStage?: string;
+  offer?: QuestOffer;
+  prerequisites?: {
+    questsCompleted?: string[];
+    licenses?: string[];
+    vows?: string[];
+    coins?: number;
+    items?: { itemId: string; quantity: number }[];
+    storyFlags?: string[];
+    noStoryFlags?: string[];
+    publicReputation?: number;
+    spiritualReputation?: number;
+    bond?: import('../social/index.js').BondGate;
+  };
+  objectives?: QuestObjective[];
+  optionalObjectives?: QuestObjective[];
+  /** once: a completion sticks. always: may be offered again after completion. */
+  repeat?: 'once' | 'always';
+  followUpQuestIds?: string[];
+  expiresHours?: number;
+  party?: { contribution: 'any' | 'all'; requiredContributors?: number; reward: 'each' | 'leader' };
+  world?: { reward: 'each_contributor' };
+  failure?: { eventId?: string };
+  /** Dialogue choices that set flags, waive steps, or swap rewards. */
+  decisions?: QuestDecision[];
   startStage: string;
   nodes: ContentQuestNode[];
   /** Minimum Practitioner Level to accept / complete this quest. */
   minLevel?: number;
-  rewards?: {
-    items?: { itemId: string; quantity: number }[];
-    stats?: Record<string, number>;
-    /** Legacy alias → public reputation. */
-    reputation?: number;
-    publicReputation?: number;
-    spiritualReputation?: number;
-    /** Recognition licenses granted on quest complete. */
-    licenses?: string[];
-  };
+  rewards?: QuestRewardGrant;
 }
 
 export const BOOK_CONTENT: Record<
@@ -335,6 +428,23 @@ function parseSkillXp(raw: unknown): Partial<Record<string, number>> {
   return out;
 }
 
+/**
+ * Completions saved before quest versions existed already paid their rewards.
+ * Versioned instances keep an explicit rewardsGrantedAt so a finished step can still be paid once.
+ */
+function sealLegacyQuestRewards(quests: Record<string, QuestProgress>): Record<string, QuestProgress> {
+  const next: Record<string, QuestProgress> = {};
+  for (const [id, entry] of Object.entries(quests)) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.completedAt && entry.rewardsGrantedAt == null && entry.version == null) {
+      next[id] = { ...entry, rewardsGrantedAt: entry.completedAt };
+      continue;
+    }
+    next[id] = entry;
+  }
+  return next;
+}
+
 export function parseProgression(raw: unknown): PlayerProgression {
   const base = defaultProgression();
   if (!raw || typeof raw !== 'object') return base;
@@ -350,10 +460,11 @@ export function parseProgression(raw: unknown): PlayerProgression {
       : base.discoveredCorrespondences,
     readBooks: Array.isArray(o.readBooks) ? (o.readBooks as string[]) : base.readBooks,
     pocketSpells: Array.isArray(o.pocketSpells) ? (o.pocketSpells as PocketSpell[]) : base.pocketSpells,
-    questProgress:
+    questProgress: sealLegacyQuestRewards(
       o.questProgress && typeof o.questProgress === 'object'
         ? (o.questProgress as Record<string, QuestProgress>)
-        : base.questProgress,
+        : base.questProgress
+    ),
     discoveredRecipes: mergeDiscoveredRecipes(
       Array.isArray(o.discoveredRecipes) ? (o.discoveredRecipes as string[]) : base.discoveredRecipes
     ),

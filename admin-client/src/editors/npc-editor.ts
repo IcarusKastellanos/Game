@@ -215,8 +215,8 @@ export async function renderNpcEditor(
         </div>
         ${field('Faction', textInput('npc-faction', npc.faction ?? ''))}
         <div id="npc-routine"></div>
-        <h3 class="section-head mt">Overworld Sprite (16×16)</h3>
-        <p class="muted-text">Drop an image to import, or paint pixels below. Used on maps when this NPC is placed.</p>
+        <h3 class="section-head mt">Map sprite — paint here (16×16)</h3>
+        <p class="muted-text">This is the picture drawn on the town map. Paint the pixels in this panel, or drop an image onto it. Save NPC writes the painting with the character.</p>
         <div id="npc-sprite-drop"></div>
         ${spriteArtDivider('or paint pixels')}
         <div id="npc-sprite-editor"></div>

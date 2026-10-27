@@ -28,6 +28,11 @@ export function shatterWardInLiveRooms(wardId: string, adminName: string): boole
   return false;
 }
 
+/** Copy shared quest progress onto every online player and pay contributors once. */
+export function broadcastSharedQuestMirror(): void {
+  for (const room of rooms) room.projectSharedQuestsOntoPlayers();
+}
+
 /** Push the authoritative NPC world after a content reload. */
 export function broadcastNpcWorldState(): number {
   let clients = 0;
