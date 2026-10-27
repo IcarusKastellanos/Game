@@ -76,8 +76,13 @@ import {
   receiveSharedGrimoirePage,
   recordGrimoireCast,
   recordGrimoireIngredients,
-  recordGrimoireNpc,
   shareSpellIntoGrimoire,
+  bondAllowsQuest,
+  bondGreeting,
+  bondShopMultiplier,
+  npcAcceptsGifts,
+  takeAppreciatedGift,
+  withBondJournal,
   takeInventorySlot,
   withGrimoire,
   type SurvivalActivity,
@@ -138,6 +143,7 @@ import {
   checkInteractAvailable,
   tickStudyCircleEvents,
   completeQuestRewards,
+  applyPlayerSocialEvent,
   syncRecognition,
   type HandlerCtx,
 } from './progression-handlers.js';
@@ -1785,7 +1791,7 @@ export class GameRoom extends Room<GameRoomState> {
         ctx.data.progression = result.progression;
         ctx.sendProgression(ctx.client, ctx.data.progression);
       }
-      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, npcId);
+      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, npcId, result.socialEvent);
       syncRecognition(ctx);
     });
 
@@ -1829,13 +1835,7 @@ export class GameRoom extends Room<GameRoomState> {
     const contextShopId = present.type === 'shop' && typeof present.data?.shopId === 'string' ? present.data.shopId : undefined;
     const npc = contentRegistry.npcs.get(npcId)!;
     const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
-    const offers = buildNpcInteractionOffers({
-      npc,
-      dialogue,
-      contextShopId: contextShopId ?? npc.shopId,
-      quests: [...questSystem.quests.values()],
-      questProgress: progression.questProgress,
-    });
+    const offers = this.npcActionOffers(npc, dialogue, contextShopId ?? npc.shopId, progression);
     const offer = offers.find((entry) => entry.id === actionId);
     if (!offer) {
       this.warnPlayer(client, 'That is not something they will do right now.');
@@ -1855,7 +1855,40 @@ export class GameRoom extends Room<GameRoomState> {
       client.send('open_ui', { ui: 'shop', shopId: offer.shopId });
       return;
     }
+    if (offer.id === 'gift' && npcAcceptsGifts(npcId)) {
+      this.giveAppreciatedGift(client, player, npcId);
+      return;
+    }
     this.openNpcDialogue(client, player, npcId, offer.nodeId ?? 'start');
+  }
+
+  private npcActionOffers(
+    npc: NonNullable<ReturnType<typeof contentRegistry.npcs.get>>,
+    dialogue: ReturnType<typeof dialogueSystem.getTree>,
+    contextShopId: string | undefined,
+    progression: NonNullable<ReturnType<GameRoom['playerData']['get']>>['progression']
+  ) {
+    return buildNpcInteractionOffers({
+      npc,
+      dialogue,
+      contextShopId,
+      quests: [...questSystem.quests.values()].filter((quest) => bondAllowsQuest(progression, quest)),
+      questProgress: progression.questProgress,
+      acceptsGifts: npcAcceptsGifts(npc.id),
+    });
+  }
+
+  private giveAppreciatedGift(client: Client, player: PlayerSchema, npcId: string): void {
+    const taken = takeAppreciatedGift(player.inventory, npcId);
+    if (!taken.ok) {
+      this.warnPlayer(client, taken.reason);
+      return;
+    }
+    player.inventory = taken.inventory;
+    this.withProgression(client, player, (ctx) => {
+      applyPlayerSocialEvent(ctx, { eventId: 'gift_appreciated', npcId });
+    });
+    this.sendPlayerSync(client, player);
   }
 
   private openNpcActions(client: Client, player: PlayerSchema, npcId: string, contextShopId?: string): void {
@@ -1864,13 +1897,7 @@ export class GameRoom extends Room<GameRoomState> {
     if (!npc) return;
     const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
     const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
-    const offers = buildNpcInteractionOffers({
-      npc,
-      dialogue,
-      contextShopId,
-      quests: [...questSystem.quests.values()],
-      questProgress: progression.questProgress,
-    });
+    const offers = this.npcActionOffers(npc, dialogue, contextShopId, progression);
     client.send('open_ui', {
       ui: 'npc_actions',
       npcId,
@@ -1889,21 +1916,19 @@ export class GameRoom extends Room<GameRoomState> {
     const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
     const tree = dialogueSystem.getTree(npc.dialogueTreeId);
     const node = tree?.nodes.find((entry) => entry.id === nodeId);
+    const remembered = nodeId === 'start' ? bondGreeting(npcId, progression) : null;
     client.send('open_ui', {
       ui: 'dialogue',
       npcId,
       dialogueTreeId: npc.dialogueTreeId,
       nodeId,
-      text: node?.text ?? '',
+      text: remembered || (node?.text ?? ''),
       choices: dialogueSystem.publish(npc.dialogueTreeId, nodeId, progression, player.stats, player.coins),
     });
 
     const met = this.playerData.get(client.sessionId);
     if (!met) return;
-    const relationship = met.progression.npcRelationships[npcId] ?? 0;
-    const next = withGrimoire(met.progression, (grimoire) =>
-      recordGrimoireNpc(grimoire, { npcId, name: npc.name, relationship })
-    );
+    const next = withBondJournal(met.progression, npcId, npc.name);
     if (next !== met.progression) {
       met.progression = next;
       client.send('progression_update', { progression: met.progression });
@@ -2240,13 +2265,14 @@ export class GameRoom extends Room<GameRoomState> {
 
   private handleBuy(client: Client, player: PlayerSchema, shopId: string, itemId: string, quantity: number) {
     const data = this.playerData.get(client.sessionId);
+    const shopNpcId = contentRegistry.shops.get(shopId)?.npcId;
     const result = shopSystem.buy(
       shopId,
       itemId,
       quantity,
       player.inventory,
       player.coins,
-      shopPriceMultiplier(player.stats),
+      shopPriceMultiplier(player.stats) * bondShopMultiplier(data?.progression, shopNpcId),
       player.stats,
       data?.progression
     );
@@ -2258,6 +2284,12 @@ export class GameRoom extends Room<GameRoomState> {
           recordGrimoireIngredients(grimoire, [{ itemId, count: quantity }])
         );
         client.send('progression_update', { progression: data.progression });
+      }
+      if (data && shopNpcId) {
+        this.withProgression(client, player, (ctx) => {
+          applyPlayerSocialEvent(ctx, { eventId: 'shop_purchase', npcId: shopNpcId });
+          applyPlayerSocialEvent(ctx, { eventId: 'shop_noticed', npcId: shopNpcId });
+        });
       }
     }
     client.send('shop_result', {

@@ -52,6 +52,10 @@ export interface GrimoireNpcEntry {
   relationship: number;
   metAt: number;
   note?: string;
+  /** Player-visible stage. Thresholds and hidden flags stay off this page. */
+  stageLabel?: string;
+  regard?: string[];
+  memories?: string[];
 }
 
 export interface GrimoireCustomization {
@@ -351,12 +355,17 @@ function parseNpcs(raw: unknown): GrimoireNpcEntry[] {
     seen.add(npcId);
     const note = clip(o.note, MAX_MARGIN).trim();
     const relationship = typeof o.relationship === 'number' && Number.isFinite(o.relationship) ? o.relationship : 0;
+    const regard = stringList(o.regard, 8, 120);
+    const memories = stringList(o.memories, 8, 160);
     out.push({
       npcId,
       name: clip(o.name, MAX_NAME).trim() || npcId,
       relationship: Math.max(0, Math.min(100, Math.round(relationship))),
       metAt: finiteTime(o.metAt, Date.now()),
       note: note || undefined,
+      stageLabel: typeof o.stageLabel === 'string' && o.stageLabel.trim() ? clip(o.stageLabel, 48).trim() : undefined,
+      regard: regard.length ? regard : undefined,
+      memories: memories.length ? memories : undefined,
     });
     if (out.length >= MAX_NPCS) break;
   }
@@ -614,26 +623,63 @@ export function selectGrimoireSpirit(grimoire: GrimoireState, spiritId: string):
 
 export function recordGrimoireNpc(
   grimoire: GrimoireState,
-  npc: { npcId: string; name: string; relationship: number },
+  npc: {
+    npcId: string;
+    name: string;
+    relationship: number;
+    stageLabel?: string;
+    regard?: string[];
+    memories?: string[];
+  },
   at = Date.now()
 ): GrimoireState {
   const npcId = cleanId(npc.npcId);
   if (!npcId) return grimoire;
   const name = clip(npc.name, MAX_NAME).trim() || npcId;
   const relationship = Math.max(0, Math.min(100, Math.round(npc.relationship || 0)));
+  const stageLabel = npc.stageLabel?.trim() || undefined;
+  const regard = npc.regard?.slice(0, 8);
+  const memories = npc.memories?.slice(0, 8);
   const existing = grimoire.npcs.find((row) => row.npcId === npcId);
   if (existing) {
-    if (existing.name === name && existing.relationship === relationship) return grimoire;
+    if (
+      existing.name === name &&
+      existing.relationship === relationship &&
+      existing.stageLabel === stageLabel &&
+      sameStrings(existing.regard, regard) &&
+      sameStrings(existing.memories, memories)
+    ) {
+      return grimoire;
+    }
     return {
       ...grimoire,
-      npcs: grimoire.npcs.map((row) => (row.npcId === npcId ? { ...row, name, relationship } : row)),
+      npcs: grimoire.npcs.map((row) =>
+        row.npcId === npcId ? { ...row, name, relationship, stageLabel, regard, memories } : row
+      ),
     };
   }
   if (grimoire.npcs.length >= MAX_NPCS) return grimoire;
   return {
     ...grimoire,
-    npcs: [...grimoire.npcs, { npcId, name, relationship, metAt: at }],
+    npcs: [...grimoire.npcs, { npcId, name, relationship, metAt: at, stageLabel, regard, memories }],
   };
+}
+
+function sameStrings(a: string[] | undefined, b: string[] | undefined): boolean {
+  const left = a ?? [];
+  const right = b ?? [];
+  return left.length === right.length && left.every((entry, index) => entry === right[index]);
+}
+
+function stringList(raw: unknown, max: number, length: number): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || !entry.trim()) continue;
+    out.push(clip(entry, length).trim());
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 export function customizeGrimoire(

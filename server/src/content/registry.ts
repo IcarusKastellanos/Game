@@ -15,7 +15,7 @@ import type {
   ContentHexagramRecipe,
   MagicTradition,
 } from '@witchcraft/shared';
-import { setProgressionContent, getMaxPlayerLevel, findUnknownLevelUnlocks } from '@witchcraft/shared';
+import { setProgressionContent, setSocialContent, getMaxPlayerLevel, findUnknownLevelUnlocks } from '@witchcraft/shared';
 import { dialogueSystem, type DialogueTree } from '../systems/dialogue-system.js';
 import { craftingSystem } from '../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
@@ -104,6 +104,8 @@ export class ContentRegistry {
     hexagramEnchantSystem.loadFromJson(loadJson<ContentHexagramRecipe>('hexagram-recipes.json'));
     questSystem.loadFromJson(loadJson<ContentQuest>('quests.json'));
     dialogueSystem.loadFromJson([...this.dialogues.values()]);
+
+    setSocialContent(loadJsonFile('social.json'));
 
     setProgressionContent({
       statsJson: loadJsonFile('progression/stats.json'),

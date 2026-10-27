@@ -15,6 +15,7 @@ import {
   meetsLicenseExamRequirements,
 } from '../progression/licenses.js';
 import { meetsDialogueRecognitionGate } from '../progression/recognition.js';
+import { bondBlockReason, type BondGate } from '../social/index.js';
 
 export interface DialogueChoice {
   /** Stable id. Existing trees omit it and use `${nodeId}:${index}`. */
@@ -31,6 +32,10 @@ export interface DialogueChoice {
   acceptVow?: string;
   grantLicense?: string;
   requiresExamEligibility?: string;
+  /** Server-checked bond stage, axis, memory, or grudge. Numbers are not shown to the player. */
+  requiresBond?: BondGate;
+  /** Social event id applied when the choice succeeds. */
+  socialEvent?: string;
 }
 
 export interface DialogueNode {
@@ -74,6 +79,7 @@ export interface DialogueChoiceSuccess {
   inventory?: InventorySlot[];
   statBoost?: Record<string, number>;
   relationshipDelta?: number;
+  socialEvent?: string;
   coinsDelta?: number;
   progression?: PlayerProgression;
   notification?: string;
@@ -126,7 +132,7 @@ export function publishDialogueChoices(
   node.choices.forEach((choice, index) => {
     if (!meetsDialogueRecognitionGate(choice, progression)) return;
     const id = dialogueChoiceId(node.id, choice, index);
-    const block = choiceBlock(choice, progression, stats, coins);
+    const block = choiceBlock(choice, progression, stats, coins, tree?.npcId);
     if (block === 'hide') return;
     published.push({
       id,
@@ -166,7 +172,7 @@ export function resolveDialogueChoice(
     return { ok: false, reason: 'That path is closed to you.' };
   }
 
-  const block = choiceBlock(choice, progression, session.stats, session.coins);
+  const block = choiceBlock(choice, progression, session.stats, session.coins, tree.npcId);
   if (block === 'hide') return { ok: false, reason: 'That path is closed to you.' };
   if (block) return { ok: false, reason: block };
 
@@ -206,8 +212,9 @@ export function resolveDialogueChoice(
     message: nextNode?.text ?? 'Farewell.',
     inventory: choice.grantItem ? updatedInv : undefined,
     statBoost: choice.statBoost,
-    relationshipDelta: choice.relationshipDelta,
-    coinsDelta: coinsDelta || undefined,
+      relationshipDelta: choice.relationshipDelta,
+      socialEvent: choice.socialEvent,
+      coinsDelta: coinsDelta || undefined,
     progression: nextProgression !== progression ? nextProgression : undefined,
     notification,
   };
@@ -219,6 +226,7 @@ export function buildNpcInteractionOffers(input: {
   contextShopId?: string;
   quests?: Pick<ContentQuest, 'id' | 'name' | 'npcId'>[];
   questProgress?: Record<string, { completedAt?: number | null } | undefined>;
+  acceptsGifts?: boolean;
 }): NpcInteractionOffer[] {
   const { npc, dialogue, quests, questProgress } = input;
   const nodeIds = new Set((dialogue?.nodes ?? []).map((node) => node.id));
@@ -255,6 +263,9 @@ export function buildNpcInteractionOffers(input: {
     });
   }
 
+  if (input.acceptsGifts && !offers.some((offer) => offer.id === 'gift')) {
+    offers.push({ id: 'gift', label: ACTION_LABELS.gift });
+  }
   const goodbye = explicit?.find((entry) => entry.action === 'goodbye');
   offers.push({ id: 'goodbye', label: goodbye?.label?.trim() || ACTION_LABELS.goodbye });
   return offers;
@@ -432,7 +443,8 @@ function choiceBlock(
   choice: DialogueChoice,
   progression: PlayerProgression | undefined,
   stats: PlayerStats | undefined,
-  coins: number | undefined
+  coins: number | undefined,
+  npcId?: string
 ): string | 'hide' | null {
   if (choice.requiresExamEligibility) {
     const license = getLicense(choice.requiresExamEligibility);
@@ -445,6 +457,8 @@ function choiceBlock(
   if (choice.chargeCoins != null && choice.chargeCoins > 0 && (coins ?? 0) < choice.chargeCoins) {
     return `You need ${choice.chargeCoins} coins.`;
   }
+  const bond = bondBlockReason(progression, npcId, choice.requiresBond);
+  if (bond) return bond;
   return null;
 }
 
@@ -488,7 +502,30 @@ function parseChoice(
   if (typeof raw.requiresExamEligibility === 'string' && raw.requiresExamEligibility.trim()) {
     choice.requiresExamEligibility = raw.requiresExamEligibility.trim();
   }
+  if (typeof raw.socialEvent === 'string' && raw.socialEvent.trim()) choice.socialEvent = raw.socialEvent.trim();
+  if (raw.requiresBond && typeof raw.requiresBond === 'object') {
+    const gate = parseBondGate(raw.requiresBond);
+    if (!gate.ok) return gate;
+    if (gate.gate) choice.requiresBond = gate.gate;
+  }
   return { ok: true, choice };
+}
+
+function parseBondGate(value: unknown): { ok: true; gate?: BondGate } | { ok: false; error: string } {
+  if (!value || typeof value !== 'object') return { ok: false, error: 'requiresBond must be an object.' };
+  const raw = value as Record<string, unknown>;
+  const gate: BondGate = {};
+  if (typeof raw.stage === 'string' && raw.stage.trim()) gate.stage = raw.stage.trim();
+  if (typeof raw.memory === 'string' && raw.memory.trim()) gate.memory = raw.memory.trim();
+  if (typeof raw.grudge === 'string' && raw.grudge.trim()) gate.grudge = raw.grudge.trim();
+  if (typeof raw.noGrudge === 'string' && raw.noGrudge.trim()) gate.noGrudge = raw.noGrudge.trim();
+  for (const key of ['trustMin', 'affinityMin', 'respectMin', 'familiarityMin', 'fearMin'] as const) {
+    const amount = raw[key];
+    if (amount == null) continue;
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) return { ok: false, error: `requiresBond.${key} must be a number.` };
+    gate[key] = amount;
+  }
+  return { ok: true, gate: Object.keys(gate).length ? gate : undefined };
 }
 
 function gateFields(raw: Record<string, unknown>): Pick<

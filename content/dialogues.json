@@ -20,6 +20,11 @@
           {
             "label": "Just browsing.",
             "next": "end"
+          },
+          {
+            "label": "What do you still keep back?",
+            "next": "private_lore",
+            "requiresBond": { "stage": "familiar", "noGrudge": "broke_promise" }
           }
         ]
       },
@@ -45,6 +50,16 @@
           },
           {
             "label": "Good to know.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "private_lore",
+        "text": "There is a path behind the old coven stones. I tell that to someone I have come to know, and who has kept their word.",
+        "choices": [
+          {
+            "label": "I'll keep it.",
             "next": "end"
           }
         ]

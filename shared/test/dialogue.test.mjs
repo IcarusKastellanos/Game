@@ -12,6 +12,7 @@ import {
   resolveDialogueChoice,
   setLicensesContent,
   setRecognitionContent,
+  setSocialContent,
   validateDialogueTree,
 } from '../dist/index.js';
 
@@ -29,6 +30,7 @@ const shops = loadJson('content/shops.json');
 
 setRecognitionContent(loadJson('content/progression/recognition-tiers.json'));
 setLicensesContent(loadJson('content/progression/licenses.json'));
+setSocialContent(loadJson('content/social.json'));
 
 const shopNpc = new Map(shops.map((shop) => [shop.id, shop.npcId]));
 const town = maps.find((map) => map.sceneId === 'town');
@@ -112,8 +114,11 @@ test('published choices use stable ids and the server rechecks them', () => {
   const mara = tree('mara_intro');
   const progression = defaultProgression();
   const start = publishDialogueChoices(mara, 'start', progression, DEFAULT_STATS, 0);
-  assert.deepEqual(start.map((choice) => choice.id), ['start:0', 'start:1', 'start:2']);
-  assert.ok(start.every((choice) => choice.available));
+  assert.deepEqual(start.map((choice) => choice.id), ['start:0', 'start:1', 'start:2', 'start:3']);
+  assert.ok(start.slice(0, 3).every((choice) => choice.available));
+  assert.equal(start[3].available, false);
+  assert.match(start[3].requirement, /close enough/);
+  assert.equal(/\d/.test(start[3].requirement), false);
 
   const snapshot = JSON.stringify(mara);
   const inventoryA = [];
