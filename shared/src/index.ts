@@ -31,6 +31,7 @@ export * from './npc/personality.js';
 export * from './npc/knowledge.js';
 export * from './npc/lessons.js';
 export * from './npc/behavior.js';
+export * from './npc/encounter.js';
 export * from './quests/engine.js';
 export * from './social/index.js';
 export * from './hexagram/index.js';

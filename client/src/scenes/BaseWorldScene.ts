@@ -263,6 +263,31 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       }
     });
 
+    let walkerNpcId: string | null = null;
+    let walkerDist = maxReach + 1;
+    const now = Date.now();
+    for (const [npcId, sprite] of this.npcWalkers) {
+      if (!sprite.active || !sprite.visible) continue;
+      const presence = gameState.npcPresences.find((entry) => entry.npcId === npcId);
+      if (!presence?.visible || presence.indoors || presence.held || presence.interaction === 'away') continue;
+      if (presence.moving) continue;
+      const tile = npcPresenceTile(presence, now);
+      if (!tile) continue;
+      const tx = tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const ty = tile.y * TILE_SIZE + TILE_SIZE / 2;
+      const dist = Math.hypot(this.player.x - tx, this.player.y - ty);
+      if (dist > maxReach) continue;
+      if (dist < walkerDist) {
+        walkerDist = dist;
+        walkerNpcId = npcId;
+      }
+    }
+
+    if (walkerNpcId && walkerDist <= closestDist) {
+      network.send('npc_talk', { npcId: walkerNpcId });
+      return;
+    }
+
     if (!closest) return;
 
     const sprite = closest as Phaser.GameObjects.Sprite;
@@ -398,7 +423,9 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     }
     const wanted = new Set<string>();
     for (const presence of gameState.npcPresences) {
-      if (!presence.visible || presence.indoors || presence.scene !== this.sceneId) continue;
+      // Only paint bodies the server marked visible for this scene — never invent from content alone.
+      if (!presence.visible || presence.indoors || presence.held || presence.scene !== this.sceneId) continue;
+      if (presence.interaction === 'away') continue;
       if (posted.has(presence.npcId)) continue;
       const tile = npcPresenceTile(presence, now);
       if (!tile) continue;
@@ -417,12 +444,28 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       sprite.setPosition(x, y);
       sprite.setVisible(true);
       sprite.setDepth(placedObjectDepth(RENDER_LEVEL_PLAYER, y));
+      applyNpcPresenceChrome(sprite, presence.interaction);
     }
     for (const [npcId, sprite] of this.npcWalkers) {
       if (wanted.has(npcId)) continue;
       sprite.destroy();
       this.npcWalkers.delete(npcId);
     }
+    this.applyPostedNpcChrome();
+  }
+
+  /** Tint posted NPC sprites from authoritative presence (busy / open). */
+  private applyPostedNpcChrome(): void {
+    if (!this.interactables) return;
+    const byNpc = new Map(gameState.npcPresences.map((presence) => [presence.npcId, presence]));
+    this.interactables.getChildren().forEach((obj) => {
+      const sprite = obj as Phaser.GameObjects.Sprite;
+      const inter = sprite.getData('interactable') as ContentMapDefinition['interactables'][number] | undefined;
+      if (!inter || inter.type !== 'npc') return;
+      const npcId = typeof inter.data?.npcId === 'string' ? inter.data.npcId : '';
+      const presence = npcId ? byNpc.get(npcId) : undefined;
+      applyNpcPresenceChrome(sprite, presence?.interaction);
+    });
   }
 
   protected rebuildWorldMap(): void {
@@ -591,4 +634,18 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       bubble.root.setPosition(point.x, point.y);
     }
   }
+}
+
+/** Soft busy tint from server presence — never invents hidden NPCs. */
+function applyNpcPresenceChrome(
+  sprite: Phaser.GameObjects.Sprite,
+  interaction: string | undefined
+): void {
+  if (interaction === 'busy') {
+    sprite.setTint(0xc4b08a);
+    sprite.setAlpha(0.92);
+    return;
+  }
+  sprite.clearTint();
+  sprite.setAlpha(1);
 }

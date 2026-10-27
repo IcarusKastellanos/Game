@@ -29,6 +29,8 @@ import {
   validateLessonDocument,
   canStartConversation,
   acquireConversationLock,
+  buildNpcEncounterView,
+  buildPeopleDossierPatch,
 } from '../dist/index.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -289,4 +291,59 @@ test('knowledge and lesson documents validate', () => {
   assert.equal(validateKnowledgeDocument(loadJson('content/knowledge.json')).ok, true);
   assert.equal(validateLessonDocument(loadJson('content/lessons.json')).ok, true);
   assert.equal(validateDialogueTree(rowanTree).ok, true);
+});
+
+test('encounter view stays player-safe and marks gift cooldowns', () => {
+  const npcs = loadJson('content/npcs.json');
+  const mara = npcs.find((npc) => npc.id === 'npc_mara');
+  assert.ok(mara);
+  const progression = defaultProgression();
+  progression.social = {
+    bonds: {
+      npc_mara: {
+        axes: { familiarity: 25, affinity: 10, trust: 8 },
+        grudges: [],
+        memories: [
+          {
+            id: 'met',
+            kind: 'moment',
+            importance: 2,
+            at: 1,
+            visible: true,
+            text: 'You bought your first herb from her.',
+          },
+        ],
+        onceEvents: [],
+        giftCounts: {},
+        giftReceipts: [],
+        knownPreferences: [],
+        giftNextAt: Date.now() + 60_000,
+        actionNextAt: {},
+        actionReceipts: [],
+      },
+    },
+    scopes: {},
+  };
+  const view = buildNpcEncounterView({
+    npc: mara,
+    dialogue: maraTree,
+    progression,
+    stats: DEFAULT_STATS,
+    inventory: [],
+    coins: 20,
+    contextShopId: mara.shopId,
+    now: Date.now(),
+  });
+  assert.equal(view.npcId, 'npc_mara');
+  assert.ok(view.relationship.signals.length >= 1);
+  assert.ok(!JSON.stringify(view).includes('"affinity":'));
+  const gift = view.options.find((offer) => offer.id === 'gift');
+  assert.ok(gift);
+  assert.equal(gift.available, false);
+  assert.ok(gift.requirement);
+
+  const dossier = buildPeopleDossierPatch({ npc: mara, progression });
+  assert.equal(dossier.role, mara.role);
+  assert.ok(dossier.stageLabel);
+  assert.ok(!('affinity' in dossier));
 });

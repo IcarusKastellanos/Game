@@ -1195,6 +1195,36 @@ body.hud-expanded #hud-resources {
   font-size: 18px;
   font-weight: 500;
 }
+.hud-grimoire__person-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.hud-grimoire__portrait {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  border: 1px solid rgba(212, 175, 106, 0.35);
+  background: rgba(20, 16, 28, 0.55);
+}
+.hud-grimoire__portrait--empty {
+  display: grid;
+  place-items: center;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 22px;
+  color: var(--gold);
+}
+.hud-grimoire__sub h5 {
+  margin: 0 0 6px;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+}
 .hud-grimoire__seal {
   display: inline-block;
   margin-left: 8px;

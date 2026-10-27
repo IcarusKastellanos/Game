@@ -193,6 +193,7 @@ export class UIScene extends Phaser.Scene {
     notice?: string;
     choices?: import('@witchcraft/shared').PublishedDialogueChoice[];
     options?: import('@witchcraft/shared').NpcInteractionOffer[];
+    encounter?: import('@witchcraft/shared').NpcEncounterView;
     stationType?: string;
     interactableId?: string;
     recipes?: unknown[];
@@ -220,7 +221,14 @@ export class UIScene extends Phaser.Scene {
       case 'npc_actions':
         if (d.npcId) {
           gameState.activeUI = 'npc_actions';
-          this.npcActionPanel.show({ npcId: d.npcId, name: d.name, role: d.role, options: d.options, notice: d.notice });
+          this.npcActionPanel.show({
+            npcId: d.npcId,
+            name: d.name,
+            role: d.role,
+            options: d.options,
+            notice: d.notice,
+            encounter: d.encounter,
+          });
         }
         break;
       case 'npc_gift':
