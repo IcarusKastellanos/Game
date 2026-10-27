@@ -40,7 +40,19 @@ export type ClientMessage =
   | { type: 'hexagram_enchant'; recipeId: string; sockets: Partial<Record<string, string>>; augmentations: string[]; declaration: string }
   | { type: 'experiment_ingredients'; itemIds: string[] }
   | { type: 'read_book_complete'; bookId: string }
-  | { type: 'presence_ready' };
+  | { type: 'presence_ready' }
+  | {
+      type: 'grimoire_write';
+      custom?: { title?: string; dedication?: string; ink?: string; showLockedShared?: boolean };
+      notes?: string[];
+      notesActive?: number;
+      spellNote?: { spellId: string; note: string };
+      npcNote?: { npcId: string; note: string };
+      spiritNote?: { spiritId: string; note: string };
+    }
+  | { type: 'grimoire_share'; spellId: string; targetSessionId?: string; friendPlayerId?: string }
+  | { type: 'grimoire_petition'; spiritId: string }
+  | { type: 'grimoire_recall'; spiritId: string };
 
 /** Server → Client message types */
 export type ServerMessage =

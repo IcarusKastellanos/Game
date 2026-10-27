@@ -9,14 +9,21 @@ import { renderHudBuilder } from './hud-builder/index.js';
 import { renderLevelEditor } from './editors/level-editor.js';
 import { renderLicenseEditor } from './editors/license-editor.js';
 import { renderModerator } from './editors/moderator.js';
+import { renderGrimoireEditor } from './editors/grimoire-editor.js';
 
-type Page = 'dashboard' | 'players' | 'moderator' | 'spells' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
+type Page = 'dashboard' | 'players' | 'moderator' | 'spells' | 'grimoire' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
 
-const NAV: { id: Page; label: string; perm?: string; group: string }[] = [
+const NAV: { id: Page; label: string; perm?: string | string[]; group: string }[] = [
   { id: 'dashboard', label: 'Dashboard', perm: 'dashboard.view', group: 'Overview' },
   { id: 'players', label: 'Player Manager', perm: 'player.view', group: 'People' },
   { id: 'moderator', label: 'Moderator', perm: 'player.moderate', group: 'People' },
   { id: 'spells', label: 'Spell Editor', perm: 'content.spell.view', group: 'Content' },
+  {
+    id: 'grimoire',
+    label: 'Grimoire',
+    perm: ['content.spell.view', 'content.item.view', 'content.npc.view', 'content.spirit.edit', 'content.familiar.edit', 'content.quest.edit'],
+    group: 'Content',
+  },
   { id: 'levels', label: 'Level Editor', perm: 'content.spell.view', group: 'Content' },
   { id: 'licenses', label: 'License Editor', perm: 'content.spell.view', group: 'Content' },
   { id: 'recipes', label: 'Recipe Manager', perm: 'content.item.view', group: 'Content' },
@@ -78,7 +85,11 @@ function renderLogin(root: HTMLElement): void {
 
 function renderShell(root: HTMLElement): void {
   const perms = new Set(session?.permissions ?? []);
-  const navItems = NAV.filter((n) => !n.perm || perms.has(n.perm));
+  const navItems = NAV.filter((n) => {
+    if (!n.perm) return true;
+    const needed = Array.isArray(n.perm) ? n.perm : [n.perm];
+    return needed.some((perm) => perms.has(perm));
+  });
   let lastGroup = '';
   const navHtml = navItems.map((n) => {
     const heading = n.group !== lastGroup ? `<div class="nav-label">${n.group}</div>` : '';
@@ -128,6 +139,8 @@ async function loadPage(): Promise<void> {
     case 'dashboard': return renderDashboard(el);
     case 'players': return renderPlayers(el);
     case 'moderator': return renderModerator(el);
+    case 'grimoire':
+      return renderGrimoireEditor(el);
     case 'spells':
       if (editSpellId === '__new__' || editSpellId) {
         return renderSpellEditor(el, editSpellId, () => { editSpellId = null; void loadPage(); });

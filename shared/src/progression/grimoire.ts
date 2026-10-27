@@ -1,0 +1,554 @@
+/**
+ * Personal grimoire stored on player progression.
+ * Indexing a spell does not grant the right to cast it.
+ * A malevolent spell written here gives a microscopic edge when that same working is turned on you.
+ */
+
+export const GRIMOIRE_NOTE_COUNT = 5;
+export const GRIMOIRE_MALEVOLENT_WARD = 1;
+
+export const GRIMOIRE_INKS = ['iron', 'violet', 'gold', 'moss', 'blood'] as const;
+export type GrimoireInk = (typeof GRIMOIRE_INKS)[number];
+
+export type GrimoireSpellSource = 'cast' | 'studied' | 'shared';
+
+export interface GrimoireSpellEntry {
+  spellId: string;
+  source: GrimoireSpellSource;
+  sharedByName?: string;
+  firstRecordedAt: number;
+  timesCast: number;
+  lastCastAt?: number;
+  note?: string;
+}
+
+export interface GrimoireIngredientEntry {
+  itemId: string;
+  firstHeldAt: number;
+  timesGathered: number;
+}
+
+export interface GrimoireSpiritEncounter {
+  spiritId: string;
+  /** Primary domain, such as healing or hex. */
+  spiritType: string;
+  name: string;
+  description: string;
+  domains: string[];
+  metAt: number;
+  timesMet: number;
+  note?: string;
+}
+
+export interface GrimoireNpcEntry {
+  npcId: string;
+  name: string;
+  relationship: number;
+  metAt: number;
+  note?: string;
+}
+
+export interface GrimoireCustomization {
+  title: string;
+  dedication: string;
+  ink: GrimoireInk;
+  /** When false, sealed pages received from someone else stay in the index but off the open list. */
+  showLockedShared: boolean;
+}
+
+export interface GrimoireState {
+  custom: GrimoireCustomization;
+  spells: GrimoireSpellEntry[];
+  ingredients: GrimoireIngredientEntry[];
+  spirits: GrimoireSpiritEncounter[];
+  npcs: GrimoireNpcEntry[];
+  selectedSpiritId?: string;
+  notes: string[];
+  notesActive: number;
+}
+
+export interface GrimoireSpiritDraft {
+  spiritId: string;
+  spiritType: string;
+  name: string;
+  description: string;
+  domains: string[];
+}
+
+const MAX_SPELLS = 96;
+const MAX_INGREDIENTS = 240;
+const MAX_SPIRITS = 48;
+const MAX_NPCS = 96;
+const MAX_NOTE = 4000;
+const MAX_MARGIN = 280;
+const MAX_TITLE = 48;
+const MAX_DEDICATION = 180;
+const MAX_NAME = 80;
+const DEFAULT_TITLE = 'Personal Grimoire';
+
+function clip(text: unknown, max: number): string {
+  return String(text ?? '').replace(/\u0000/g, '').slice(0, max);
+}
+
+function finiteTime(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function clampCount(value: unknown, max = 9999): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : 0;
+  return Math.max(0, Math.min(max, n));
+}
+
+function cleanId(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const id = value.trim();
+  if (!/^[a-zA-Z0-9_.:-]{1,64}$/.test(id)) return '';
+  return id;
+}
+
+export function defaultGrimoire(): GrimoireState {
+  return {
+    custom: {
+      title: DEFAULT_TITLE,
+      dedication: '',
+      ink: 'iron',
+      showLockedShared: true,
+    },
+    spells: [],
+    ingredients: [],
+    spirits: [],
+    npcs: [],
+    notes: Array.from({ length: GRIMOIRE_NOTE_COUNT }, () => ''),
+    notesActive: 0,
+  };
+}
+
+function parseSpells(raw: unknown): GrimoireSpellEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GrimoireSpellEntry[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const spellId = cleanId(o.spellId);
+    if (!spellId || seen.has(spellId)) continue;
+    seen.add(spellId);
+    const source: GrimoireSpellSource =
+      o.source === 'shared' || o.source === 'studied' || o.source === 'cast' ? o.source : 'studied';
+    const note = clip(o.note, MAX_MARGIN).trim();
+    const sharedByName = clip(o.sharedByName, 40).trim();
+    out.push({
+      spellId,
+      source,
+      sharedByName: source === 'shared' && sharedByName ? sharedByName : undefined,
+      firstRecordedAt: finiteTime(o.firstRecordedAt, Date.now()),
+      timesCast: clampCount(o.timesCast),
+      lastCastAt: typeof o.lastCastAt === 'number' && o.lastCastAt > 0 ? Math.floor(o.lastCastAt) : undefined,
+      note: note || undefined,
+    });
+    if (out.length >= MAX_SPELLS) break;
+  }
+  return out;
+}
+
+function parseIngredients(raw: unknown): GrimoireIngredientEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GrimoireIngredientEntry[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const itemId = cleanId(o.itemId);
+    if (!itemId || seen.has(itemId)) continue;
+    seen.add(itemId);
+    out.push({
+      itemId,
+      firstHeldAt: finiteTime(o.firstHeldAt, Date.now()),
+      timesGathered: Math.max(1, clampCount(o.timesGathered)),
+    });
+    if (out.length >= MAX_INGREDIENTS) break;
+  }
+  return out;
+}
+
+function parseSpirits(raw: unknown): GrimoireSpiritEncounter[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GrimoireSpiritEncounter[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const spiritId = cleanId(o.spiritId);
+    if (!spiritId || seen.has(spiritId)) continue;
+    seen.add(spiritId);
+    const domains = Array.isArray(o.domains)
+      ? o.domains.map((d) => clip(d, 32).trim()).filter(Boolean).slice(0, 6)
+      : [];
+    const note = clip(o.note, MAX_MARGIN).trim();
+    out.push({
+      spiritId,
+      spiritType: clip(o.spiritType, 32).trim() || domains[0] || 'spirit',
+      name: clip(o.name, MAX_NAME).trim() || spiritId,
+      description: clip(o.description, 360).trim(),
+      domains,
+      metAt: finiteTime(o.metAt, Date.now()),
+      timesMet: Math.max(1, clampCount(o.timesMet, 999)),
+      note: note || undefined,
+    });
+    if (out.length >= MAX_SPIRITS) break;
+  }
+  return out;
+}
+
+function parseNpcs(raw: unknown): GrimoireNpcEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GrimoireNpcEntry[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const npcId = cleanId(o.npcId);
+    if (!npcId || seen.has(npcId)) continue;
+    seen.add(npcId);
+    const note = clip(o.note, MAX_MARGIN).trim();
+    const relationship = typeof o.relationship === 'number' && Number.isFinite(o.relationship) ? o.relationship : 0;
+    out.push({
+      npcId,
+      name: clip(o.name, MAX_NAME).trim() || npcId,
+      relationship: Math.max(0, Math.min(100, Math.round(relationship))),
+      metAt: finiteTime(o.metAt, Date.now()),
+      note: note || undefined,
+    });
+    if (out.length >= MAX_NPCS) break;
+  }
+  return out;
+}
+
+export function parseGrimoire(raw: unknown): GrimoireState {
+  const base = defaultGrimoire();
+  if (!raw || typeof raw !== 'object') return base;
+  const o = raw as Record<string, unknown>;
+  const customRaw = o.custom && typeof o.custom === 'object' ? (o.custom as Record<string, unknown>) : {};
+  const ink = GRIMOIRE_INKS.includes(customRaw.ink as GrimoireInk) ? (customRaw.ink as GrimoireInk) : 'iron';
+  const notes = Array.isArray(o.notes) ? o.notes.slice(0, GRIMOIRE_NOTE_COUNT).map((n) => clip(n, MAX_NOTE)) : [];
+  while (notes.length < GRIMOIRE_NOTE_COUNT) notes.push('');
+  const spirits = parseSpirits(o.spirits);
+  const selected = cleanId(o.selectedSpiritId);
+  return {
+    custom: {
+      title: clip(customRaw.title, MAX_TITLE).trim() || DEFAULT_TITLE,
+      dedication: clip(customRaw.dedication, MAX_DEDICATION),
+      ink,
+      showLockedShared: customRaw.showLockedShared !== false,
+    },
+    spells: parseSpells(o.spells),
+    ingredients: parseIngredients(o.ingredients),
+    spirits,
+    npcs: parseNpcs(o.npcs),
+    selectedSpiritId: selected && spirits.some((s) => s.spiritId === selected) ? selected : undefined,
+    notes,
+    notesActive: Math.min(
+      GRIMOIRE_NOTE_COUNT - 1,
+      Math.max(0, Math.floor(Number(o.notesActive) || 0))
+    ),
+  };
+}
+
+export function grimoireKnowsSpell(grimoire: GrimoireState | undefined, spellId: string): boolean {
+  if (!grimoire || !spellId) return false;
+  return grimoire.spells.some((s) => s.spellId === spellId);
+}
+
+export function isMalevolentSpell(spell: { category?: string; moralEffect?: number } | undefined | null): boolean {
+  if (!spell) return false;
+  if (spell.category === 'baneful') return true;
+  return typeof spell.moralEffect === 'number' && spell.moralEffect < 0;
+}
+
+/** +1 focus the caster must clear, only for a malevolent spell indexed in the target's book. */
+export function malevolentGrimoireWard(
+  grimoire: GrimoireState | undefined,
+  spell: { id: string; category?: string; moralEffect?: number } | undefined | null
+): number {
+  if (!spell || !isMalevolentSpell(spell)) return 0;
+  if (!grimoireKnowsSpell(grimoire, spell.id)) return 0;
+  return GRIMOIRE_MALEVOLENT_WARD;
+}
+
+export function grimoireBondLabel(relationship: number): string {
+  if (relationship >= 80) return 'dear to you';
+  if (relationship >= 55) return 'trusted';
+  if (relationship >= 30) return 'a friend';
+  if (relationship >= 10) return 'an acquaintance';
+  return 'newly met';
+}
+
+export function recordGrimoireCast(
+  grimoire: GrimoireState,
+  spellId: string,
+  success: boolean,
+  at = Date.now()
+): GrimoireState {
+  const id = cleanId(spellId);
+  if (!id) return grimoire;
+  const existing = grimoire.spells.find((s) => s.spellId === id);
+  if (existing) {
+    if (!success) return grimoire;
+    return {
+      ...grimoire,
+      spells: grimoire.spells.map((s) =>
+        s.spellId === id
+          ? {
+              ...s,
+              source: 'cast',
+              timesCast: clampCount(s.timesCast + 1),
+              lastCastAt: at,
+            }
+          : s
+      ),
+    };
+  }
+  if (grimoire.spells.length >= MAX_SPELLS) return grimoire;
+  return {
+    ...grimoire,
+    spells: [
+      ...grimoire.spells,
+      {
+        spellId: id,
+        source: success ? 'cast' : 'studied',
+        firstRecordedAt: at,
+        timesCast: success ? 1 : 0,
+        lastCastAt: success ? at : undefined,
+      },
+    ],
+  };
+}
+
+export function recordGrimoireStudied(grimoire: GrimoireState, spellId: string, at = Date.now()): GrimoireState {
+  const id = cleanId(spellId);
+  if (!id) return grimoire;
+  const existing = grimoire.spells.find((s) => s.spellId === id);
+  if (existing) {
+    if (existing.source !== 'shared') return grimoire;
+    return {
+      ...grimoire,
+      spells: grimoire.spells.map((s) => (s.spellId === id ? { ...s, source: 'studied' } : s)),
+    };
+  }
+  if (grimoire.spells.length >= MAX_SPELLS) return grimoire;
+  return {
+    ...grimoire,
+    spells: [
+      ...grimoire.spells,
+      { spellId: id, source: 'studied', firstRecordedAt: at, timesCast: 0 },
+    ],
+  };
+}
+
+export function shareSpellIntoGrimoire(
+  grimoire: GrimoireState,
+  spellId: string,
+  sharedByName: string,
+  at = Date.now()
+): { grimoire: GrimoireState; status: 'added' | 'already' | 'full' } {
+  const id = cleanId(spellId);
+  if (!id) return { grimoire, status: 'already' };
+  if (grimoire.spells.some((s) => s.spellId === id)) return { grimoire, status: 'already' };
+  if (grimoire.spells.length >= MAX_SPELLS) return { grimoire, status: 'full' };
+  const name = clip(sharedByName, 40).trim() || 'a coven mate';
+  return {
+    status: 'added',
+    grimoire: {
+      ...grimoire,
+      spells: [
+        ...grimoire.spells,
+        {
+          spellId: id,
+          source: 'shared',
+          sharedByName: name,
+          firstRecordedAt: at,
+          timesCast: 0,
+        },
+      ],
+    },
+  };
+}
+
+type IngredientTouch = string | { itemId: string; count?: number };
+
+export function recordGrimoireIngredients(
+  grimoire: GrimoireState,
+  entries: IngredientTouch[],
+  at = Date.now()
+): GrimoireState {
+  let ingredients = grimoire.ingredients;
+  let changed = false;
+  for (const entry of entries) {
+    const itemId = cleanId(typeof entry === 'string' ? entry : entry.itemId);
+    if (!itemId || itemId.startsWith('taglock')) continue;
+    const count = Math.max(1, Math.min(99, clampCount(typeof entry === 'string' ? 1 : entry.count ?? 1, 99) || 1));
+    const idx = ingredients.findIndex((row) => row.itemId === itemId);
+    if (idx >= 0) {
+      const row = ingredients[idx];
+      if (!changed) ingredients = ingredients.slice();
+      ingredients[idx] = { ...row, timesGathered: clampCount(row.timesGathered + count) };
+      changed = true;
+      continue;
+    }
+    if (ingredients.length >= MAX_INGREDIENTS) continue;
+    if (!changed) ingredients = ingredients.slice();
+    ingredients.push({ itemId, firstHeldAt: at, timesGathered: count });
+    changed = true;
+  }
+  return changed ? { ...grimoire, ingredients } : grimoire;
+}
+
+/** Add ingredients the player already holds, without raising the count on pages already written. */
+export function backfillGrimoireIngredients(
+  grimoire: GrimoireState,
+  itemIds: string[],
+  at = Date.now()
+): GrimoireState {
+  const have = new Set(grimoire.ingredients.map((row) => row.itemId));
+  const missing = [...new Set(itemIds.map((id) => cleanId(id)).filter((id) => id && !have.has(id)))];
+  if (!missing.length) return grimoire;
+  return recordGrimoireIngredients(grimoire, missing, at);
+}
+
+export function recordGrimoireSpirit(
+  grimoire: GrimoireState,
+  draft: GrimoireSpiritDraft,
+  at = Date.now(),
+  repeat = false
+): { grimoire: GrimoireState; status: 'added' | 'again' | 'full' } {
+  const spiritId = cleanId(draft.spiritId);
+  if (!spiritId) return { grimoire, status: 'again' };
+  const existing = grimoire.spirits.find((s) => s.spiritId === spiritId);
+  if (existing) {
+    if (!repeat) return { grimoire, status: 'again' };
+    return {
+      status: 'again',
+      grimoire: {
+        ...grimoire,
+        spirits: grimoire.spirits.map((s) =>
+          s.spiritId === spiritId ? { ...s, timesMet: clampCount(s.timesMet + 1, 999) } : s
+        ),
+      },
+    };
+  }
+  if (grimoire.spirits.length >= MAX_SPIRITS) return { grimoire, status: 'full' };
+  const domains = (draft.domains ?? []).map((d) => clip(d, 32).trim()).filter(Boolean).slice(0, 6);
+  return {
+    status: 'added',
+    grimoire: {
+      ...grimoire,
+      spirits: [
+        ...grimoire.spirits,
+        {
+          spiritId,
+          spiritType: clip(draft.spiritType, 32).trim() || domains[0] || 'spirit',
+          name: clip(draft.name, MAX_NAME).trim() || spiritId,
+          description: clip(draft.description, 360).trim(),
+          domains,
+          metAt: at,
+          timesMet: 1,
+        },
+      ],
+    },
+  };
+}
+
+export function selectGrimoireSpirit(grimoire: GrimoireState, spiritId: string): GrimoireState {
+  const id = cleanId(spiritId);
+  if (!id || !grimoire.spirits.some((s) => s.spiritId === id)) return grimoire;
+  if (grimoire.selectedSpiritId === id) return grimoire;
+  return { ...grimoire, selectedSpiritId: id };
+}
+
+export function recordGrimoireNpc(
+  grimoire: GrimoireState,
+  npc: { npcId: string; name: string; relationship: number },
+  at = Date.now()
+): GrimoireState {
+  const npcId = cleanId(npc.npcId);
+  if (!npcId) return grimoire;
+  const name = clip(npc.name, MAX_NAME).trim() || npcId;
+  const relationship = Math.max(0, Math.min(100, Math.round(npc.relationship || 0)));
+  const existing = grimoire.npcs.find((row) => row.npcId === npcId);
+  if (existing) {
+    if (existing.name === name && existing.relationship === relationship) return grimoire;
+    return {
+      ...grimoire,
+      npcs: grimoire.npcs.map((row) => (row.npcId === npcId ? { ...row, name, relationship } : row)),
+    };
+  }
+  if (grimoire.npcs.length >= MAX_NPCS) return grimoire;
+  return {
+    ...grimoire,
+    npcs: [...grimoire.npcs, { npcId, name, relationship, metAt: at }],
+  };
+}
+
+export function customizeGrimoire(
+  grimoire: GrimoireState,
+  patch: Partial<GrimoireCustomization>
+): GrimoireState {
+  const title = patch.title !== undefined ? clip(patch.title, MAX_TITLE).trim() || DEFAULT_TITLE : grimoire.custom.title;
+  const dedication = patch.dedication !== undefined ? clip(patch.dedication, MAX_DEDICATION) : grimoire.custom.dedication;
+  const ink = patch.ink && GRIMOIRE_INKS.includes(patch.ink) ? patch.ink : grimoire.custom.ink;
+  const showLockedShared =
+    patch.showLockedShared !== undefined ? !!patch.showLockedShared : grimoire.custom.showLockedShared;
+  if (
+    title === grimoire.custom.title &&
+    dedication === grimoire.custom.dedication &&
+    ink === grimoire.custom.ink &&
+    showLockedShared === grimoire.custom.showLockedShared
+  ) {
+    return grimoire;
+  }
+  return { ...grimoire, custom: { title, dedication, ink, showLockedShared } };
+}
+
+export function setGrimoireNotes(grimoire: GrimoireState, pages: string[], active?: number): GrimoireState {
+  const notes = pages.slice(0, GRIMOIRE_NOTE_COUNT).map((page) => clip(page, MAX_NOTE));
+  while (notes.length < GRIMOIRE_NOTE_COUNT) notes.push('');
+  const notesActive =
+    active === undefined
+      ? grimoire.notesActive
+      : Math.min(GRIMOIRE_NOTE_COUNT - 1, Math.max(0, Math.floor(active) || 0));
+  if (notesActive === grimoire.notesActive && notes.every((page, i) => page === grimoire.notes[i])) return grimoire;
+  return { ...grimoire, notes, notesActive };
+}
+
+export function setGrimoireSpellNote(grimoire: GrimoireState, spellId: string, note: string): GrimoireState {
+  const id = cleanId(spellId);
+  const idx = grimoire.spells.findIndex((s) => s.spellId === id);
+  if (idx < 0) return grimoire;
+  const clipped = clip(note, MAX_MARGIN).trim();
+  if ((grimoire.spells[idx].note ?? '') === clipped) return grimoire;
+  const spells = grimoire.spells.slice();
+  spells[idx] = { ...spells[idx], note: clipped || undefined };
+  return { ...grimoire, spells };
+}
+
+export function setGrimoireNpcNote(grimoire: GrimoireState, npcId: string, note: string): GrimoireState {
+  const id = cleanId(npcId);
+  const idx = grimoire.npcs.findIndex((s) => s.npcId === id);
+  if (idx < 0) return grimoire;
+  const clipped = clip(note, MAX_MARGIN).trim();
+  if ((grimoire.npcs[idx].note ?? '') === clipped) return grimoire;
+  const npcs = grimoire.npcs.slice();
+  npcs[idx] = { ...npcs[idx], note: clipped || undefined };
+  return { ...grimoire, npcs };
+}
+
+export function setGrimoireSpiritNote(grimoire: GrimoireState, spiritId: string, note: string): GrimoireState {
+  const id = cleanId(spiritId);
+  const idx = grimoire.spirits.findIndex((s) => s.spiritId === id);
+  if (idx < 0) return grimoire;
+  const clipped = clip(note, MAX_MARGIN).trim();
+  if ((grimoire.spirits[idx].note ?? '') === clipped) return grimoire;
+  const spirits = grimoire.spirits.slice();
+  spirits[idx] = { ...spirits[idx], note: clipped || undefined };
+  return { ...grimoire, spirits };
+}

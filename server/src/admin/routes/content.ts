@@ -15,7 +15,17 @@ import { saveLevelDocument } from '../../content/level-sync.js';
 import { rehydrateContentOverlays } from '../../content/rehydrate.js';
 import { licenseEditorCatalog, loadLicensesDocumentFromDisk, saveLicensesDocument } from '../../content/license-sync.js';
 import type { ContentRecipe, ContentHexagramRecipe } from '@witchcraft/shared';
-import { LEVEL_STAT_FLOOR_KEYS, getLevelDocument, getLicensesDocument } from '@witchcraft/shared';
+import {
+  GRIMOIRE_ENTRY_KINDS,
+  LEVEL_STAT_FLOOR_KEYS,
+  getLevelDocument,
+  getLicensesDocument,
+  isGrimoireEntryKind,
+  type GrimoireEntryKind,
+  type PermissionSlug,
+} from '@witchcraft/shared';
+import { getAdminPermissions } from '../rbac.js';
+import { grimoireCatalog, grimoireRecordExists, setGrimoireEntry } from '../../content/grimoire-entries.js';
 import { hydrateNpcSprite, npcToDb } from '../../content/npc-sprites.js';
 
 function hydrateItemIcon(item: ContentIngredient & { data?: { iconPixels?: string[] | null } }): ContentIngredient {
@@ -559,6 +569,100 @@ contentRouter.put('/licenses', requirePerm('content.spell.edit'), async (req: Ad
     newValue: document,
   });
   res.json({ document, catalog: licenseEditorCatalog() });
+});
+
+const GRIMOIRE_KIND_ACCESS: Record<
+  GrimoireEntryKind,
+  { label: string; view: PermissionSlug; edit: PermissionSlug; playerNote: string }
+> = {
+  spells: {
+    label: 'Spells',
+    view: 'content.spell.view',
+    edit: 'content.spell.edit',
+    playerNote: 'Players read this on the spell’s page once that working is in their grimoire.',
+  },
+  items: {
+    label: 'Items',
+    view: 'content.item.view',
+    edit: 'content.item.edit',
+    playerNote: 'Players read this on the ingredient’s page once they have gathered it.',
+  },
+  spirits: {
+    label: 'Spirit types',
+    view: 'content.spirit.edit',
+    edit: 'content.spirit.edit',
+    playerNote: 'Players read this once that kind of spirit is written in their book.',
+  },
+  npcs: {
+    label: 'NPCs',
+    view: 'content.npc.view',
+    edit: 'content.npc.edit',
+    playerNote: 'Players read this on the People page once they have met this person.',
+  },
+  familiars: {
+    label: 'Familiars',
+    view: 'content.familiar.edit',
+    edit: 'content.familiar.edit',
+    playerNote: 'Players read this on The Book when this familiar is theirs and the page has text.',
+  },
+  recipes: {
+    label: 'Recipes',
+    view: 'content.item.view',
+    edit: 'content.item.edit',
+    playerNote: 'Players read this on The Book when they know the recipe and the page has text.',
+  },
+  books: {
+    label: 'Books',
+    view: 'content.spell.view',
+    edit: 'content.spell.edit',
+    playerNote: 'Players read this on The Book after they have read the volume and the page has text.',
+  },
+  quests: {
+    label: 'Quests',
+    view: 'content.quest.edit',
+    edit: 'content.quest.edit',
+    playerNote: 'Players read this on The Book once the quest is on their record and the page has text.',
+  },
+};
+
+contentRouter.get('/grimoire-entries', async (req: AdminRequest, res) => {
+  if (!req.admin) return res.status(401).json({ error: 'Authentication required' });
+  const perms = await getAdminPermissions(req.admin.userId);
+  req.admin.permissions = perms;
+  const kinds = GRIMOIRE_ENTRY_KINDS.filter((kind) => perms.includes(GRIMOIRE_KIND_ACCESS[kind].view)).map(
+    (kind) => {
+      const access = GRIMOIRE_KIND_ACCESS[kind];
+      return {
+        kind,
+        label: access.label,
+        playerNote: access.playerNote,
+        canEdit: perms.includes(access.edit),
+        records: grimoireCatalog(kind),
+      };
+    }
+  );
+  if (!kinds.length) return res.status(403).json({ error: 'Missing permission to view grimoire pages' });
+  res.json({ kinds });
+});
+
+contentRouter.put('/grimoire-entries/:kind/:id', async (req: AdminRequest, res) => {
+  if (!req.admin) return res.status(401).json({ error: 'Authentication required' });
+  const kind = param(req, 'kind');
+  const id = param(req, 'id');
+  if (!isGrimoireEntryKind(kind)) return res.status(400).json({ error: 'Unknown grimoire section' });
+  const access = GRIMOIRE_KIND_ACCESS[kind];
+  const perms = await getAdminPermissions(req.admin.userId);
+  if (!perms.includes(access.edit)) return res.status(403).json({ error: `Missing permission: ${access.edit}` });
+  if (!grimoireRecordExists(kind, id)) return res.status(404).json({ error: 'That record is not in this section' });
+  const grimoireEntry = setGrimoireEntry(kind, id, req.body?.grimoireEntry ?? '');
+  if (grimoireEntry === null) return res.status(400).json({ error: 'Could not save that page' });
+  await writeAuditLog(auditContext(req), {
+    action: 'content.grimoire.update',
+    objectType: 'grimoire',
+    objectId: `${kind}:${id}`,
+    newValue: { grimoireEntry },
+  });
+  res.json({ kind, id, grimoireEntry });
 });
 
 // --- Reload ---

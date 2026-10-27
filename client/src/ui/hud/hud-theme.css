@@ -1068,6 +1068,175 @@ body.hud-expanded #hud-resources {
   padding: 0 4px;
 }
 
+.hud-grimoire {
+  --grimoire-ink: #d5d8e4;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--grimoire-ink);
+}
+.hud-grimoire[data-ink='iron'] { --grimoire-ink: #d5d8e4; }
+.hud-grimoire[data-ink='violet'] { --grimoire-ink: #d7c4f0; }
+.hud-grimoire[data-ink='gold'] { --grimoire-ink: #e8c98a; }
+.hud-grimoire[data-ink='moss'] { --grimoire-ink: #c5d4b0; }
+.hud-grimoire[data-ink='blood'] { --grimoire-ink: #e7b0b0; }
+.hud-grimoire h3,
+.hud-grimoire h4,
+.hud-grimoire__kicker,
+.hud-grimoire__label,
+.hud-grimoire__tab,
+.hud-grimoire__field {
+  font-family: 'Cinzel', Georgia, serif;
+}
+.hud-grimoire__lede {
+  margin: 0 0 8px;
+  font-family: 'MedievalSharp', 'Cinzel', Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--grimoire-ink);
+}
+.hud-grimoire__kicker,
+.hud-grimoire__label,
+.hud-grimoire__meta {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--text-dim, #b7a8c4);
+}
+.hud-grimoire__census {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  margin: 12px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.hud-grimoire__census strong {
+  font-family: 'Cinzel', Georgia, serif;
+  color: var(--gold-bright, #e8c98a);
+}
+.hud-grimoire__field,
+.hud-grimoire__check {
+  display: block;
+  margin: 12px 0;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.hud-grimoire__input,
+.hud-grimoire__margin,
+.hud-grimoire select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 8px 10px;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--grimoire-ink);
+  background: rgba(12, 8, 18, 0.45);
+  border: 1px solid rgba(212, 175, 106, 0.35);
+}
+.hud-grimoire__margin { min-height: 72px; resize: vertical; }
+.hud-grimoire__inks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hud-grimoire__ink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim, #b7a8c4);
+  background: transparent;
+  border: 1px solid rgba(212, 175, 106, 0.28);
+  cursor: pointer;
+}
+.hud-grimoire__ink.is-active {
+  color: var(--grimoire-ink);
+  border-color: var(--grimoire-ink);
+}
+.hud-grimoire__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #d5d8e4;
+}
+.hud-grimoire__swatch[data-ink='violet'] { background: #d7c4f0; }
+.hud-grimoire__swatch[data-ink='gold'] { background: #e8c98a; }
+.hud-grimoire__swatch[data-ink='moss'] { background: #c5d4b0; }
+.hud-grimoire__swatch[data-ink='blood'] { background: #e7b0b0; }
+.hud-grimoire__index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+.hud-grimoire__index-btn {
+  padding: 4px 8px;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 16px;
+  color: var(--grimoire-ink);
+  background: rgba(12, 8, 18, 0.35);
+  border: 1px solid rgba(212, 175, 106, 0.22);
+  cursor: pointer;
+}
+.hud-grimoire__index-btn.is-active {
+  border-color: var(--grimoire-ink);
+}
+.hud-grimoire__entry h4 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 500;
+}
+.hud-grimoire__seal {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid rgba(224, 160, 160, 0.75);
+  color: #e7b0b0;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.hud-grimoire__sealed {
+  color: #e7b0b0;
+}
+.hud-grimoire__share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+.hud-grimoire__share label {
+  flex: 1 1 180px;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hud-grimoire__sub {
+  margin: 18px 0 8px;
+  font-size: 14px;
+}
+.hud-grimoire__prose b,
+.hud-grimoire__prose strong { font-weight: 700; }
+.hud-grimoire__prose i,
+.hud-grimoire__prose em { font-style: italic; }
+.hud-grimoire__prose u { text-decoration: underline; text-underline-offset: 2px; }
+.hud-grimoire__prose p { margin: 0 0 0.55em; }
+.hud-grimoire__prose ul,
+.hud-grimoire__prose ol { margin: 0 0 0.55em 1.2em; }
+
 .hud-grimoire__tabs {
   display: flex;
   flex-wrap: wrap;
