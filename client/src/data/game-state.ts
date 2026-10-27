@@ -79,7 +79,7 @@ class GameState {
   username = '';
   displayName = '';
   currentScene: 'apartment' | 'town' = 'apartment';
-  activeUI: 'none' | 'altar' | 'hexagram' | 'inventory' | 'shop' | 'aura' | 'familiar' | 'dialogue' | 'npc_actions' | 'ledger' = 'none';
+  activeUI: 'none' | 'altar' | 'hexagram' | 'inventory' | 'shop' | 'aura' | 'familiar' | 'dialogue' | 'npc_actions' | 'npc_gift' | 'ledger' = 'none';
   activeShopId: string | null = null;
   lastSpellResult: string | null = null;
   nearbyPlayers: NearbyPlayer[] = [];

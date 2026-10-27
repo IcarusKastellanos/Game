@@ -81,8 +81,12 @@ import {
   bondGreeting,
   bondShopMultiplier,
   npcAcceptsGifts,
-  takeAppreciatedGift,
   withBondJournal,
+  describeGiftWindow,
+  resolveNpcGift,
+  resolveSocialAction,
+  runExclusiveSocialOp,
+  type GiftItemFacts,
   takeInventorySlot,
   withGrimoire,
   type SurvivalActivity,
@@ -203,7 +207,7 @@ export class GameRoom extends Room<GameRoomState> {
       'move', 'change_scene', 'interact', 'cast_spell', 'altar_update',
       'buy_item', 'use_item', 'care_familiar', 'choose_familiar', 'collect_taglock',
       'whisper',
-      'place_ward', 'inspect_aura', 'dialogue_choice', 'npc_talk', 'npc_action', 'chat', 'admin_command',
+      'place_ward', 'inspect_aura', 'dialogue_choice', 'npc_talk', 'npc_action', 'npc_gift', 'npc_social', 'chat', 'admin_command',
       'visit_apartment', 'leave_apartment',
       'apartment_invite', 'apartment_invite_response',
       'friend_request', 'friend_respond', 'friend_remove', 'friends_refresh',
@@ -637,6 +641,12 @@ export class GameRoom extends Room<GameRoomState> {
         break;
       case 'npc_action':
         this.handleNpcAction(client, player, msg.npcId, msg.actionId);
+        break;
+      case 'npc_gift':
+        this.handleNpcGift(client, player, msg.npcId, msg.slotIndex, msg.itemId, msg.operationId);
+        break;
+      case 'npc_social':
+        this.handleNpcSocial(client, player, msg.npcId, msg.actionId, msg.operationId);
         break;
       case 'grimoire_write':
         this.handleGrimoireWrite(client, msg);
@@ -1856,7 +1866,11 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
     if (offer.id === 'gift' && npcAcceptsGifts(npcId)) {
-      this.giveAppreciatedGift(client, player, npcId);
+      this.openGiftWindow(client, player, npcId);
+      return;
+    }
+    if (offer.id.startsWith('social:')) {
+      this.warnPlayer(client, 'The gesture could not be recorded.');
       return;
     }
     this.openNpcDialogue(client, player, npcId, offer.nodeId ?? 'start');
@@ -1875,20 +1889,155 @@ export class GameRoom extends Room<GameRoomState> {
       quests: [...questSystem.quests.values()].filter((quest) => bondAllowsQuest(progression, quest)),
       questProgress: progression.questProgress,
       acceptsGifts: npcAcceptsGifts(npc.id),
+      progression,
     });
   }
 
-  private giveAppreciatedGift(client: Client, player: PlayerSchema, npcId: string): void {
-    const taken = takeAppreciatedGift(player.inventory, npcId);
-    if (!taken.ok) {
-      this.warnPlayer(client, taken.reason);
+  private giftFacts(slot: { itemId: string; metadata?: Record<string, unknown> }): GiftItemFacts {
+    const item = slot.itemId ? contentRegistry.ingredients.get(slot.itemId) : undefined;
+    const provenance = typeof slot.metadata?.provenance === 'string' ? slot.metadata.provenance : undefined;
+    if (!item) return { itemId: slot.itemId, name: slot.itemId || 'Something', provenance };
+    return {
+      itemId: item.id,
+      name: item.name,
+      category: item.category,
+      tags: item.correspondences,
+      rarity: item.rarity,
+      adminOnly: item.adminOnly === true,
+      provenance,
+    };
+  }
+
+  private openGiftWindow(client: Client, player: PlayerSchema, npcId: string, reaction?: string): void {
+    const npc = contentRegistry.npcs.get(npcId);
+    const data = this.playerData.get(client.sessionId);
+    const slots = player.inventory.map((slot, slotIndex) => ({
+      slotIndex,
+      quantity: slot.quantity,
+      facts: this.giftFacts(slot),
+    }));
+    const view = describeGiftWindow(data?.progression, npcId, slots, Date.now());
+    client.send('open_ui', {
+      ui: 'npc_gift',
+      npcId,
+      name: npc?.name ?? npcId,
+      reaction,
+      ...view,
+    });
+  }
+
+  private handleNpcGift(
+    client: Client,
+    player: PlayerSchema,
+    npcId: string,
+    slotIndex: number,
+    itemId: string,
+    operationId: string
+  ): void {
+    if (!npcId || !contentRegistry.npcs.has(npcId)) return;
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    if (!this.requireNpcPresent(client, player, npcId)) return;
+    const slot = player.inventory[slotIndex];
+    const facts = this.giftFacts(slot ?? { itemId });
+    const key = `${data.dbPlayerId || client.sessionId}:${npcId}:gift`;
+    const ran = runExclusiveSocialOp(key, () => {
+      const result = resolveNpcGift(data.progression, player.stats, player.inventory, {
+        npcId,
+        slotIndex,
+        itemId,
+        facts,
+        operationId,
+        now: Date.now(),
+      });
+      if (result.ok && !result.duplicate) {
+        player.inventory = result.inventory;
+        player.stats = result.stats;
+        data.stats = result.stats;
+        const name = contentRegistry.npcs.get(npcId)?.name ?? npcId;
+        data.progression = withBondJournal(result.progression, npcId, name);
+      } else if (!result.ok && result.progression !== data.progression) {
+        data.progression = result.progression;
+        data.stats = result.stats;
+        player.stats = result.stats;
+      }
+      return result;
+    });
+    if (ran.busy) {
+      this.warnPlayer(client, 'They are still considering the last gift.');
       return;
     }
-    player.inventory = taken.inventory;
-    this.withProgression(client, player, (ctx) => {
-      applyPlayerSocialEvent(ctx, { eventId: 'gift_appreciated', npcId });
+    const result = ran.value;
+    if (result.reaction) {
+      client.send('notification', { type: 'notification', message: result.reaction, level: result.ok ? 'success' : 'info' });
+    } else if (result.reason) {
+      this.warnPlayer(client, result.reason);
+    }
+    if (result.ok && !result.duplicate) {
+      this.sendPlayerSync(client, player);
+      client.send('progression_update', { progression: data.progression });
+    }
+    this.openGiftWindow(client, player, npcId, result.reaction);
+  }
+
+  private handleNpcSocial(
+    client: Client,
+    player: PlayerSchema,
+    npcId: string,
+    actionId: string,
+    operationId: string
+  ): void {
+    if (!npcId || !contentRegistry.npcs.has(npcId)) return;
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    if (!this.requireNpcPresent(client, player, npcId)) return;
+    if (!operationId) {
+      this.warnPlayer(client, 'The gesture could not be recorded.');
+      return;
+    }
+    const progression = data.progression;
+    const offers = this.npcActionOffers(
+      contentRegistry.npcs.get(npcId)!,
+      contentRegistry.npcs.get(npcId)?.dialogueTreeId
+        ? dialogueSystem.getTree(contentRegistry.npcs.get(npcId)!.dialogueTreeId!)
+        : undefined,
+      contentRegistry.npcs.get(npcId)?.shopId,
+      progression
+    );
+    const socialId = actionId.startsWith('social:') ? actionId : `social:${actionId}`;
+    if (!offers.some((offer) => offer.id === socialId)) {
+      this.warnPlayer(client, 'They are not open to that just now.');
+      return;
+    }
+    const key = `${data.dbPlayerId || client.sessionId}:${npcId}:social`;
+    const ran = runExclusiveSocialOp(key, () => {
+      const result = resolveSocialAction(data.progression, player.stats, {
+        npcId,
+        actionId: socialId,
+        operationId,
+        now: Date.now(),
+      });
+      if (result.ok && !result.duplicate) {
+        player.stats = result.stats;
+        data.stats = result.stats;
+        const name = contentRegistry.npcs.get(npcId)?.name ?? npcId;
+        data.progression = withBondJournal(result.progression, npcId, name);
+      }
+      return result;
     });
-    this.sendPlayerSync(client, player);
+    if (ran.busy) {
+      this.warnPlayer(client, 'They are still answering.');
+      return;
+    }
+    const result = ran.value;
+    client.send('notification', {
+      type: 'notification',
+      message: result.reaction || result.reason || 'They let the moment pass.',
+      level: result.ok ? 'success' : 'info',
+    });
+    if (result.ok && !result.duplicate) {
+      client.send('progression_update', { progression: data.progression });
+    }
   }
 
   private openNpcActions(client: Client, player: PlayerSchema, npcId: string, contextShopId?: string): void {

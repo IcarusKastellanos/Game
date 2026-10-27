@@ -18,6 +18,8 @@ export type ClientMessage =
   | { type: 'dialogue_choice'; dialogueTreeId: string; nodeId: string; choiceId: string; choiceIndex?: number }
   | { type: 'npc_talk'; npcId: string }
   | { type: 'npc_action'; npcId: string; actionId: string }
+  | { type: 'npc_gift'; npcId: string; slotIndex: number; itemId: string; operationId: string }
+  | { type: 'npc_social'; npcId: string; actionId: string; operationId: string }
   | { type: 'admin_command'; command: string }
   | { type: 'admin_action'; action: string; targetSessionId?: string; args?: string[] }
   | { type: 'chat'; message: string; channel?: 'global' | 'local' | 'whisper'; targetPlayerId?: string; targetDisplayName?: string }

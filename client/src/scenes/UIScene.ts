@@ -9,6 +9,7 @@ import { CharacterSheet } from '../ui/CharacterSheet';
 import { FamiliarPanel } from '../ui/FamiliarPanel';
 import { DialoguePanel } from '../ui/DialoguePanel';
 import { NpcActionPanel } from '../ui/NpcActionPanel';
+import { NpcGiftPanel } from '../ui/NpcGiftPanel';
 import { HUD } from '../ui/HUD';
 import { hudWindows } from '../ui/hud/HUDManager';
 import type { HUDWindowId } from '../ui/hud/types';
@@ -32,6 +33,7 @@ export class UIScene extends Phaser.Scene {
   private familiarPanel!: FamiliarPanel;
   private dialoguePanel!: DialoguePanel;
   private npcActionPanel!: NpcActionPanel;
+  private npcGiftPanel!: NpcGiftPanel;
   private hud!: HUD;
   private adminConsole!: AdminConsole;
   private adminPanel!: AdminPanel;
@@ -52,6 +54,7 @@ export class UIScene extends Phaser.Scene {
     this.familiarPanel = new FamiliarPanel(this);
     this.dialoguePanel = new DialoguePanel();
     this.npcActionPanel = new NpcActionPanel();
+    this.npcGiftPanel = new NpcGiftPanel();
     this.hud = new HUD(this);
     this.adminConsole = new AdminConsole(this);
     this.adminPanel = new AdminPanel(this);
@@ -220,6 +223,12 @@ export class UIScene extends Phaser.Scene {
           this.npcActionPanel.show({ npcId: d.npcId, name: d.name, role: d.role, options: d.options });
         }
         break;
+      case 'npc_gift':
+        if (d.npcId) {
+          gameState.activeUI = 'npc_gift';
+          this.npcGiftPanel.show(d as import('../ui/NpcGiftPanel').GiftWindowDetail);
+        }
+        break;
       case 'none':
         break;
       case 'crafting':
@@ -309,6 +318,7 @@ export class UIScene extends Phaser.Scene {
     this.familiarPanel.hide();
     this.dialoguePanel.hide();
     this.npcActionPanel.hide();
+    this.npcGiftPanel.hide();
     this.targetPanel.hide();
     friendsPanel.hide();
     progressionPanels.hideAll();

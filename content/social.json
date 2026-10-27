@@ -17,11 +17,174 @@
     { "id": "friendly", "label": "Friendly", "rank": 30, "when": { "affinityMin": 10, "familiarityMin": 24 } },
     { "id": "familiar", "label": "Familiar", "rank": 20, "when": { "familiarityMin": 15 } }
   ],
+  "giftPolicy": {
+    "clock": "real",
+    "cooldownHours": 24,
+    "refusedConsumesCooldown": false,
+    "repeatDecay": 0.5,
+    "maxCountedRepeats": 3,
+    "negativeAffinityCap": -4,
+    "coldAffinity": -15,
+    "coldScale": 0.5,
+    "defaultTier": "neutral",
+    "deniedCategories": ["books", "tools", "familiar_care"],
+    "deniedItemIds": ["grimoire_manuscript"]
+  },
+  "giftTiers": {
+    "favorite": {
+      "axes": { "affinity": 8, "trust": 1, "familiarity": 2 },
+      "reaction": "{item} is a favorite. They keep it close.",
+      "memory": { "id": "gift", "kind": "delivered_item", "importance": 6, "visible": true, "text": "You gave them something they truly wanted." }
+    },
+    "loved": {
+      "axes": { "affinity": 6, "familiarity": 2 },
+      "reaction": "{item} pleases them.",
+      "memory": { "id": "gift", "kind": "delivered_item", "importance": 5, "visible": true, "text": "You gave them something they were glad to receive." }
+    },
+    "liked": {
+      "axes": { "affinity": 3, "familiarity": 1 },
+      "reaction": "They accept {item} with a small nod."
+    },
+    "neutral": {
+      "axes": { "familiarity": 1 },
+      "reaction": "They take {item} and set it aside."
+    },
+    "disliked": {
+      "axes": { "affinity": -2, "familiarity": 1 },
+      "reaction": "They accept {item}, and the gift disappoints them."
+    },
+    "hated": {
+      "axes": { "affinity": -4, "trust": -1, "familiarity": 1 },
+      "reaction": "They take {item}, and the air between you cools.",
+      "memory": { "id": "gift_hated", "kind": "disliked_gift", "importance": 4, "visible": true, "text": "You gave them something they did not want." }
+    }
+  },
+  "defaultActionIds": ["greet", "ask_wellbeing"],
+  "supportedActivities": ["counter_tea"],
+  "actions": [
+    {
+      "id": "greet",
+      "label": "Offer a greeting",
+      "cooldownHours": 4,
+      "feedback": "They return the greeting.",
+      "effects": [{ "target": "axis", "axis": "familiarity", "amount": 1 }]
+    },
+    {
+      "id": "ask_wellbeing",
+      "label": "Ask how they are",
+      "cooldownHours": 8,
+      "requires": { "stage": "acquaintance" },
+      "feedback": "They tell you the day has been ordinary.",
+      "effects": [{ "target": "axis", "axis": "familiarity", "amount": 1 }]
+    },
+    {
+      "id": "discuss_topic",
+      "label": "Discuss a matter between you",
+      "cooldownHours": 12,
+      "requires": { "stage": "familiar" },
+      "feedback": "They speak of a matter they keep from strangers.",
+      "effects": [{ "target": "axis", "axis": "familiarity", "amount": 1 }]
+    },
+    {
+      "id": "offer_help",
+      "label": "Offer help",
+      "cooldownHours": 24,
+      "requires": { "stage": "friendly" },
+      "feedback": "They will remember that you offered.",
+      "effects": [
+        { "target": "axis", "axis": "respect", "amount": 1 },
+        { "target": "axis", "axis": "familiarity", "amount": 1 }
+      ]
+    },
+    {
+      "id": "follow_up_promise",
+      "label": "Follow up on a promise",
+      "cooldownHours": 24,
+      "requiresAnyMemory": ["broke_promise", "kept_promise"],
+      "suppressEffectsWhenGrudge": "broke_promise",
+      "grudgeFeedback": "The broken word is still between you.",
+      "feedback": "They nod. The promise is still part of how they see you.",
+      "effects": [{ "target": "axis", "axis": "familiarity", "amount": 1 }]
+    },
+    {
+      "id": "thank_favor",
+      "label": "Thank them",
+      "cooldownHours": 12,
+      "requiresAnyMemory": ["quest_complete"],
+      "requiresMemoryPrefix": "gift",
+      "feedback": "They accept the thanks.",
+      "effects": [{ "target": "axis", "axis": "respect", "amount": 1 }]
+    },
+    {
+      "id": "invite",
+      "label": "Invite them to tea at the counter",
+      "cooldownHours": 48,
+      "activityId": "counter_tea",
+      "requires": { "affinityMin": 24, "trustMin": 18 },
+      "feedback": "They agree to a quiet hour at the counter.",
+      "effects": [
+        { "target": "axis", "axis": "familiarity", "amount": 1 },
+        {
+          "target": "memory",
+          "memory": {
+            "id": "invited",
+            "kind": "social",
+            "importance": 4,
+            "visible": true,
+            "text": "You invited them to sit a while."
+          }
+        }
+      ]
+    }
+  ],
   "npcs": {
     "npc_mara": {
       "axes": ["affinity", "trust", "respect", "familiarity"],
       "acceptsGifts": true,
       "appreciatedGifts": ["rosemary", "frankincense"],
+      "giftPersonality": { "affinityScale": 1 },
+      "actionIds": ["greet", "ask_wellbeing", "discuss_topic", "offer_help", "follow_up_promise", "thank_favor", "invite"],
+      "giftPreferences": [
+        {
+          "id": "mara_rosemary",
+          "match": { "itemIds": ["rosemary"] },
+          "tier": "favorite",
+          "visibility": "public",
+          "publicLine": "Rosemary is welcome on her counter.",
+          "requiresQuest": "quest_first_steps",
+          "elseTier": "liked",
+          "discoveredLine": "She keeps rosemary close."
+        },
+        {
+          "id": "mara_frankincense",
+          "match": { "itemIds": ["frankincense"] },
+          "tier": "loved",
+          "visibility": "hinted",
+          "hint": "Resin smoke clings to her sleeves.",
+          "discoveredLine": "Frankincense resin pleases her."
+        },
+        {
+          "id": "mara_herbs",
+          "match": { "categories": ["herbs"] },
+          "tier": "liked",
+          "visibility": "public",
+          "publicLine": "She is glad of kitchen and field herbs."
+        },
+        {
+          "id": "mara_baneful",
+          "match": { "tags": ["baneful"] },
+          "tier": "hated",
+          "visibility": "hidden",
+          "discoveredLine": "Baneful work sits badly with her."
+        },
+        {
+          "id": "mara_exotic",
+          "match": { "rarities": ["exotic"] },
+          "tier": "disliked",
+          "visibility": "hidden",
+          "discoveredLine": "Showy rarities do not impress her."
+        }
+      ],
       "shopDiscount": { "minStage": "friendly", "multiplier": 0.9 },
       "acknowledgements": [
         { "memoryId": "quest_complete", "text": "You came back. That working you finished for me was real." },
@@ -32,16 +195,95 @@
     "npc_tom": {
       "axes": ["familiarity", "affinity"],
       "acceptsGifts": true,
-      "appreciatedGifts": ["bread", "herbal_tea"]
+      "appreciatedGifts": ["bread", "herbal_tea"],
+      "actionIds": ["greet", "ask_wellbeing", "thank_favor"],
+      "giftPreferences": [
+        {
+          "id": "tom_bread",
+          "match": { "itemIds": ["bread"] },
+          "tier": "favorite",
+          "visibility": "public",
+          "publicLine": "Fresh bread always has a place with him."
+        },
+        {
+          "id": "tom_tea",
+          "match": { "itemIds": ["herbal_tea"] },
+          "tier": "loved",
+          "visibility": "public",
+          "publicLine": "He is fond of a strong herbal tea."
+        },
+        {
+          "id": "tom_food",
+          "match": { "categories": ["food"] },
+          "tier": "liked",
+          "visibility": "public",
+          "publicLine": "Food from the kitchen is welcome."
+        }
+      ]
     },
-    "npc_elena": { "axes": ["familiarity", "trust"] },
-    "npc_librarian": { "axes": ["familiarity", "respect"] },
-    "npc_cafe_owner": { "axes": ["familiarity", "affinity"] },
-    "npc_circle_leader": { "axes": ["familiarity", "respect", "trust"] },
-    "npc_council_clerk": { "axes": ["trust", "respect", "familiarity"] },
-    "npc_temple_healer": { "axes": ["trust", "familiarity", "respect"] },
-    "npc_seal_yard_foreman": { "axes": ["respect", "familiarity"] },
-    "npc_psychic_tent_reader": { "axes": ["familiarity", "fear"] }
+    "npc_elena": {
+      "axes": ["familiarity", "trust"],
+      "acceptsGifts": true,
+      "actionIds": ["greet", "ask_wellbeing"],
+      "giftPreferences": [
+        {
+          "id": "elena_tea",
+          "match": { "itemIds": ["herbal_tea"] },
+          "tier": "favorite",
+          "visibility": "public",
+          "publicLine": "Herbal tea belongs in her shop."
+        },
+        {
+          "id": "elena_medicine",
+          "match": { "categories": ["medicine"] },
+          "tier": "liked",
+          "visibility": "hinted",
+          "hint": "She keeps an eye on anything meant for healing."
+        }
+      ]
+    },
+    "npc_librarian": {
+      "axes": ["familiarity", "respect"],
+      "acceptsGifts": true,
+      "actionIds": ["greet", "discuss_topic"],
+      "giftPreferences": [
+        {
+          "id": "librarian_heirloom",
+          "match": { "provenance": ["heirloom"] },
+          "tier": "loved",
+          "visibility": "hinted",
+          "hint": "Old ownership marks catch their eye.",
+          "discoveredLine": "An heirloom earns their regard."
+        }
+      ]
+    },
+    "npc_cafe_owner": {
+      "axes": ["familiarity", "affinity"],
+      "actionIds": ["greet", "ask_wellbeing"]
+    },
+    "npc_circle_leader": {
+      "axes": ["familiarity", "respect", "trust"],
+      "actionIds": ["greet", "discuss_topic", "offer_help"]
+    },
+    "npc_council_clerk": { "axes": ["trust", "respect", "familiarity"], "actionIds": ["greet"] },
+    "npc_temple_healer": { "axes": ["trust", "familiarity", "respect"], "actionIds": ["greet", "ask_wellbeing"] },
+    "npc_seal_yard_foreman": { "axes": ["respect", "familiarity"], "actionIds": ["greet"] },
+    "npc_psychic_tent_reader": {
+      "axes": ["familiarity", "fear"],
+      "acceptsGifts": true,
+      "giftPersonality": { "affinityScale": 0.5 },
+      "actionIds": ["greet"],
+      "giftPreferences": [
+        {
+          "id": "reader_poppet",
+          "match": { "categories": ["poppets"] },
+          "tier": "liked",
+          "visibility": "hidden",
+          "extraAxes": { "fear": 6 },
+          "discoveredLine": "A poppet makes them careful."
+        }
+      ]
+    }
   },
   "events": [
     {

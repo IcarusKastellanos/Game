@@ -54,6 +54,12 @@ export class NpcActionPanel {
       button.addEventListener('click', () => {
         const actionId = button.dataset.action;
         if (!actionId || !this.visible || !this.npcId) return;
+        if (actionId.startsWith('social:')) {
+          const operationId = button.dataset.operation || crypto.randomUUID();
+          button.dataset.operation = operationId;
+          network.send('npc_social', { npcId: this.npcId, actionId, operationId });
+          return;
+        }
         network.send('npc_action', { npcId: this.npcId, actionId });
       });
     });

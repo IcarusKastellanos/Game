@@ -63,11 +63,72 @@ export interface SocialEventDef {
   feedback?: string;
 }
 
+export interface GiftMatch {
+  itemIds?: string[];
+  categories?: string[];
+  tags?: string[];
+  rarities?: string[];
+  provenance?: string[];
+}
+
+export interface GiftPreference {
+  id: string;
+  match: GiftMatch;
+  tier: string;
+  visibility: 'public' | 'hinted' | 'hidden';
+  publicLine?: string;
+  hint?: string;
+  discoveredLine?: string;
+  /** Best reaction waits until this quest is complete. elseTier is used before then. */
+  requiresQuest?: string;
+  elseTier?: string;
+  extraAxes?: Partial<Record<SocialAxis, number>>;
+}
+
+export interface GiftTierDef {
+  axes?: Partial<Record<SocialAxis, number>>;
+  reaction: string;
+  memory?: SocialMemoryDraft;
+}
+
+export interface GiftPolicy {
+  /** Elapsed real-world time. The world hour follows the real hour, so gift days use this clock. */
+  clock: 'real' | 'game';
+  cooldownHours: number;
+  refusedConsumesCooldown: boolean;
+  repeatDecay: number;
+  maxCountedRepeats: number;
+  negativeAffinityCap: number;
+  coldAffinity: number;
+  coldScale: number;
+  defaultTier: string;
+  deniedCategories: string[];
+  deniedItemIds: string[];
+}
+
+export interface SocialActionDef {
+  id: string;
+  label: string;
+  cooldownHours: number;
+  feedback: string;
+  effects?: SocialEffect[];
+  requires?: BondGate;
+  requiresQuest?: string;
+  requiresAnyMemory?: string[];
+  requiresMemoryPrefix?: string;
+  activityId?: string;
+  suppressEffectsWhenGrudge?: string;
+  grudgeFeedback?: string;
+}
+
 export interface NpcSocialProfile {
   axes?: SocialAxis[];
   stages?: StageDef[];
   acceptsGifts?: boolean;
   appreciatedGifts?: string[];
+  giftPreferences?: GiftPreference[];
+  giftPersonality?: { affinityScale?: number };
+  actionIds?: string[];
   shopDiscount?: { minStage: string; multiplier: number };
   acknowledgements?: { memoryId: string; text: string }[];
 }
@@ -79,6 +140,11 @@ export interface SocialDocument {
   stages: StageDef[];
   npcs: Record<string, NpcSocialProfile>;
   events: SocialEventDef[];
+  giftPolicy?: GiftPolicy;
+  giftTiers?: Record<string, GiftTierDef>;
+  actions?: SocialActionDef[];
+  defaultActionIds?: string[];
+  supportedActivities?: string[];
 }
 
 export interface NpcMemory {
@@ -91,11 +157,27 @@ export interface NpcMemory {
   text: string;
 }
 
+export interface SocialReceipt {
+  operationId: string;
+  at: number;
+  ok: boolean;
+  reaction: string;
+  itemId?: string;
+  tier?: string;
+  actionId?: string;
+}
+
 export interface NpcBond {
   axes: Partial<Record<SocialAxis, number>>;
   grudges: string[];
   memories: NpcMemory[];
   onceEvents: string[];
+  giftNextAt?: number;
+  giftCounts: Record<string, number>;
+  giftReceipts: SocialReceipt[];
+  knownPreferences: string[];
+  actionNextAt: Record<string, number>;
+  actionReceipts: SocialReceipt[];
 }
 
 export interface PlayerSocial {
@@ -389,6 +471,33 @@ function parseSocialDocument(raw: unknown): SocialDocument | null {
     stages: o.stages,
     npcs: o.npcs && typeof o.npcs === 'object' ? o.npcs : {},
     events: o.events,
+    giftPolicy: parseGiftPolicy(o.giftPolicy),
+    giftTiers: o.giftTiers && typeof o.giftTiers === 'object' ? o.giftTiers : {},
+    actions: Array.isArray(o.actions) ? o.actions : [],
+    defaultActionIds: Array.isArray(o.defaultActionIds)
+      ? o.defaultActionIds.filter((id): id is string => typeof id === 'string')
+      : ['greet'],
+    supportedActivities: Array.isArray(o.supportedActivities)
+      ? o.supportedActivities.filter((id): id is string => typeof id === 'string')
+      : [],
+  };
+}
+
+function parseGiftPolicy(raw: unknown): GiftPolicy {
+  const o = raw && typeof raw === 'object' ? (raw as Partial<GiftPolicy>) : {};
+  const clock = o.clock === 'game' ? 'game' : 'real';
+  return {
+    clock,
+    cooldownHours: typeof o.cooldownHours === 'number' && o.cooldownHours > 0 ? o.cooldownHours : 24,
+    refusedConsumesCooldown: o.refusedConsumesCooldown === true,
+    repeatDecay: typeof o.repeatDecay === 'number' && o.repeatDecay >= 0 ? o.repeatDecay : 0.5,
+    maxCountedRepeats: typeof o.maxCountedRepeats === 'number' ? Math.max(1, Math.floor(o.maxCountedRepeats)) : 3,
+    negativeAffinityCap: typeof o.negativeAffinityCap === 'number' ? o.negativeAffinityCap : -4,
+    coldAffinity: typeof o.coldAffinity === 'number' ? o.coldAffinity : -15,
+    coldScale: typeof o.coldScale === 'number' ? o.coldScale : 0.5,
+    defaultTier: typeof o.defaultTier === 'string' && o.defaultTier ? o.defaultTier : 'neutral',
+    deniedCategories: Array.isArray(o.deniedCategories) ? o.deniedCategories.filter((id): id is string => typeof id === 'string') : ['books', 'tools', 'familiar_care'],
+    deniedItemIds: Array.isArray(o.deniedItemIds) ? o.deniedItemIds.filter((id): id is string => typeof id === 'string') : [],
   };
 }
 
@@ -422,23 +531,79 @@ function parseBond(raw: unknown): NpcBond | null {
   if (Array.isArray(o.onceEvents)) {
     bond.onceEvents = o.onceEvents.filter((id): id is string => typeof id === 'string').slice(-MAX_ONCE);
   }
+  if (typeof o.giftNextAt === 'number' && Number.isFinite(o.giftNextAt)) bond.giftNextAt = o.giftNextAt;
+  if (o.giftCounts && typeof o.giftCounts === 'object') {
+    for (const [itemId, count] of Object.entries(o.giftCounts as Record<string, unknown>)) {
+      if (typeof count === 'number' && Number.isFinite(count) && count > 0) bond.giftCounts[itemId] = Math.floor(count);
+    }
+  }
+  bond.giftReceipts = parseReceipts(o.giftReceipts);
+  bond.actionReceipts = parseReceipts(o.actionReceipts);
+  if (Array.isArray(o.knownPreferences)) {
+    bond.knownPreferences = o.knownPreferences.filter((id): id is string => typeof id === 'string').slice(0, 32);
+  }
+  if (o.actionNextAt && typeof o.actionNextAt === 'object') {
+    for (const [actionId, at] of Object.entries(o.actionNextAt as Record<string, unknown>)) {
+      if (typeof at === 'number' && Number.isFinite(at)) bond.actionNextAt[actionId] = at;
+    }
+  }
   return bond;
 }
 
+function parseReceipts(raw: unknown): SocialReceipt[] {
+  if (!Array.isArray(raw)) return [];
+  const receipts: SocialReceipt[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const receipt = entry as Partial<SocialReceipt>;
+    if (typeof receipt.operationId !== 'string' || typeof receipt.reaction !== 'string') continue;
+    receipts.push({
+      operationId: receipt.operationId,
+      at: typeof receipt.at === 'number' ? receipt.at : 0,
+      ok: receipt.ok === true,
+      reaction: receipt.reaction,
+      itemId: typeof receipt.itemId === 'string' ? receipt.itemId : undefined,
+      tier: typeof receipt.tier === 'string' ? receipt.tier : undefined,
+      actionId: typeof receipt.actionId === 'string' ? receipt.actionId : undefined,
+    });
+  }
+  return receipts.slice(-12);
+}
+
 function emptyBond(): NpcBond {
-  return { axes: {}, grudges: [], memories: [], onceEvents: [] };
+  return {
+    axes: {},
+    grudges: [],
+    memories: [],
+    onceEvents: [],
+    giftCounts: {},
+    giftReceipts: [],
+    knownPreferences: [],
+    actionNextAt: {},
+    actionReceipts: [],
+  };
 }
 
 function cloneSocial(social: PlayerSocial | undefined, legacy: Record<string, number>): PlayerSocial {
   const parsed = parsePlayerSocial(social ?? { bonds: {}, scopes: {} }, legacy);
   return {
     scopes: { ...parsed.scopes },
-    bonds: Object.fromEntries(Object.entries(parsed.bonds).map(([id, bond]) => [id, {
-      axes: { ...bond.axes },
-      grudges: [...bond.grudges],
-      memories: bond.memories.map((memory) => ({ ...memory })),
-      onceEvents: [...bond.onceEvents],
-    }])),
+    bonds: Object.fromEntries(Object.entries(parsed.bonds).map(([id, bond]) => [id, copyBond(bond)])),
+  };
+}
+
+function copyBond(bond: NpcBond): NpcBond {
+  return {
+    axes: { ...bond.axes },
+    grudges: [...bond.grudges],
+    memories: bond.memories.map((memory) => ({ ...memory })),
+    onceEvents: [...bond.onceEvents],
+    giftNextAt: bond.giftNextAt,
+    giftCounts: { ...bond.giftCounts },
+    giftReceipts: bond.giftReceipts.map((receipt) => ({ ...receipt })),
+    knownPreferences: [...bond.knownPreferences],
+    actionNextAt: { ...bond.actionNextAt },
+    actionReceipts: bond.actionReceipts.map((receipt) => ({ ...receipt })),
   };
 }
 
@@ -573,6 +738,15 @@ function fearPhrase(value: number): string {
   if (value >= 8) return 'Something about you makes them careful.';
   return 'You do not frighten them.';
 }
+
+export {
+  describeGiftWindow,
+  listSocialOffers,
+  resolveNpcGift,
+  resolveSocialAction,
+  runExclusiveSocialOp,
+} from './interactions.js';
+export type { GiftItemFacts, GiftResolution, GiftWindow, SocialActionResolution } from './interactions.js';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));

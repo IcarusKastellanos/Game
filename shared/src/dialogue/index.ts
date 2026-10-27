@@ -15,7 +15,7 @@ import {
   meetsLicenseExamRequirements,
 } from '../progression/licenses.js';
 import { meetsDialogueRecognitionGate } from '../progression/recognition.js';
-import { bondBlockReason, type BondGate } from '../social/index.js';
+import { bondBlockReason, listSocialOffers, type BondGate } from '../social/index.js';
 
 export interface DialogueChoice {
   /** Stable id. Existing trees omit it and use `${nodeId}:${index}`. */
@@ -93,7 +93,7 @@ export interface DialogueChoiceFailure {
 export type DialogueChoiceOutcome = DialogueChoiceSuccess | DialogueChoiceFailure;
 
 export interface NpcInteractionOffer {
-  id: NpcActionId;
+  id: string;
   label: string;
   shopId?: string;
   nodeId?: string;
@@ -227,6 +227,8 @@ export function buildNpcInteractionOffers(input: {
   quests?: Pick<ContentQuest, 'id' | 'name' | 'npcId'>[];
   questProgress?: Record<string, { completedAt?: number | null } | undefined>;
   acceptsGifts?: boolean;
+  progression?: PlayerProgression;
+  now?: number;
 }): NpcInteractionOffer[] {
   const { npc, dialogue, quests, questProgress } = input;
   const nodeIds = new Set((dialogue?.nodes ?? []).map((node) => node.id));
@@ -265,6 +267,11 @@ export function buildNpcInteractionOffers(input: {
 
   if (input.acceptsGifts && !offers.some((offer) => offer.id === 'gift')) {
     offers.push({ id: 'gift', label: ACTION_LABELS.gift });
+  }
+  if (input.progression) {
+    for (const social of listSocialOffers(npc.id, input.progression, input.now)) {
+      offers.push(social);
+    }
   }
   const goodbye = explicit?.find((entry) => entry.action === 'goodbye');
   offers.push({ id: 'goodbye', label: goodbye?.label?.trim() || ACTION_LABELS.goodbye });
