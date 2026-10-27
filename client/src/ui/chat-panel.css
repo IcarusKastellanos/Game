@@ -24,12 +24,61 @@
   border-radius: 4px 4px 0 0;
 }
 
-.chat-panel-shell.collapsed {
-  height: auto;
+.chat-panel-root--collapsed {
+  width: auto;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
-.chat-panel-shell.collapsed .chat-panel-log {
+.chat-panel-root--collapsed .chat-panel-shell,
+.chat-panel-root--collapsed .chat-panel-input,
+.chat-panel-root--collapsed .chat-panel-resize {
   display: none;
+}
+
+.chat-panel-icon {
+  display: none;
+  position: relative;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid #c4a15a;
+  background: #140c1c;
+  color: #e8c98a;
+  cursor: pointer;
+  box-shadow: 0 4px 16px #0008;
+}
+
+.chat-panel-root--collapsed .chat-panel-icon {
+  display: grid;
+  place-items: center;
+}
+
+.chat-panel-icon:hover {
+  background: #1c1228;
+  color: #f6ead2;
+}
+
+.chat-panel-icon__glyph {
+  width: 22px;
+  height: 22px;
+}
+
+.chat-panel-icon__count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #8a2838;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
 }
 
 .chat-panel-tabs {
