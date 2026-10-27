@@ -1,6 +1,7 @@
 import type { InventorySlot, PlayerStats } from '../types/index.js';
 import type { PlayerProgression } from '../progression/index.js';
 import { EMPTY_INVENTORY_SLOT } from '../inventory/index.js';
+import { personalityGiftAffinityScale } from '../npc/personality.js';
 import {
   bondBlockReason,
   getSocialDocument,
@@ -387,7 +388,10 @@ function applyGiftAxes(
     if (!isAxis(axis) || typeof amount !== 'number') continue;
     combined[axis] = (combined[axis] ?? 0) + amount;
   }
-  const personality = getSocialDocument()?.npcs[npcId]?.giftPersonality?.affinityScale ?? 1;
+  const profile = getSocialDocument()?.npcs[npcId];
+  const personality =
+    profile?.giftPersonality?.affinityScale ??
+    (profile?.personality ? personalityGiftAffinityScale(profile.personality) : 1);
   for (const axis of ['affinity', 'trust', 'respect', 'fear', 'familiarity'] as SocialAxis[]) {
     const base = combined[axis];
     if (base == null || !tracks(npcId, axis)) continue;

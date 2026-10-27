@@ -33,9 +33,22 @@ import {
   saveDialogueDefinition,
   saveNpcDefinition,
 } from '../../content/npc-content-persist.js';
+import {
+  knowledgeRevision,
+  lessonsRevision,
+  saveKnowledgeDocument,
+  saveLessonDocument,
+  saveSocialDocument,
+  socialRevision,
+} from '../../content/npc-depth-persist.js';
 import { questRevision, saveQuestDefinition } from '../../content/quest-content-persist.js';
 import { broadcastSharedQuestMirror } from '../../rooms/game-room-registry.js';
 import { ContentSaveError } from '../../content/versioned-content.js';
+import {
+  getKnowledgeDocument,
+  getLessonDocument,
+  getSocialDocument,
+} from '@witchcraft/shared';
 
 function revisionField(body: unknown): number {
   if (!body || typeof body !== 'object') return Number.NaN;
@@ -430,6 +443,63 @@ contentRouter.put('/dialogues/:id', requirePerm('content.npc.edit'), async (req:
       newValue: dialogue,
     });
     res.json({ ...dialogue, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
+});
+
+contentRouter.get('/social', requirePerm('content.npc.view'), (_req, res) => {
+  res.json({ ...(getSocialDocument() ?? {}), revision: socialRevision() });
+});
+
+contentRouter.put('/social', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
+  try {
+    const { document, revision } = await saveSocialDocument(req.body, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.social.update',
+      objectType: 'social',
+      objectId: 'document',
+      newValue: document,
+    });
+    res.json({ ...document, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
+});
+
+contentRouter.get('/knowledge', requirePerm('content.npc.view'), (_req, res) => {
+  res.json({ ...(getKnowledgeDocument() ?? { entries: [] }), revision: knowledgeRevision() });
+});
+
+contentRouter.put('/knowledge', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
+  try {
+    const { document, revision } = await saveKnowledgeDocument(req.body, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.knowledge.update',
+      objectType: 'knowledge',
+      objectId: 'document',
+      newValue: document,
+    });
+    res.json({ ...document, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
+});
+
+contentRouter.get('/lessons', requirePerm('content.npc.view'), (_req, res) => {
+  res.json({ ...(getLessonDocument() ?? { lessons: [] }), revision: lessonsRevision() });
+});
+
+contentRouter.put('/lessons', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
+  try {
+    const { document, revision } = await saveLessonDocument(req.body, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.lessons.update',
+      objectType: 'lessons',
+      objectId: 'document',
+      newValue: document,
+    });
+    res.json({ ...document, revision });
   } catch (error) {
     respondContentSaveError(res, error);
   }

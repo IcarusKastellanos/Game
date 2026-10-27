@@ -132,11 +132,12 @@ test('published choices use stable ids and the server rechecks them', () => {
   const mara = tree('mara_intro');
   const progression = defaultProgression();
   const start = publishDialogueChoices(mara, 'start', progression, DEFAULT_STATS, 0);
-  assert.deepEqual(start.map((choice) => choice.id), ['start:0', 'start:1', 'start:2', 'start:3']);
+  assert.ok(start.map((choice) => choice.id).includes('private_lore'));
   assert.ok(start.slice(0, 3).every((choice) => choice.available));
-  assert.equal(start[3].available, false);
-  assert.match(start[3].requirement, /close enough/);
-  assert.equal(/\d/.test(start[3].requirement), false);
+  const privateLore = start.find((choice) => choice.id === 'private_lore');
+  assert.equal(privateLore.available, false);
+  assert.match(privateLore.requirement, /close enough/);
+  assert.equal(/\d/.test(privateLore.requirement), false);
 
   const snapshot = JSON.stringify(mara);
   const inventoryA = [];

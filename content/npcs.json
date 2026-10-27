@@ -37,7 +37,21 @@
     "faction": "occult_merchants",
     "secrets": [
       "knows_old_coven_site"
-    ]
+    ],
+    "personality": {
+      "friendliness": 62,
+      "caution": 55,
+      "honesty": 70,
+      "generosity": 58,
+      "curiosity": 72,
+      "ambition": 45,
+      "pride": 40,
+      "suspicion": 48,
+      "humor": 35,
+      "socialOpenness": 60
+    },
+    "conversationPolicy": "concurrent_personal",
+    "biography": "Keeper of the Veiled Moon, careful with secrets and fond of rosemary."
   },
   {
     "id": "npc_tom",
@@ -81,7 +95,19 @@
     "relationshipLevel": 0,
     "magicalKnowledge": 5,
     "dialogueTreeId": "tom_greeting",
-    "shopId": "grocery_store"
+    "shopId": "grocery_store",
+    "personality": {
+      "friendliness": 78,
+      "caution": 35,
+      "honesty": 80,
+      "generosity": 70,
+      "curiosity": 40,
+      "ambition": 30,
+      "pride": 25,
+      "suspicion": 20,
+      "humor": 65,
+      "socialOpenness": 75
+    }
   },
   {
     "id": "npc_elena",
@@ -117,7 +143,19 @@
     "relationshipLevel": 0,
     "magicalKnowledge": 15,
     "dialogueTreeId": "elena_greeting",
-    "shopId": "pharmacy"
+    "shopId": "pharmacy",
+    "personality": {
+      "friendliness": 55,
+      "caution": 70,
+      "honesty": 85,
+      "generosity": 50,
+      "curiosity": 60,
+      "ambition": 55,
+      "pride": 45,
+      "suspicion": 50,
+      "humor": 25,
+      "socialOpenness": 40
+    }
   },
   {
     "id": "npc_librarian",
@@ -172,12 +210,24 @@
     "dialogueTreeId": "agatha_archive",
     "secrets": [
       "hidden_grimoire_index"
-    ]
+    ],
+    "personality": {
+      "friendliness": 48,
+      "caution": 65,
+      "honesty": 88,
+      "generosity": 42,
+      "curiosity": 90,
+      "ambition": 50,
+      "pride": 55,
+      "suspicion": 45,
+      "humor": 30,
+      "socialOpenness": 35
+    }
   },
   {
     "id": "npc_cafe_owner",
     "name": "Silas Moore",
-    "role": "Café Owner",
+    "role": "Caf\u00e9 Owner",
     "locationId": "cafe",
     "schedule": [
       {
@@ -259,7 +309,21 @@
     "relationshipLevel": 0,
     "magicalKnowledge": 85,
     "dialogueTreeId": "rowan_circle",
-    "faction": "occult_study_circle"
+    "faction": "occult_study_circle",
+    "personality": {
+      "friendliness": 58,
+      "caution": 60,
+      "honesty": 75,
+      "generosity": 55,
+      "curiosity": 70,
+      "ambition": 65,
+      "pride": 60,
+      "suspicion": 40,
+      "humor": 40,
+      "socialOpenness": 55
+    },
+    "conversationPolicy": "exclusive",
+    "biography": "Circle leader who teaches wards and quiet ethics."
   },
   {
     "id": "npc_council_clerk",

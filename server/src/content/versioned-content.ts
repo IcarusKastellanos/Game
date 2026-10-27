@@ -68,6 +68,51 @@ export function writeVersionedCollection(options: {
   return { revision: nextRevision };
 }
 
+/**
+ * Replace a JSON object (or wrapped document) and bump one revision key.
+ * Same optimistic concurrency and restore rules as {@link writeVersionedCollection}.
+ */
+export function writeVersionedDocument(options: {
+  directory?: string;
+  filename: string;
+  bucket: string;
+  id: string;
+  expectedRevision: number;
+  document: unknown;
+  fault?: 'revision';
+}): { revision: number } {
+  if (!Number.isInteger(options.expectedRevision) || options.expectedRevision < 0) {
+    throw new ContentSaveError('A revision number is required.', 400);
+  }
+  const directory = options.directory ?? CONTENT_DIR;
+  const book = readBook(directory);
+  const current = book[options.bucket]?.[options.id] ?? 0;
+  if (current !== options.expectedRevision) {
+    throw new ContentSaveError('This record changed since you opened it. Reload and edit again.', 409, current);
+  }
+  const nextRevision = current + 1;
+  const nextBook: RevisionBook = {
+    ...book,
+    [options.bucket]: { ...(book[options.bucket] ?? {}), [options.id]: nextRevision },
+  };
+  const contentPath = resolve(directory, options.filename);
+  const revisionPath = resolve(directory, CONTENT_REVISION_FILE);
+  const previousContent = existsSync(contentPath) ? readFileSync(contentPath, 'utf-8') : null;
+  atomicWrite(contentPath, `${JSON.stringify(options.document, null, 2)}\n`);
+  try {
+    if (options.fault === 'revision') {
+      throw new Error('revision write failed');
+    }
+    atomicWrite(revisionPath, `${JSON.stringify(nextBook, null, 2)}\n`);
+  } catch (error) {
+    if (previousContent == null) unlinkQuiet(contentPath);
+    else atomicWrite(contentPath, previousContent);
+    const message = error instanceof Error ? error.message : 'Revision file failed.';
+    throw new ContentSaveError(`The save was not kept. ${message}`, 500);
+  }
+  return { revision: nextRevision };
+}
+
 function readBook(directory: string): RevisionBook {
   const path = resolve(directory, CONTENT_REVISION_FILE);
   if (!existsSync(path)) return {};
