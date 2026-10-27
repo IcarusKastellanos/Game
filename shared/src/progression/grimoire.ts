@@ -77,6 +77,8 @@ export interface GrimoireSharedPage {
   body: string;
   authorName: string;
   receivedAt: number;
+  /** Original Author page id — used by admin moderation to purge one manuscript everywhere. */
+  manuscriptPageId?: string;
 }
 
 export interface GrimoireState {
@@ -223,6 +225,7 @@ function parseSharedPages(raw: unknown): GrimoireSharedPage[] {
       body,
       authorName: clip(o.authorName, MAX_NAME).trim() || 'Someone',
       receivedAt: finiteTime(o.receivedAt, Date.now()),
+      manuscriptPageId: cleanId(o.manuscriptPageId) || undefined,
     });
     if (out.length >= MAX_SHARED_PAGES) break;
   }
@@ -747,16 +750,39 @@ export function receiveSharedGrimoirePage(
   grimoire: GrimoireState,
   manuscript: GrimoireManuscriptMeta,
   at = Date.now()
-): { grimoire: GrimoireState; page: GrimoireSharedPage | null; status: 'added' | 'full' | 'empty' } {
+): { grimoire: GrimoireState; page: GrimoireSharedPage | null; status: 'added' | 'full' | 'empty' | 'again' } {
   const body = cleanAuthoredGrimoireBody(manuscript.manuscriptBody);
   if (!body) return { grimoire, page: null, status: 'empty' };
+  const manuscriptPageId = cleanId(manuscript.manuscriptPageId);
+  const title = cleanAuthoredGrimoireTitle(manuscript.manuscriptTitle);
+  const authorName = clip(manuscript.manuscriptAuthor, MAX_NAME).trim() || 'Someone';
+  if (manuscriptPageId) {
+    const existingIdx = grimoire.sharedPages.findIndex((page) => page.manuscriptPageId === manuscriptPageId);
+    if (existingIdx >= 0) {
+      const existing = grimoire.sharedPages[existingIdx];
+      const page: GrimoireSharedPage = {
+        ...existing,
+        title,
+        body,
+        authorName,
+        manuscriptPageId,
+      };
+      const sharedPages = grimoire.sharedPages.map((row, index) => (index === existingIdx ? page : row));
+      return {
+        status: 'again',
+        page,
+        grimoire: { ...grimoire, sharedPages, sharedActive: page.id },
+      };
+    }
+  }
   if (grimoire.sharedPages.length >= MAX_SHARED_PAGES) return { grimoire, page: null, status: 'full' };
   const page: GrimoireSharedPage = {
     id: newPageId('shared'),
-    title: cleanAuthoredGrimoireTitle(manuscript.manuscriptTitle),
+    title,
     body,
-    authorName: clip(manuscript.manuscriptAuthor, MAX_NAME).trim() || 'Someone',
+    authorName,
     receivedAt: at,
+    manuscriptPageId: manuscriptPageId || undefined,
   };
   return {
     status: 'added',
@@ -767,6 +793,98 @@ export function receiveSharedGrimoirePage(
       sharedActive: page.id,
     },
   };
+}
+
+/** Rewrite every Author/Shared copy of a manuscript after admin edit. */
+export function applyManuscriptEditToGrimoire(
+  grimoire: GrimoireState,
+  pageId: string,
+  title: string,
+  body: string
+): GrimoireState {
+  const id = cleanId(pageId);
+  if (!id) return grimoire;
+  const nextTitle = cleanAuthoredGrimoireTitle(title);
+  const nextBody = cleanAuthoredGrimoireBody(body);
+  let changed = false;
+  const authored = grimoire.authored.map((page) => {
+    if (page.id !== id) return page;
+    changed = true;
+    return { ...page, title: nextTitle, body: nextBody, updatedAt: Date.now() };
+  });
+  const sharedPages = grimoire.sharedPages.map((page) => {
+    if (page.manuscriptPageId !== id && page.id !== id) return page;
+    changed = true;
+    return { ...page, title: nextTitle, body: nextBody, manuscriptPageId: page.manuscriptPageId || id };
+  });
+  return changed ? { ...grimoire, authored, sharedPages } : grimoire;
+}
+
+/** Remove Author/Shared copies of a manuscript after admin archive. */
+export function purgeManuscriptFromGrimoire(grimoire: GrimoireState, pageId: string): GrimoireState {
+  const id = cleanId(pageId);
+  if (!id) return grimoire;
+  const authored = grimoire.authored.filter((page) => page.id !== id);
+  const sharedPages = grimoire.sharedPages.filter(
+    (page) => page.manuscriptPageId !== id && page.id !== id
+  );
+  if (authored.length === grimoire.authored.length && sharedPages.length === grimoire.sharedPages.length) {
+    return grimoire;
+  }
+  return {
+    ...grimoire,
+    authored,
+    authoredActive:
+      grimoire.authoredActive && authored.some((page) => page.id === grimoire.authoredActive)
+        ? grimoire.authoredActive
+        : authored[0]?.id,
+    sharedPages,
+    sharedActive:
+      grimoire.sharedActive && sharedPages.some((page) => page.id === grimoire.sharedActive)
+        ? grimoire.sharedActive
+        : sharedPages[0]?.id,
+  };
+}
+
+export function applyManuscriptEditToInventory(
+  inventory: InventorySlot[],
+  pageId: string,
+  title: string,
+  body: string
+): InventorySlot[] {
+  const id = cleanId(pageId);
+  if (!id) return inventory;
+  const nextTitle = cleanAuthoredGrimoireTitle(title);
+  const nextBody = cleanAuthoredGrimoireBody(body);
+  let changed = false;
+  const next = inventory.map((slot) => {
+    const meta = readManuscriptMeta(slot);
+    if (!meta || meta.manuscriptPageId !== id) return slot;
+    changed = true;
+    return {
+      ...slot,
+      metadata: {
+        ...(slot.metadata ?? {}),
+        manuscriptTitle: nextTitle,
+        manuscriptBody: nextBody,
+        manuscriptPageId: id,
+      },
+    };
+  });
+  return changed ? next : inventory;
+}
+
+export function purgeManuscriptFromInventory(inventory: InventorySlot[], pageId: string): InventorySlot[] {
+  const id = cleanId(pageId);
+  if (!id) return inventory;
+  let changed = false;
+  const next = inventory.map((slot) => {
+    const meta = readManuscriptMeta(slot);
+    if (!meta || meta.manuscriptPageId !== id) return slot;
+    changed = true;
+    return { itemId: '', quantity: 0 };
+  });
+  return changed ? next : inventory;
 }
 
 export function setSharedGrimoireActive(grimoire: GrimoireState, pageId: string): GrimoireState {

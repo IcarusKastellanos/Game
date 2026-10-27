@@ -119,6 +119,7 @@ import { setOnlinePlayerCount } from '../admin/services/dashboard.js';
 import { assertPlayerAuth } from '../services/player-auth.js';
 import { chatService, type ChatPayload } from '../services/chat-service.js';
 import { censorChatMessage } from '../systems/chat-filter.js';
+import { isManuscriptArchived, registerManuscriptExport } from '../systems/manuscript-registry.js';
 import type { PermissionSlug } from '@witchcraft/shared';
 import { registerGameRoom, unregisterGameRoom } from './game-room-registry.js';
 import { SlidingWindowRateLimiter } from '../utils/rate-limit.js';
@@ -1862,6 +1863,14 @@ export class GameRoom extends Room<GameRoomState> {
       });
       return;
     }
+    if (isManuscriptArchived(page.id)) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Staff archived that page. It cannot be exported again.',
+        level: 'warn',
+      });
+      return;
+    }
     if (findFirstEmptySlotIndex(normalizeInventoryLayout(player.inventory)) < 0) {
       client.send('notification', {
         type: 'notification',
@@ -1871,6 +1880,8 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
     const meta = manuscriptMetadataFromPage(page, player.displayName, player.dbPlayerId || undefined);
+    const recorded = readManuscriptMeta({ itemId: GRIMOIRE_MANUSCRIPT_ITEM_ID, quantity: 1, metadata: meta });
+    if (recorded) registerManuscriptExport(recorded, player.dbPlayerId || undefined);
     player.inventory = inventorySystem.addItem(player.inventory, GRIMOIRE_MANUSCRIPT_ITEM_ID, 1, meta);
     this.sendPlayerSync(client, player);
     client.send('notification', {
@@ -1905,6 +1916,17 @@ export class GameRoom extends Room<GameRoomState> {
       });
       return;
     }
+    if (isManuscriptArchived(manuscript.manuscriptPageId)) {
+      const takenBanned = takeInventorySlot(grid, index);
+      player.inventory = takenBanned.inventory;
+      this.sendPlayerSync(client, player);
+      client.send('notification', {
+        type: 'notification',
+        message: 'Staff archived that manuscript. The copy dissolves.',
+        level: 'warn',
+      });
+      return;
+    }
     const taken = takeInventorySlot(grid, index);
     if (!taken.slot) {
       client.send('notification', {
@@ -1923,7 +1945,7 @@ export class GameRoom extends Room<GameRoomState> {
       });
       return;
     }
-    if (received.status !== 'added' || !received.page) {
+    if ((received.status !== 'added' && received.status !== 'again') || !received.page) {
       client.send('notification', {
         type: 'notification',
         message: 'This manuscript has no writing left on it.',
@@ -1937,7 +1959,10 @@ export class GameRoom extends Room<GameRoomState> {
     client.send('progression_update', { progression: data.progression });
     client.send('notification', {
       type: 'notification',
-      message: `"${received.page.title}" by ${received.page.authorName} is written into Shared.`,
+      message:
+        received.status === 'again'
+          ? `"${received.page.title}" was already in Shared; the page is refreshed.`
+          : `"${received.page.title}" by ${received.page.authorName} is written into Shared.`,
       level: 'success',
     });
   }
