@@ -27,6 +27,7 @@ import {
 import { getAdminPermissions } from '../rbac.js';
 import { grimoireCatalog, grimoireRecordExists, setGrimoireEntry } from '../../content/grimoire-entries.js';
 import { hydrateNpcSprite, npcToDb } from '../../content/npc-sprites.js';
+import { persistDialogueDefinitions, persistNpcDefinitions } from '../../content/npc-content-persist.js';
 
 function hydrateItemIcon(item: ContentIngredient & { data?: { iconPixels?: string[] | null } }): ContentIngredient {
   if (item.iconPixels?.length === 256) return item;
@@ -346,6 +347,7 @@ contentRouter.put('/npcs/:id', requirePerm('content.npc.edit'), async (req: Admi
     create: dbRow as never,
     update: dbRow as never,
   });
+  persistNpcDefinitions();
   await writeAuditLog(auditContext(req), {
     action: 'content.npc.update',
     objectType: 'npc',
@@ -368,6 +370,7 @@ contentRouter.get('/dialogues/:id', requirePerm('content.npc.view'), (req, res) 
 contentRouter.put('/dialogues/:id', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
   const dlg = { ...req.body, id: param(req, 'id') };
   contentRegistry.dialogues.set(dlg.id, dlg);
+  persistDialogueDefinitions();
   await writeAuditLog(auditContext(req), {
     action: 'content.dialogue.update',
     objectType: 'dialogue',

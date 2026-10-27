@@ -28,6 +28,8 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   protected sceneId: 'apartment' | 'town' = 'apartment';
   private setupGeneration = 0;
   private activeTeleport?: TeleportEffect;
+  /** Last schedule-hidden interactable list painted into this scene. */
+  private hiddenNpcKey = '';
 
   /** (Re)register physics colliders between the player and current blocker groups. */
   private registerBlockerColliders(): void {
@@ -115,6 +117,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
         window.removeEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
         window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
         window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+        window.removeEventListener('game:world-state', this.onWorldState as EventListener);
         window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
       });
       window.addEventListener('game:admin-tp', this.onAdminTp as EventListener);
@@ -125,6 +128,8 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       window.addEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
       window.addEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
       window.addEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+      window.addEventListener('game:world-state', this.onWorldState as EventListener);
+      this.hiddenNpcKey = gameState.hiddenNpcIds.join('\0');
       window.addEventListener('game:chat', this.onLocalSpeech as EventListener);
 
       // Register sync handler only after player sprite exists
@@ -213,6 +218,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     window.removeEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
     window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
     window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+    window.removeEventListener('game:world-state', this.onWorldState as EventListener);
     window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
     this.speechBubbles.forEach((bubble) => bubble.root.destroy());
     this.speechBubbles.clear();
@@ -346,6 +352,15 @@ export abstract class BaseWorldScene extends Phaser.Scene {
 
   private onMapsUpdated = (): void => {
     if (!this.player?.active || gameState.currentScene !== this.sceneId) return;
+    this.hiddenNpcKey = gameState.hiddenNpcIds.join('\0');
+    this.rebuildWorldMap();
+  };
+
+  private onWorldState = (): void => {
+    if (!this.player?.active || gameState.currentScene !== this.sceneId) return;
+    const next = gameState.hiddenNpcIds.join('\0');
+    if (next === this.hiddenNpcKey) return;
+    this.hiddenNpcKey = next;
     this.rebuildWorldMap();
   };
 
