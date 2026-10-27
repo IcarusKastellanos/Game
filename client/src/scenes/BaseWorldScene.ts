@@ -10,6 +10,19 @@ import { configureFeetHitbox, configurePlayerPhysics } from '../systems/WorldMov
 import { worldTilesToPixels } from '../utils/world-coords';
 import { ambientAudio } from '../audio/AmbientAudio';
 import { TeleportEffect } from '../graphics/TeleportEffect';
+import '../ui/speech-bubble.css';
+
+type WorldSpeechBubble = {
+  root: HTMLDivElement;
+  plate: HTMLDivElement;
+  tail: HTMLDivElement;
+  tailStroke: HTMLDivElement;
+  tailFill: HTMLDivElement;
+  until: number;
+  metricsKey: string;
+  outerHalf: number;
+  innerHalf: number;
+};
 
 /** Base scene for apartment and town — shared movement/multiplayer logic */
 export abstract class BaseWorldScene extends Phaser.Scene {
@@ -17,7 +30,8 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   protected controller!: PlayerController;
   protected remotePlayers = new Map<string, Phaser.GameObjects.Sprite>();
   protected remoteNameLabels = new Map<string, Phaser.GameObjects.Text>();
-  private speechBubbles = new Map<string, { root: Phaser.GameObjects.Container; until: number }>();
+  private speechLayer?: HTMLDivElement;
+  private speechBubbles = new Map<string, WorldSpeechBubble>();
   protected interactables!: Phaser.GameObjects.Group;
   protected furnitureLayer!: Phaser.GameObjects.Group;
   protected floorLayer!: Phaser.GameObjects.Group;
@@ -116,7 +130,10 @@ export abstract class BaseWorldScene extends Phaser.Scene {
         window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
         window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
         window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
+        this.events.off('render', this.onSpeechRender);
+        this.clearSpeechBubbles();
       });
+      this.events.on('render', this.onSpeechRender);
       window.addEventListener('game:admin-tp', this.onAdminTp as EventListener);
       window.addEventListener('game:admin-heal', this.onAdminHeal as EventListener);
       window.addEventListener('game:connection-restored', this.onConnectionRestored as EventListener);
@@ -214,8 +231,8 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
     window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
     window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
-    this.speechBubbles.forEach((bubble) => bubble.root.destroy());
-    this.speechBubbles.clear();
+    this.events.off('render', this.onSpeechRender);
+    this.clearSpeechBubbles();
     network.onPlayersChange = undefined;
     this.remotePlayers.forEach((s) => s.destroy());
     this.remotePlayers.clear();
@@ -438,8 +455,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     this.remotePlayers.delete(sessionId);
     this.remoteNameLabels.get(sessionId)?.destroy();
     this.remoteNameLabels.delete(sessionId);
-    this.speechBubbles.get(sessionId)?.root.destroy();
-    this.speechBubbles.delete(sessionId);
+    this.removeSpeechBubble(sessionId);
   }
 
   private onLocalSpeech = (ev: Event): void => {
@@ -471,48 +487,186 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   }
 
   private showSpeechBubble(sessionId: string, message: string): void {
-    this.speechBubbles.get(sessionId)?.root.destroy();
+    this.removeSpeechBubble(sessionId);
     const spoken = message.length > 140 ? `${message.slice(0, 137)}…` : message;
-    const label = this.add
-      .text(0, 0, spoken, {
-        fontFamily: 'Georgia, "Palatino Linotype", serif',
-        fontSize: '7px',
-        color: '#3b2412',
-        align: 'center',
-        wordWrap: { width: 92 },
-      })
-      .setOrigin(0.5, 0.5);
-    const width = Math.max(56, label.width + 18);
-    const height = label.height + 14;
-    const plate = this.add.graphics();
-    plate.fillStyle(0xf8edd4, 0.96);
-    plate.lineStyle(2, 0xc4a15a, 1);
-    plate.fillRoundedRect(-width / 2, -height - 8, width, height, 8);
-    plate.strokeRoundedRect(-width / 2, -height - 8, width, height, 8);
-    plate.fillStyle(0xf8edd4, 0.96);
-    plate.fillTriangle(-6, -8, 6, -8, 0, 2);
-    label.setPosition(0, -height / 2 - 8);
-    const root = this.add.container(0, 0, [plate, label]);
-    root.setDepth(8000);
-    const point = this.speakerPoint(sessionId);
-    if (point) root.setPosition(point.x, point.y);
+    const root = document.createElement('div');
+    root.className = 'world-speech-bubble';
+    root.style.visibility = 'hidden';
+    const plate = document.createElement('div');
+    plate.className = 'world-speech-bubble__plate';
+    plate.textContent = spoken;
+    const tail = document.createElement('div');
+    tail.className = 'world-speech-bubble__tail';
+    const tailStroke = document.createElement('div');
+    const tailFill = document.createElement('div');
+    tail.append(tailStroke, tailFill);
+    root.append(plate, tail);
+    this.ensureSpeechLayer().append(root);
     this.speechBubbles.set(sessionId, {
       root,
+      plate,
+      tail,
+      tailStroke,
+      tailFill,
       until: this.time.now + Math.min(9000, 2800 + spoken.length * 45),
+      metricsKey: '',
+      outerHalf: 0,
+      innerHalf: 0,
     });
+    this.positionSpeechBubbles();
   }
 
   private tickSpeechBubbles(): void {
     const now = this.time.now;
     for (const [sessionId, bubble] of this.speechBubbles) {
-      if (now >= bubble.until) {
-        bubble.root.destroy();
-        this.speechBubbles.delete(sessionId);
-        continue;
-      }
-      const point = this.speakerPoint(sessionId);
-      if (!point) continue;
-      bubble.root.setPosition(point.x, point.y);
+      if (now >= bubble.until) this.removeSpeechBubble(sessionId);
     }
+  }
+
+  /** Camera follow runs in preRender, so place bubbles on the render event, not in update. */
+  private onSpeechRender = (): void => {
+    this.positionSpeechBubbles();
+  };
+
+  private ensureSpeechLayer(): HTMLDivElement {
+    if (this.speechLayer?.isConnected) return this.speechLayer;
+    const layer = document.createElement('div');
+    layer.className = 'world-speech-layer';
+    layer.setAttribute('aria-hidden', 'true');
+    document.body.append(layer);
+    this.speechLayer = layer;
+    return layer;
+  }
+
+  private clearSpeechBubbles(): void {
+    for (const bubble of this.speechBubbles.values()) bubble.root.remove();
+    this.speechBubbles.clear();
+    this.speechLayer?.remove();
+    this.speechLayer = undefined;
+  }
+
+  private removeSpeechBubble(sessionId: string): void {
+    const bubble = this.speechBubbles.get(sessionId);
+    if (!bubble) return;
+    bubble.root.remove();
+    this.speechBubbles.delete(sessionId);
+    if (this.speechBubbles.size === 0) {
+      this.speechLayer?.remove();
+      this.speechLayer = undefined;
+    }
+  }
+
+  /**
+   * CSS pixels per game pixel. The FIT scale is often fractional (the 512×384
+   * buffer stretched to the window). Text is sized in whole CSS pixels instead
+   * of being drawn at 7px and nearest-neighbor scaled with the pixel-art canvas.
+   */
+  private speechCanvasScale(): { cssPerGameX: number; cssPerGameY: number; rect: DOMRect } | null {
+    const canvas = this.game?.canvas;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const gameW = this.scale.gameSize.width;
+    const gameH = this.scale.gameSize.height;
+    if (rect.width < 1 || rect.height < 1 || gameW < 1 || gameH < 1) return null;
+    return {
+      cssPerGameX: rect.width / gameW,
+      cssPerGameY: rect.height / gameH,
+      rect,
+    };
+  }
+
+  private positionSpeechBubbles(): void {
+    if (this.speechBubbles.size === 0) return;
+    const scale = this.speechCanvasScale();
+    if (!scale) return;
+    const layer = this.ensureSpeechLayer();
+    const originX = Math.round(scale.rect.left);
+    const originY = Math.round(scale.rect.top);
+    layer.style.left = `${originX}px`;
+    layer.style.top = `${originY}px`;
+    layer.style.width = `${Math.max(0, Math.round(scale.rect.width))}px`;
+    layer.style.height = `${Math.max(0, Math.round(scale.rect.height))}px`;
+    for (const [sessionId, bubble] of this.speechBubbles) {
+      this.layoutSpeechBubble(bubble, scale.cssPerGameY);
+      this.placeSpeechBubble(bubble, sessionId, scale, originX, originY);
+    }
+  }
+
+  private layoutSpeechBubble(bubble: WorldSpeechBubble, cssPerGame: number): void {
+    const fontPx = Math.max(14, Math.round(7 * cssPerGame));
+    const borderPx = Math.max(1, Math.round(2 * cssPerGame));
+    const padX = Math.round(9 * cssPerGame);
+    const padY = Math.round(7 * cssPerGame);
+    const radiusPx = Math.max(4, Math.round(8 * cssPerGame));
+    const contentMax = Math.round(92 * cssPerGame);
+    const minWidth = Math.round(56 * cssPerGame);
+    const outerHalf = Math.max(4, Math.round(6 * cssPerGame));
+    const outerH = Math.max(6, Math.round(10 * cssPerGame));
+    const innerHalf = Math.max(2, outerHalf - borderPx);
+    const innerH = Math.max(3, outerH - borderPx);
+    const key = [fontPx, borderPx, padX, padY, radiusPx, contentMax, minWidth, outerHalf, outerH, innerHalf, innerH].join(':');
+    if (bubble.metricsKey === key) return;
+    bubble.metricsKey = key;
+    bubble.outerHalf = outerHalf;
+    bubble.innerHalf = innerHalf;
+
+    const plate = bubble.plate;
+    plate.style.fontSize = `${fontPx}px`;
+    plate.style.padding = `${padY}px ${padX}px`;
+    plate.style.borderWidth = `${borderPx}px`;
+    plate.style.borderRadius = `${radiusPx}px`;
+    plate.style.maxWidth = `${contentMax + padX * 2 + borderPx * 2}px`;
+    plate.style.minWidth = `${minWidth}px`;
+
+    bubble.tail.style.height = `${outerH}px`;
+    bubble.tail.style.marginTop = `${-borderPx}px`;
+    this.styleSpeechTail(bubble.tailStroke, outerHalf, outerH, '#c4a15a');
+    this.styleSpeechTail(bubble.tailFill, innerHalf, innerH, '#f8edd4');
+    this.centerSpeechTail(bubble);
+  }
+
+  private styleSpeechTail(el: HTMLDivElement, half: number, height: number, color: string): void {
+    el.style.position = 'absolute';
+    el.style.top = '0';
+    el.style.width = '0';
+    el.style.height = '0';
+    el.style.margin = '0';
+    el.style.padding = '0';
+    el.style.borderStyle = 'solid';
+    el.style.borderBottomWidth = '0';
+    el.style.borderLeft = `${half}px solid transparent`;
+    el.style.borderRight = `${half}px solid transparent`;
+    el.style.borderTop = `${height}px solid ${color}`;
+    el.style.filter = 'none';
+    el.style.transform = 'none';
+  }
+
+  private centerSpeechTail(bubble: WorldSpeechBubble): void {
+    const width = bubble.root.offsetWidth;
+    bubble.tailStroke.style.left = `${Math.round((width - bubble.outerHalf * 2) / 2)}px`;
+    bubble.tailFill.style.left = `${Math.round((width - bubble.innerHalf * 2) / 2)}px`;
+  }
+
+  private placeSpeechBubble(
+    bubble: WorldSpeechBubble,
+    sessionId: string,
+    scale: { cssPerGameX: number; cssPerGameY: number; rect: DOMRect },
+    originX: number,
+    originY: number,
+  ): void {
+    const point = this.speakerPoint(sessionId);
+    const cam = this.cameras.main;
+    const root = bubble.root;
+    if (!point || !cam.worldView.contains(point.x, point.y)) {
+      root.style.visibility = 'hidden';
+      return;
+    }
+    const gameX = cam.x + (point.x - cam.worldView.x) * cam.zoomX;
+    const gameY = cam.y + (point.y - cam.worldView.y) * cam.zoomY;
+    const localX = scale.rect.left + gameX * scale.cssPerGameX - originX;
+    const localY = scale.rect.top + gameY * scale.cssPerGameY - originY;
+    root.style.visibility = 'visible';
+    root.style.left = `${Math.round(localX - root.offsetWidth / 2)}px`;
+    root.style.top = `${Math.round(localY - root.offsetHeight)}px`;
   }
 }
