@@ -56,6 +56,17 @@ export interface GrimoireNpcEntry {
   stageLabel?: string;
   regard?: string[];
   memories?: string[];
+  /** Public content once met. */
+  role?: string;
+  biography?: string;
+  /** Discovered facts — never secret affinity or hidden tastes. */
+  knownLocations?: string[];
+  knownSchedule?: string[];
+  knownLikes?: string[];
+  knownDislikes?: string[];
+  services?: string[];
+  discoveredRumors?: string[];
+  unlockedTopics?: string[];
 }
 
 export interface GrimoireCustomization {
@@ -357,6 +368,15 @@ function parseNpcs(raw: unknown): GrimoireNpcEntry[] {
     const relationship = typeof o.relationship === 'number' && Number.isFinite(o.relationship) ? o.relationship : 0;
     const regard = stringList(o.regard, 8, 120);
     const memories = stringList(o.memories, 8, 160);
+    const role = typeof o.role === 'string' && o.role.trim() ? clip(o.role, 64).trim() : undefined;
+    const biography = typeof o.biography === 'string' && o.biography.trim() ? clip(o.biography, 480).trim() : undefined;
+    const knownLocations = stringList(o.knownLocations, 6, 80);
+    const knownSchedule = stringList(o.knownSchedule, 6, 120);
+    const knownLikes = stringList(o.knownLikes, 8, 120);
+    const knownDislikes = stringList(o.knownDislikes, 8, 120);
+    const services = stringList(o.services, 8, 100);
+    const discoveredRumors = stringList(o.discoveredRumors, 8, 200);
+    const unlockedTopics = stringList(o.unlockedTopics, 12, 80);
     out.push({
       npcId,
       name: clip(o.name, MAX_NAME).trim() || npcId,
@@ -366,6 +386,15 @@ function parseNpcs(raw: unknown): GrimoireNpcEntry[] {
       stageLabel: typeof o.stageLabel === 'string' && o.stageLabel.trim() ? clip(o.stageLabel, 48).trim() : undefined,
       regard: regard.length ? regard : undefined,
       memories: memories.length ? memories : undefined,
+      ...(role ? { role } : {}),
+      ...(biography ? { biography } : {}),
+      ...(knownLocations.length ? { knownLocations } : {}),
+      ...(knownSchedule.length ? { knownSchedule } : {}),
+      ...(knownLikes.length ? { knownLikes } : {}),
+      ...(knownDislikes.length ? { knownDislikes } : {}),
+      ...(services.length ? { services } : {}),
+      ...(discoveredRumors.length ? { discoveredRumors } : {}),
+      ...(unlockedTopics.length ? { unlockedTopics } : {}),
     });
     if (out.length >= MAX_NPCS) break;
   }
@@ -630,6 +659,15 @@ export function recordGrimoireNpc(
     stageLabel?: string;
     regard?: string[];
     memories?: string[];
+    role?: string;
+    biography?: string;
+    knownLocations?: string[];
+    knownSchedule?: string[];
+    knownLikes?: string[];
+    knownDislikes?: string[];
+    services?: string[];
+    discoveredRumors?: string[];
+    unlockedTopics?: string[];
   },
   at = Date.now()
 ): GrimoireState {
@@ -640,6 +678,31 @@ export function recordGrimoireNpc(
   const stageLabel = npc.stageLabel?.trim() || undefined;
   const regard = npc.regard?.slice(0, 8);
   const memories = npc.memories?.slice(0, 8);
+  const role = npc.role?.trim() ? clip(npc.role, 64).trim() : undefined;
+  const biography = npc.biography?.trim() ? clip(npc.biography, 480).trim() : undefined;
+  const knownLocations = npc.knownLocations?.slice(0, 6);
+  const knownSchedule = npc.knownSchedule?.slice(0, 6);
+  const knownLikes = npc.knownLikes?.slice(0, 8);
+  const knownDislikes = npc.knownDislikes?.slice(0, 8);
+  const services = npc.services?.slice(0, 8);
+  const discoveredRumors = npc.discoveredRumors?.slice(0, 8);
+  const unlockedTopics = npc.unlockedTopics?.slice(0, 12);
+  const nextFields = {
+    name,
+    relationship,
+    stageLabel,
+    regard,
+    memories,
+    role,
+    biography,
+    knownLocations,
+    knownSchedule,
+    knownLikes,
+    knownDislikes,
+    services,
+    discoveredRumors,
+    unlockedTopics,
+  };
   const existing = grimoire.npcs.find((row) => row.npcId === npcId);
   if (existing) {
     if (
@@ -647,21 +710,28 @@ export function recordGrimoireNpc(
       existing.relationship === relationship &&
       existing.stageLabel === stageLabel &&
       sameStrings(existing.regard, regard) &&
-      sameStrings(existing.memories, memories)
+      sameStrings(existing.memories, memories) &&
+      existing.role === role &&
+      existing.biography === biography &&
+      sameStrings(existing.knownLocations, knownLocations) &&
+      sameStrings(existing.knownSchedule, knownSchedule) &&
+      sameStrings(existing.knownLikes, knownLikes) &&
+      sameStrings(existing.knownDislikes, knownDislikes) &&
+      sameStrings(existing.services, services) &&
+      sameStrings(existing.discoveredRumors, discoveredRumors) &&
+      sameStrings(existing.unlockedTopics, unlockedTopics)
     ) {
       return grimoire;
     }
     return {
       ...grimoire,
-      npcs: grimoire.npcs.map((row) =>
-        row.npcId === npcId ? { ...row, name, relationship, stageLabel, regard, memories } : row
-      ),
+      npcs: grimoire.npcs.map((row) => (row.npcId === npcId ? { ...row, ...nextFields } : row)),
     };
   }
   if (grimoire.npcs.length >= MAX_NPCS) return grimoire;
   return {
     ...grimoire,
-    npcs: [...grimoire.npcs, { npcId, name, relationship, metAt: at, stageLabel, regard, memories }],
+    npcs: [...grimoire.npcs, { npcId, metAt: at, ...nextFields }],
   };
 }
 

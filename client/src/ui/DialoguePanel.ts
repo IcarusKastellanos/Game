@@ -32,6 +32,13 @@ export class DialoguePanel {
       const target = event.target as HTMLElement | null;
       if (target?.closest('[data-ledger-close]')) this.hide();
     });
+    this.root.addEventListener('keydown', (event) => {
+      if (!this.visible) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.hide();
+      }
+    });
     window.addEventListener('game:dialogue-update', this.onUpdate as EventListener);
   }
 

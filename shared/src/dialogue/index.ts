@@ -141,6 +141,10 @@ export interface NpcInteractionOffer {
   label: string;
   shopId?: string;
   nodeId?: string;
+  /** When false, the client must show the option disabled. Omitted means available. */
+  available?: boolean;
+  requirement?: string;
+  cooldownUntil?: number;
 }
 
 const ACTION_LABELS: Record<NpcActionId, string> = {
@@ -432,9 +436,10 @@ export function buildNpcInteractionOffers(input: {
   const { npc, dialogue, quests, questProgress } = input;
   const nodeIds = new Set((dialogue?.nodes ?? []).map((node) => node.id));
   const explicit = npc.capabilities;
-  const openQuests = (quests ?? []).filter(
-    (quest) => quest.npcId === npc.id && !questProgress?.[quest.id]?.completedAt
-  );
+  const openQuests = (quests ?? []).filter((quest) => {
+    const involved = quest.npcId === npc.id || (quest as { npcIds?: string[] }).npcIds?.includes(npc.id);
+    return !!involved && !questProgress?.[quest.id]?.completedAt;
+  });
   const offers: NpcInteractionOffer[] = [];
 
   for (const action of ACTION_ORDER) {
@@ -485,7 +490,13 @@ export function buildNpcInteractionOffers(input: {
   }
   if (input.progression) {
     for (const social of listSocialOffers(npc.id, input.progression, input.now)) {
-      offers.push(social);
+      offers.push({
+        id: social.id,
+        label: social.label,
+        ...(social.available === false ? { available: false } : { available: true }),
+        ...(social.requirement ? { requirement: social.requirement } : {}),
+        ...(social.cooldownUntil ? { cooldownUntil: social.cooldownUntil } : {}),
+      });
     }
   }
   const goodbye = explicit?.find((entry) => entry.action === 'goodbye');

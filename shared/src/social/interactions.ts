@@ -232,16 +232,39 @@ export function listSocialOffers(
   npcId: string,
   progression: PlayerProgression | undefined,
   now = Date.now()
-): { id: string; label: string }[] {
+): { id: string; label: string; available?: boolean; requirement?: string; cooldownUntil?: number }[] {
   const doc = getSocialDocument();
   if (!doc?.actions?.length) return [];
   const allowed = new Set(doc.npcs[npcId]?.actionIds ?? doc.defaultActionIds ?? ['greet']);
-  const offers: { id: string; label: string }[] = [];
+  const offers: { id: string; label: string; available?: boolean; requirement?: string; cooldownUntil?: number }[] = [];
   for (const action of doc.actions) {
     if (!allowed.has(action.id)) continue;
     if (action.activityId && !(doc.supportedActivities ?? []).includes(action.activityId)) continue;
-    if (!actionAvailable(action, npcId, progression, now)) continue;
-    offers.push({ id: `social:${action.id}`, label: action.label });
+    const gate = actionAvailable(action, npcId, progression, now);
+    if (!gate.ok) {
+      // Keep gated gestures out of the menu until prerequisites are met.
+      if (gate.hide) continue;
+      offers.push({
+        id: `social:${action.id}`,
+        label: action.label,
+        available: false,
+        requirement: gate.reason ?? 'They are not open to that just now.',
+      });
+      continue;
+    }
+    const bond = bondFrom(progression, npcId);
+    const nextAt = bond.actionNextAt[action.id];
+    if (nextAt != null && nextAt > now) {
+      offers.push({
+        id: `social:${action.id}`,
+        label: action.label,
+        available: false,
+        requirement: waitPhrase(nextAt, now),
+        cooldownUntil: nextAt,
+      });
+      continue;
+    }
+    offers.push({ id: `social:${action.id}`, label: action.label, available: true });
   }
   return offers;
 }
@@ -273,8 +296,9 @@ export function resolveSocialAction(
       stats,
     };
   }
-  if (!action || !actionAvailable(action, input.npcId, progression, input.now)) {
-    return { ...same, ok: false, reason: 'They are not open to that just now.' };
+  const gate = action ? actionAvailable(action, input.npcId, progression, input.now) : { ok: false as const };
+  if (!action || !gate.ok) {
+    return { ...same, ok: false, reason: ('reason' in gate && gate.reason) || 'They are not open to that just now.' };
   }
   const nextAt = bond.actionNextAt[actionKey];
   if (nextAt != null && nextAt > input.now) {
@@ -425,18 +449,23 @@ function actionAvailable(
   npcId: string,
   progression: PlayerProgression | undefined,
   now: number
-): boolean {
-  if (action.requires && bondBlockReason(progression, npcId, action.requires)) return false;
-  if (action.requiresQuest && !questComplete(progression, action.requiresQuest)) return false;
+): { ok: true } | { ok: false; reason?: string; hide?: boolean } {
+  if (action.requires) {
+    const reason = bondBlockReason(progression, npcId, action.requires);
+    if (reason) return { ok: false, reason, hide: true };
+  }
+  if (action.requiresQuest && !questComplete(progression, action.requiresQuest)) {
+    return { ok: false, reason: 'That is not open to you yet.', hide: true };
+  }
   const bond = bondFrom(progression, npcId);
   const memories = bond.memories.filter((memory) => memory.expiresAt == null || memory.expiresAt > now);
   if (action.requiresAnyMemory?.length || action.requiresMemoryPrefix) {
     const hit =
       memories.some((memory) => action.requiresAnyMemory?.includes(memory.id)) ||
       memories.some((memory) => action.requiresMemoryPrefix && memory.id.startsWith(action.requiresMemoryPrefix));
-    if (!hit) return false;
+    if (!hit) return { ok: false, reason: 'They have no reason for that yet.', hide: true };
   }
-  return true;
+  return { ok: true };
 }
 
 function applyActionEffects(bond: NpcBond, npcId: string, effects: SocialEffect[], now: number): void {

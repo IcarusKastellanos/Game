@@ -121,6 +121,17 @@ export interface SocialActionDef {
   grudgeFeedback?: string;
 }
 
+/** Designer toggles for what relationship feedback the player may see. Omitted flags default on. */
+export interface NpcUiFeedback {
+  showStage?: boolean;
+  showRegard?: boolean;
+  showDemeanor?: boolean;
+  showMilestones?: boolean;
+  showGiftSummary?: boolean;
+  showServices?: boolean;
+  showSchedule?: boolean;
+}
+
 export interface NpcSocialProfile {
   axes?: SocialAxis[];
   stages?: StageDef[];
@@ -136,6 +147,8 @@ export interface NpcSocialProfile {
   /** Absence greeting after this many real days. */
   absenceDays?: number;
   absenceLine?: string;
+  /** Designer toggles for player-facing relationship feedback. */
+  uiFeedback?: NpcUiFeedback;
 }
 
 export interface SocialDocument {
@@ -440,16 +453,43 @@ export function bondJournal(progression: PlayerProgression | undefined, npcId: s
   return { stageLabel: stage.label, regard, memories };
 }
 
-export function withBondJournal(progression: PlayerProgression, npcId: string, name: string): PlayerProgression {
+export function withBondJournal(
+  progression: PlayerProgression,
+  npcId: string,
+  name: string,
+  dossier?: {
+    role?: string;
+    biography?: string;
+    knownLocations?: string[];
+    knownSchedule?: string[];
+    knownLikes?: string[];
+    knownDislikes?: string[];
+    services?: string[];
+    discoveredRumors?: string[];
+    unlockedTopics?: string[];
+    stageLabel?: string;
+    regard?: string[];
+    memories?: string[];
+  }
+): PlayerProgression {
   const view = bondJournal(progression, npcId);
   return withGrimoire(progression, (grimoire) =>
     recordGrimoireNpc(grimoire, {
       npcId,
       name,
       relationship: getNpcRelationshipLevel(progression, npcId),
-      stageLabel: view.stageLabel,
-      regard: view.regard,
-      memories: view.memories,
+      stageLabel: dossier?.stageLabel ?? view.stageLabel,
+      regard: dossier?.regard ?? view.regard,
+      memories: dossier?.memories ?? view.memories,
+      ...(dossier?.role ? { role: dossier.role } : {}),
+      ...(dossier?.biography ? { biography: dossier.biography } : {}),
+      ...(dossier?.knownLocations ? { knownLocations: dossier.knownLocations } : {}),
+      ...(dossier?.knownSchedule ? { knownSchedule: dossier.knownSchedule } : {}),
+      ...(dossier?.knownLikes ? { knownLikes: dossier.knownLikes } : {}),
+      ...(dossier?.knownDislikes ? { knownDislikes: dossier.knownDislikes } : {}),
+      ...(dossier?.services ? { services: dossier.services } : {}),
+      ...(dossier?.discoveredRumors ? { discoveredRumors: dossier.discoveredRumors } : {}),
+      ...(dossier?.unlockedTopics ? { unlockedTopics: dossier.unlockedTopics } : {}),
     })
   );
 }

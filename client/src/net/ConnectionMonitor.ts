@@ -60,6 +60,7 @@ class ConnectionMonitor {
     this.recovering = true;
     this.showBanner('Connection lost — trying to find it...');
     this.clearRetries();
+    window.dispatchEvent(new CustomEvent('game:connection-lost'));
 
     for (const delay of RETRY_AT_MS) {
       const timer = setTimeout(() => void this.runRetry(delay), delay);
