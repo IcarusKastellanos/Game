@@ -1228,6 +1228,14 @@ body.hud-expanded #hud-resources {
   margin: 18px 0 8px;
   font-size: 14px;
 }
+.hud-grimoire__prose b,
+.hud-grimoire__prose strong { font-weight: 700; }
+.hud-grimoire__prose i,
+.hud-grimoire__prose em { font-style: italic; }
+.hud-grimoire__prose u { text-decoration: underline; text-underline-offset: 2px; }
+.hud-grimoire__prose p { margin: 0 0 0.55em; }
+.hud-grimoire__prose ul,
+.hud-grimoire__prose ol { margin: 0 0 0.55em 1.2em; }
 
 .hud-grimoire__tabs {
   display: flex;

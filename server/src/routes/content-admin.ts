@@ -6,6 +6,7 @@ import { contentRegistry } from '../content/registry.js';
 import { getPublicIngredients, getIconManifest, mergeIngredientIconsFromDb, verifyIconHashes } from '../content/ingredient-icons.js';
 import { mergeNpcSpritesFromDb } from '../content/npc-sprites.js';
 import { prisma } from '../services/db.js';
+import { getGrimoireEntries, grimoireEntryNames } from '../content/grimoire-entries.js';
 
 export const contentRouter = Router();
 
@@ -24,6 +25,8 @@ contentRouter.get('/all', (_req: Request, res: Response) => {
     recognitionTiers: getRecognitionDocument(),
     licenses: getLicensesDocument(),
     spirits: [...contentRegistry.spirits.values()],
+    grimoireEntries: getGrimoireEntries(),
+    grimoireEntryNames: grimoireEntryNames(),
   });
 });
 

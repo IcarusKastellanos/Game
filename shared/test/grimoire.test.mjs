@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  sanitizeGrimoireMarkup,
   defaultGrimoire,
   defaultProgression,
   grimoireKnowsSpell,
@@ -119,6 +120,15 @@ test('spirit meetings can be selected, and a second petition does not invent ano
   assert.equal(selectGrimoireSpirit(first.grimoire, 'spirit_missing'), first.grimoire);
   const parsed = parseGrimoire({ ...selected, selectedSpiritId: 'nope' });
   assert.equal(parsed.selectedSpiritId, undefined);
+});
+
+test('grimoire markup keeps bold, italic, and underline and drops scripts', () => {
+  assert.equal(sanitizeGrimoireMarkup('<b>salt</b> and <i>iron</i> and <u>ash</u>'), '<b>salt</b> and <i>iron</i> and <u>ash</u>');
+  assert.equal(sanitizeGrimoireMarkup('<b onclick="alert(1)">Hi</b>'), '<b>Hi</b>');
+  assert.equal(sanitizeGrimoireMarkup('<script>alert(1)</script><em>kept</em>'), '<em>kept</em>');
+  assert.equal(sanitizeGrimoireMarkup('a < b'), 'a &lt; b');
+  assert.equal(sanitizeGrimoireMarkup('<a href="https://example.com">link</a>'), 'link');
+  assert.equal(sanitizeGrimoireMarkup('<span style="font-weight: bold">ward</span>'), '<strong>ward</strong>');
 });
 
 test('the book keeps a personal hand, and notes stay five pages', () => {

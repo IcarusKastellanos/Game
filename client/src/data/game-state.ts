@@ -1,4 +1,4 @@
-import type { LicensesDocument, PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
+import type { GrimoireEntryMap, LicensesDocument, PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
 import {
   ContentMapDefinition,
   ContentSpell,
@@ -52,7 +52,9 @@ export interface ClientContentBundle {
   dialogues?: DialogueTree[];
   recognitionTiers?: RecognitionDocument;
   licenses?: LicensesDocument;
-  spirits?: { id: string; name: string; requiresLicense?: string }[];
+  spirits?: { id: string; name: string; description?: string; domains?: string[]; requiresLicense?: string }[];
+  grimoireEntries?: GrimoireEntryMap;
+  grimoireEntryNames?: Partial<GrimoireEntryMap>;
 }
 
 export interface LocalPlayerState {

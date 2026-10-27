@@ -22,6 +22,7 @@ import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
 import { questSystem } from '../systems/quest-system.js';
 import { shopSystem } from '../systems/shop-system.js';
 import { applyCanonicalWorldMapsToRegistry, resolveMapForScene } from './canonical-maps.js';
+import { loadGrimoireEntries } from './grimoire-entries.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTENT_DIR = resolve(__dirname, '../../../content');
@@ -120,6 +121,7 @@ export class ContentRegistry {
 
     this.validateLevelGates();
     this.validateLevelUnlockCatalog();
+    loadGrimoireEntries();
 
     console.log(
       `[ContentRegistry] Loaded ${this.spells.size} spells, ${this.ingredients.size} ingredients, ${this.maps.size} maps, ${this.dialogues.size} dialogues, ${craftingSystem.recipes.size} recipes, ${hexagramEnchantSystem.recipes.size} hexagram recipes, ${questSystem.quests.size} quests`

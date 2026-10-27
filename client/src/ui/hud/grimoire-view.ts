@@ -16,7 +16,9 @@ import {
   setGrimoireSpellNote,
   setGrimoireSpiritNote,
   customizeGrimoire,
+  sanitizeGrimoireMarkup,
   type ContentSpell,
+  type GrimoireEntryKind,
   type GrimoireInk,
   type GrimoireSpellEntry,
   type GrimoireState,
@@ -95,6 +97,37 @@ function ingredientById(id: string): {
         correspondences?: string[];
       }
     | undefined;
+}
+
+function proseBlock(kind: GrimoireEntryKind, id: string, fallback: string): string {
+  const markup = sanitizeGrimoireMarkup(gameState.content?.grimoireEntries?.[kind]?.[id] ?? '');
+  if (markup) return `<div class="hud-grimoire__prose">${markup}</div>`;
+  if (!fallback.trim()) return '';
+  return `<p>${escapeHtml(fallback)}</p>`;
+}
+
+function entryName(kind: GrimoireEntryKind, id: string): string {
+  return gameState.content?.grimoireEntryNames?.[kind]?.[id] || formatContentLabel(id);
+}
+
+function furtherPages(): string {
+  const prog = progression();
+  const known = new Set<string>();
+  const blocks: string[] = [];
+  const add = (kind: GrimoireEntryKind, id: string): void => {
+    const key = `${kind}:${id}`;
+    if (known.has(key)) return;
+    const markup = sanitizeGrimoireMarkup(gameState.content?.grimoireEntries?.[kind]?.[id] ?? '');
+    if (!markup) return;
+    known.add(key);
+    blocks.push(`<article class="hud-grimoire__entry"><h4>${escapeHtml(entryName(kind, id))}</h4><div class="hud-grimoire__prose">${markup}</div></article>`);
+  };
+  for (const id of prog.readBooks ?? []) add('books', id);
+  for (const id of prog.discoveredRecipes ?? []) add('recipes', id);
+  for (const id of Object.keys(prog.questProgress ?? {})) add('quests', id);
+  if (gameState.familiar?.templateId) add('familiars', gameState.familiar.templateId);
+  if (!blocks.length) return '';
+  return `<h4 class="hud-grimoire__sub">Further pages</h4>${blocks.join('')}`;
 }
 
 function sealText(spell: ContentSpell | undefined, prog: PlayerProgression): string | null {
@@ -202,7 +235,8 @@ function paintBook(section: Element, current: GrimoireState): void {
     <div class="hud-grimoire__inks">
       ${(Object.keys(INK_LABELS) as GrimoireInk[]).map((ink) => `<button type="button" class="hud-grimoire__ink${ink === current.custom.ink ? ' is-active' : ''}" data-ink="${ink}"><span class="hud-grimoire__swatch" data-ink="${ink}"></span>${INK_LABELS[ink]}</button>`).join('')}
     </div>
-    <label class="hud-grimoire__check"><input id="grimoire-show-shared" type="checkbox"${current.custom.showLockedShared ? ' checked' : ''} /> Show sealed pages that were shared with you</label>`;
+    <label class="hud-grimoire__check"><input id="grimoire-show-shared" type="checkbox"${current.custom.showLockedShared ? ' checked' : ''} /> Show sealed pages that were shared with you</label>
+    ${furtherPages()}`;
 
   const title = section.querySelector('#grimoire-title') as HTMLInputElement | null;
   const dedication = section.querySelector('#grimoire-dedication') as HTMLTextAreaElement | null;
@@ -277,7 +311,7 @@ function paintSpells(section: Element, current: GrimoireState): void {
     <article class="hud-grimoire__entry">
       <h4>${escapeHtml(name)}${seal ? '<span class="hud-grimoire__seal">Sealed</span>' : ''}</h4>
       <p class="hud-grimoire__meta">${escapeHtml(spell ? `${formatContentLabel(spell.category)} · ${formatContentLabel(spell.tradition)} · difficulty ${spell.difficulty}` : 'Unlisted working')}</p>
-      <p>${escapeHtml(spell?.description?.trim() || 'No common description is kept for this working. What you write in the margin is the description that matters.')}</p>
+      ${proseBlock('spells', entry.spellId, spell?.description?.trim() || 'No common description is kept for this working. What you write in the margin is the description that matters.')}
       <p>${escapeHtml(sourceLine(entry))}</p>
       ${seal ? `<p class="hud-grimoire__sealed">${escapeHtml(seal)}</p>` : '<p>This working is yours to cast when you have the focus, the tools, and the will.</p>'}
       ${spell && isMalevolentSpell(spell) ? '<p>This is malevolent magic. Because it is written in your book, another practitioner finds it a thread harder to set on you. The difference is microscopic.</p>' : ''}
@@ -341,7 +375,7 @@ function paintIngredients(section: Element, current: GrimoireState): void {
     <article class="hud-grimoire__entry">
       <h4>${escapeHtml(item?.name ?? formatContentLabel(entry.itemId))}</h4>
       <p class="hud-grimoire__meta">${escapeHtml([item?.category ? formatContentLabel(item.category) : '', item?.rarity ? formatContentLabel(item.rarity) : ''].filter(Boolean).join(' · ') || 'Ingredient')}</p>
-      <p>${escapeHtml(item?.description?.trim() || 'You know this ingredient by use. A fuller description has not been copied into the common lists.')}</p>
+      ${proseBlock('items', entry.itemId, item?.description?.trim() || 'You know this ingredient by use. A fuller description has not been copied into the common lists.')}
       ${tags ? `<p>Correspondences: ${escapeHtml(tags)}.</p>` : ''}
       <p>It has come into your hands or your notes ${entry.timesGathered === 1 ? 'once' : `${entry.timesGathered} times`}. First written ${escapeHtml(writtenOn(entry.firstHeldAt) || 'when you acquired it')}.</p>
     </article>`;
@@ -385,14 +419,14 @@ function paintSpirits(section: Element, current: GrimoireState): void {
       <article class="hud-grimoire__entry">
         <h4>${escapeHtml(entry.name)}</h4>
         <p class="hud-grimoire__meta">${escapeHtml(entry.domains.length ? entry.domains.map((domain) => formatContentLabel(domain)).join(' · ') : formatContentLabel(entry.spiritType))}</p>
-        <p>${escapeHtml(entry.description || 'You met this presence and wrote down the kind of spirit it is. A longer account can live in the margin.')}</p>
+        ${proseBlock('spirits', entry.spiritId, entry.description || 'You met this presence and wrote down the kind of spirit it is. A longer account can live in the margin.')}
         <p>Met ${entry.timesMet === 1 ? 'once' : `${entry.timesMet} times`}. First written ${escapeHtml(writtenOn(entry.metAt) || 'when you petitioned')}.</p>
         <label class="hud-grimoire__field">Margin note
           <textarea id="grimoire-spirit-note" class="hud-grimoire__margin" maxlength="280">${escapeHtml(entry.note ?? '')}</textarea>
         </label>
       </article>` : ''}
     <h4 class="hud-grimoire__sub">Presences your credentials can reach</h4>
-    ${unmet.length ? `<ul class="hud-grimoire__list">${unmet.map((spirit) => `<li><strong>${escapeHtml(spirit.name)}</strong> — ${escapeHtml((spirit.domains ?? []).map((domain) => formatContentLabel(domain)).join(', ') || 'spirit')}. ${escapeHtml(spirit.description ?? '')} <button type="button" class="hud-btn" data-petition="${escapeHtml(spirit.id)}">Write the meeting</button></li>`).join('')}</ul>` : '<p class="hud-muted">Every spirit your credentials admit is already written here.</p>'}`;
+    ${unmet.length ? `<ul class="hud-grimoire__list">${unmet.map((spirit) => `<li><strong>${escapeHtml(spirit.name)}</strong> — ${escapeHtml((spirit.domains ?? []).map((domain) => formatContentLabel(domain)).join(', ') || 'spirit')}. ${proseBlock('spirits', spirit.id, spirit.description ?? '')} <button type="button" class="hud-btn" data-petition="${escapeHtml(spirit.id)}">Write the meeting</button></li>`).join('')}</ul>` : '<p class="hud-muted">Every spirit your credentials admit is already written here.</p>'}`;
 
   section.querySelector('#grimoire-spirit-select')?.addEventListener('change', (event) => {
     const spiritId = (event.target as HTMLSelectElement).value;
@@ -447,6 +481,7 @@ function paintPeople(section: Element, current: GrimoireState): void {
     </div>
     <article class="hud-grimoire__entry">
       <h4>${escapeHtml(entry.name)}</h4>
+      ${proseBlock('npcs', entry.npcId, '')}
       <p class="hud-grimoire__meta">${escapeHtml(grimoireBondLabel(entry.relationship))} · regard ${entry.relationship}</p>
       <p>${escapeHtml(bondSentence(entry.name, entry.relationship))} First written ${escapeHtml(writtenOn(entry.metAt) || 'when you spoke')}.</p>
       <label class="hud-grimoire__field">What you want to remember
