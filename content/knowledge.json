@@ -5,9 +5,7 @@
       "kind": "secret",
       "text": "Behind the old coven stones a narrow path still holds the circle's marks.",
       "reliability": "complete",
-      "knownByNpcIds": [
-        "npc_mara"
-      ],
+      "knownByNpcIds": ["npc_mara"],
       "reveal": {
         "bond": {
           "stage": "familiar",
@@ -15,9 +13,16 @@
         }
       },
       "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["conversation"]
+      },
       "unlocks": {
         "storyFlag": "knows_old_coven_site",
         "locationId": "study_circle"
+      },
+      "npcFact": {
+        "field": "location",
+        "value": "old coven stones"
       }
     },
     {
@@ -26,36 +31,63 @@
       "text": "Someone has been reinforcing the market ward with iron nails at dusk.",
       "alternateText": "They say the market ward was reinforced, though the details wander.",
       "reliability": "unreliable",
-      "knownByNpcIds": [
-        "npc_tom",
-        "npc_mara"
-      ],
+      "knownByNpcIds": ["npc_tom", "npc_mara"],
       "reveal": {
         "bond": {
           "stage": "acquaintance"
         }
       },
-      "discoveryScope": "personal"
+      "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["conversation"]
+      },
+      "conflictsWith": ["clue_market_ward_truth"]
+    },
+    {
+      "id": "clue_market_ward_truth",
+      "kind": "lore",
+      "text": "Tom drives the iron nails himself — a quiet habit, not a conspiracy.",
+      "reliability": "complete",
+      "knownByNpcIds": ["npc_tom"],
+      "reveal": {
+        "bond": {
+          "stage": "familiar"
+        }
+      },
+      "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["conversation", "quest"],
+        "onQuestComplete": ["quest_mara_favor"],
+        "requiresKnowledge": ["rumor_market_ward"]
+      },
+      "clarifies": ["rumor_market_ward"],
+      "npcFact": {
+        "field": "history",
+        "value": "He keeps the market ward with iron nails at dusk."
+      }
     },
     {
       "id": "lore_circle_oath",
       "kind": "lore",
       "text": "The circle keeps a quiet oath: teach only those who return with rosemary and regard.",
       "reliability": "complete",
-      "knownByNpcIds": [
-        "npc_circle_leader"
-      ],
+      "knownByNpcIds": ["npc_circle_leader"],
       "reveal": {
         "bond": {
           "stage": "familiar"
         },
-        "questIds": [
-          "quest_first_steps"
-        ]
+        "questIds": ["quest_first_steps"]
       },
       "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["conversation", "lesson"]
+      },
       "unlocks": {
         "storyFlag": "heard_circle_oath"
+      },
+      "npcFact": {
+        "field": "biography",
+        "value": "Rowan keeps the circle's quiet teaching oath."
       }
     },
     {
@@ -63,16 +95,17 @@
       "kind": "history",
       "text": "Townsfolk still speak of the night the lantern vigil held the green.",
       "reliability": "partial",
-      "knownByNpcIds": [
-        "npc_librarian",
-        "npc_circle_leader"
-      ],
+      "knownByNpcIds": ["npc_librarian", "npc_circle_leader"],
       "reveal": {
         "bond": {
           "stage": "acquaintance"
         }
       },
       "discoveryScope": "world",
+      "trigger": {
+        "sources": ["conversation", "observe", "interact"],
+        "onLocationId": ["town", "park"]
+      },
       "unlocks": {
         "storyFlag": "heard_lantern_watch"
       }
@@ -82,9 +115,7 @@
       "kind": "recipe",
       "text": "Agatha keeps a calm tea blend among her teaching notes.",
       "reliability": "hint",
-      "knownByNpcIds": [
-        "npc_librarian"
-      ],
+      "knownByNpcIds": ["npc_librarian"],
       "reveal": {
         "bond": {
           "stage": "familiar"
@@ -92,8 +123,86 @@
       },
       "discoveryScope": "personal",
       "reference": "herbal_tea",
+      "trigger": {
+        "sources": ["conversation", "lesson"],
+        "onLessonId": ["lesson_agatha_herbal_hint"]
+      },
       "unlocks": {
         "recipeId": "recipe_healing_tea"
+      },
+      "npcFact": {
+        "field": "interest",
+        "value": "Herbal teaching notes and calm teas"
+      }
+    },
+    {
+      "id": "meet_mara_shop",
+      "kind": "history",
+      "text": "Mara keeps the metaphysical counter and knows the town's quieter paths.",
+      "reliability": "complete",
+      "knownByNpcIds": ["npc_mara"],
+      "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["meet"],
+        "onNpcMeet": ["npc_mara"]
+      },
+      "npcFact": {
+        "field": "identity",
+        "value": "Mara of the metaphysical shop"
+      }
+    },
+    {
+      "id": "clue_coven_path_partial",
+      "kind": "rumor",
+      "text": "A scratched stone near the green points somewhere beyond the shop lane.",
+      "reliability": "partial",
+      "knownByNpcIds": ["npc_mara", "npc_librarian"],
+      "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["observe", "interact", "quest"],
+        "onLocationId": ["town"],
+        "onQuestObjective": ["quest_mara_favor:town"]
+      },
+      "npcFact": {
+        "field": "topic",
+        "value": "scratched stone near the green"
+      }
+    },
+    {
+      "id": "clue_coven_path_clear",
+      "kind": "secret",
+      "text": "The scratched stone marks the turn toward the old coven stones Mara spoke of.",
+      "reliability": "complete",
+      "knownByNpcIds": ["npc_mara"],
+      "reveal": {
+        "bond": {
+          "stage": "familiar"
+        }
+      },
+      "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["conversation", "quest"],
+        "requiresKnowledge": ["clue_coven_path_partial", "rumor_coven_stones"]
+      },
+      "clarifies": ["clue_coven_path_partial"],
+      "unlocks": {
+        "storyFlag": "knows_coven_path_mark"
+      }
+    },
+    {
+      "id": "gift_mara_rosemary_note",
+      "kind": "lore",
+      "text": "Mara softens when rosemary finds her counter — she keeps a sprig for circle work.",
+      "reliability": "complete",
+      "knownByNpcIds": ["npc_mara"],
+      "discoveryScope": "personal",
+      "trigger": {
+        "sources": ["gift"],
+        "onGiftPreferenceId": ["mara_rosemary"]
+      },
+      "npcFact": {
+        "field": "interest",
+        "value": "Rosemary for circle work"
       }
     }
   ]

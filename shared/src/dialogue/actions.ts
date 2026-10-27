@@ -170,6 +170,7 @@ export function applyDialogueActions(
         worldStore: worldKnowledge,
         now: ctx.now,
         playerId: ctx.playerId,
+        source: 'conversation',
       });
       if (!revealed.ok) return { ok: false, reason: revealed.reason };
       progression = revealed.progression;

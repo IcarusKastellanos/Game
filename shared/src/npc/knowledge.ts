@@ -27,6 +27,39 @@ export interface KnowledgeUnlocks {
   storyFlag?: string;
 }
 
+export type DiscoverySourceId =
+  | 'conversation'
+  | 'quest'
+  | 'interact'
+  | 'observe'
+  | 'lesson'
+  | 'gift'
+  | 'event'
+  | 'activity'
+  | 'meet';
+
+/** Optional automatic reveal rules. Conversation unlocks still use dialogue actions. */
+export interface KnowledgeTrigger {
+  sources?: DiscoverySourceId[];
+  onQuestComplete?: string[];
+  /** `questId:objectiveId` keys. */
+  onQuestObjective?: string[];
+  onInteractableId?: string[];
+  onLocationId?: string[];
+  onLessonId?: string[];
+  onGiftPreferenceId?: string[];
+  onEventId?: string[];
+  onActivityId?: string[];
+  onNpcMeet?: string[];
+  /** Other knowledge that must already be known before this clue can surface. */
+  requiresKnowledge?: string[];
+}
+
+export interface KnowledgeNpcFact {
+  field: 'biography' | 'location' | 'schedule' | 'interest' | 'history' | 'topic' | 'identity';
+  value: string;
+}
+
 export interface KnowledgeEntry {
   id: string;
   kind: KnowledgeKind;
@@ -50,6 +83,13 @@ export interface KnowledgeEntry {
   unlocks?: KnowledgeUnlocks;
   /** Optional alternate text when reliability is unreliable/outdated. */
   alternateText?: string;
+  trigger?: KnowledgeTrigger;
+  /** Structured People-page fact unlocked with this discovery. */
+  npcFact?: KnowledgeNpcFact;
+  /** Other rumor ids this account disagrees with. */
+  conflictsWith?: string[];
+  /** Clue ids this discovery clarifies once both are known. */
+  clarifies?: string[];
 }
 
 export interface KnowledgeDocument {
@@ -129,10 +169,17 @@ export function knowledgeRevealBlockReason(
   entry: KnowledgeEntry,
   npcId: string,
   progression: PlayerProgression,
-  stats?: PlayerStats
+  stats?: PlayerStats,
+  worldStore?: WorldKnowledgeStore
 ): string | null {
   if (!entry.knownByNpcIds.includes(npcId)) {
     return 'They do not know that.';
+  }
+  for (const needId of entry.trigger?.requiresKnowledge ?? []) {
+    const need = knowledgeById(needId);
+    if (!need || !playerKnowsKnowledge(progression, need, worldStore)) {
+      return 'That clue is still murky.';
+    }
   }
   const reveal = entry.reveal;
   if (!reveal) return null;
@@ -176,31 +223,43 @@ export function tryRevealKnowledge(input: {
   worldStore?: WorldKnowledgeStore;
   now?: number;
   playerId?: string;
+  /** Presentational only — gates stay server-side. */
+  source?: DiscoverySourceId;
 }): KnowledgeRevealResult | KnowledgeRevealFailure {
+  void input.source;
   const entry = knowledgeById(input.knowledgeId);
   if (!entry) return { ok: false, reason: 'That rumor is not recorded here.' };
-  const block = knowledgeRevealBlockReason(entry, input.npcId, input.progression, input.stats);
+  const block = knowledgeRevealBlockReason(
+    entry,
+    input.npcId,
+    input.progression,
+    input.stats,
+    input.worldStore
+  );
   if (block) return { ok: false, reason: block };
 
-  const alreadyKnown = playerKnowsKnowledge(input.progression, entry, input.worldStore);
+  const personallyKnown = input.progression.discoveredKnowledge?.includes(entry.id) === true;
   const text =
     entry.reliability === 'unreliable' || entry.reliability === 'outdated'
       ? entry.alternateText ?? entry.text
       : entry.text;
 
-  if (alreadyKnown) {
-    return { ok: true, entry, text, alreadyKnown: true, progression: input.progression };
+  if (personallyKnown) {
+    return {
+      ok: true,
+      entry,
+      text,
+      alreadyKnown: true,
+      progression: input.progression,
+      ...(input.worldStore ? { worldStore: input.worldStore } : {}),
+    };
   }
 
   const now = input.now ?? Date.now();
   let progression = input.progression;
   let worldStore = input.worldStore;
 
-  if (entry.discoveryScope === 'personal') {
-    const discovered = new Set(progression.discoveredKnowledge ?? []);
-    discovered.add(entry.id);
-    progression = { ...progression, discoveredKnowledge: [...discovered] };
-  } else {
+  if (entry.discoveryScope === 'world') {
     worldStore = parseWorldKnowledgeStore(worldStore);
     if (!worldStore.discoveries[entry.id]) {
       worldStore = {
@@ -213,11 +272,11 @@ export function tryRevealKnowledge(input: {
         },
       };
     }
-    // Contributors also keep a personal copy for UI / unlocks.
-    const discovered = new Set(progression.discoveredKnowledge ?? []);
-    discovered.add(entry.id);
-    progression = { ...progression, discoveredKnowledge: [...discovered] };
   }
+
+  const discovered = new Set(progression.discoveredKnowledge ?? []);
+  discovered.add(entry.id);
+  progression = { ...progression, discoveredKnowledge: [...discovered] };
 
   if (entry.unlocks?.storyFlag) {
     const flags = new Set(progression.storyFlags ?? []);
@@ -284,6 +343,10 @@ function parseEntry(raw: unknown): KnowledgeEntry | null {
   const knownByNpcIds = Array.isArray(o.knownByNpcIds)
     ? o.knownByNpcIds.filter((id): id is string => typeof id === 'string' && !!id.trim())
     : [];
+  const trigger = parseTrigger(o.trigger);
+  const npcFact = parseNpcFact(o.npcFact);
+  const conflictsWith = stringIds(o.conflictsWith);
+  const clarifies = stringIds(o.clarifies);
   return {
     id: o.id.trim(),
     kind,
@@ -295,7 +358,72 @@ function parseEntry(raw: unknown): KnowledgeEntry | null {
     discoveryScope,
     ...(o.unlocks && typeof o.unlocks === 'object' ? { unlocks: o.unlocks as KnowledgeUnlocks } : {}),
     ...(typeof o.alternateText === 'string' ? { alternateText: o.alternateText } : {}),
+    ...(trigger ? { trigger } : {}),
+    ...(npcFact ? { npcFact } : {}),
+    ...(conflictsWith.length ? { conflictsWith } : {}),
+    ...(clarifies.length ? { clarifies } : {}),
   };
+}
+
+function stringIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((id): id is string => typeof id === 'string' && !!id.trim()).map((id) => id.trim());
+}
+
+function parseTrigger(raw: unknown): KnowledgeTrigger | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const sources = Array.isArray(o.sources)
+    ? o.sources.filter((value): value is DiscoverySourceId => isSource(value))
+    : undefined;
+  const trigger: KnowledgeTrigger = {
+    ...(sources?.length ? { sources } : {}),
+    ...(stringIds(o.onQuestComplete).length ? { onQuestComplete: stringIds(o.onQuestComplete) } : {}),
+    ...(stringIds(o.onQuestObjective).length ? { onQuestObjective: stringIds(o.onQuestObjective) } : {}),
+    ...(stringIds(o.onInteractableId).length ? { onInteractableId: stringIds(o.onInteractableId) } : {}),
+    ...(stringIds(o.onLocationId).length ? { onLocationId: stringIds(o.onLocationId) } : {}),
+    ...(stringIds(o.onLessonId).length ? { onLessonId: stringIds(o.onLessonId) } : {}),
+    ...(stringIds(o.onGiftPreferenceId).length ? { onGiftPreferenceId: stringIds(o.onGiftPreferenceId) } : {}),
+    ...(stringIds(o.onEventId).length ? { onEventId: stringIds(o.onEventId) } : {}),
+    ...(stringIds(o.onActivityId).length ? { onActivityId: stringIds(o.onActivityId) } : {}),
+    ...(stringIds(o.onNpcMeet).length ? { onNpcMeet: stringIds(o.onNpcMeet) } : {}),
+    ...(stringIds(o.requiresKnowledge).length ? { requiresKnowledge: stringIds(o.requiresKnowledge) } : {}),
+  };
+  return Object.keys(trigger).length ? trigger : undefined;
+}
+
+function parseNpcFact(raw: unknown): KnowledgeNpcFact | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const field = o.field;
+  const value = typeof o.value === 'string' ? o.value.trim() : '';
+  if (!value) return undefined;
+  if (
+    field !== 'biography' &&
+    field !== 'location' &&
+    field !== 'schedule' &&
+    field !== 'interest' &&
+    field !== 'history' &&
+    field !== 'topic' &&
+    field !== 'identity'
+  ) {
+    return undefined;
+  }
+  return { field, value };
+}
+
+function isSource(value: unknown): value is DiscoverySourceId {
+  return (
+    value === 'conversation' ||
+    value === 'quest' ||
+    value === 'interact' ||
+    value === 'observe' ||
+    value === 'lesson' ||
+    value === 'gift' ||
+    value === 'event' ||
+    value === 'activity' ||
+    value === 'meet'
+  );
 }
 
 function isKind(value: unknown): value is KnowledgeKind {

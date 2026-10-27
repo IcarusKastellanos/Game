@@ -31,6 +31,9 @@ import {
   acquireConversationLock,
   buildNpcEncounterView,
   buildPeopleDossierPatch,
+  applyDiscoveryEvent,
+  listDiscoveredCluesForNpc,
+  formatClueLine,
 } from '../dist/index.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -346,4 +349,122 @@ test('encounter view stays player-safe and marks gift cooldowns', () => {
   assert.equal(dossier.role, mara.role);
   assert.ok(dossier.stageLabel);
   assert.ok(!('affinity' in dossier));
+});
+
+test('discovery pipeline reveals once, blocks prereqs, and hides undiscovered clues', () => {
+  const stranger = defaultProgression();
+  const blocked = applyDiscoveryEvent({
+    source: 'meet',
+    npcId: 'npc_mara',
+    progression: stranger,
+  });
+  assert.ok(blocked.revealed.some((row) => row.id === 'meet_mara_shop' && !row.alreadyKnown));
+  assert.ok(blocked.progression.discoveredKnowledge.includes('meet_mara_shop'));
+
+  const again = applyDiscoveryEvent({
+    source: 'meet',
+    npcId: 'npc_mara',
+    progression: blocked.progression,
+  });
+  assert.ok(again.revealed.some((row) => row.id === 'meet_mara_shop' && row.alreadyKnown));
+  assert.equal(again.notifications.length, 0);
+
+  const withoutRumor = applyDiscoveryEvent({
+    source: 'quest',
+    questId: 'quest_mara_favor',
+    npcId: 'npc_tom',
+    progression: blocked.progression,
+  });
+  assert.ok(!withoutRumor.revealed.some((row) => row.id === 'clue_market_ward_truth'));
+
+  const withRumor = defaultProgression();
+  withRumor.discoveredKnowledge = ['rumor_market_ward'];
+  withRumor.social = {
+    bonds: {
+      npc_tom: {
+        axes: { familiarity: 25, affinity: 8, trust: 5 },
+        grudges: [],
+        memories: [],
+        onceEvents: [],
+        giftCounts: {},
+        giftReceipts: [],
+        knownPreferences: [],
+        actionNextAt: {},
+        actionReceipts: [],
+      },
+    },
+    scopes: {},
+  };
+  const clarified = applyDiscoveryEvent({
+    source: 'quest',
+    questId: 'quest_mara_favor',
+    npcId: 'npc_tom',
+    progression: withRumor,
+  });
+  assert.ok(clarified.revealed.some((row) => row.id === 'clue_market_ward_truth' && !row.alreadyKnown));
+  const clues = listDiscoveredCluesForNpc('npc_tom', clarified.progression);
+  assert.ok(clues.some((clue) => clue.id === 'rumor_market_ward' && clue.status === 'clarified'));
+  assert.ok(formatClueLine(clues.find((clue) => clue.id === 'rumor_market_ward')).includes('clarified'));
+
+  const hidden = listDiscoveredCluesForNpc('npc_mara', stranger);
+  assert.ok(!hidden.some((clue) => clue.id === 'rumor_coven_stones'));
+});
+
+test('world discoveries persist while personal ones stay private', () => {
+  const store = emptyWorldKnowledgeStore();
+  const a = defaultProgression();
+  a.social = {
+    bonds: {
+      npc_librarian: {
+        axes: { familiarity: 12 },
+        grudges: [],
+        memories: [],
+        onceEvents: [],
+        giftCounts: {},
+        giftReceipts: [],
+        knownPreferences: [],
+        actionNextAt: {},
+        actionReceipts: [],
+      },
+    },
+    scopes: {},
+  };
+  const first = applyDiscoveryEvent({
+    source: 'observe',
+    locationId: 'town',
+    npcId: 'npc_librarian',
+    progression: a,
+    worldStore: store,
+    playerId: 'p1',
+  });
+  assert.ok(first.revealed.some((row) => row.id === 'world_lantern_watch'));
+  assert.ok(first.worldStore?.discoveries.world_lantern_watch);
+
+  const b = defaultProgression();
+  b.social = {
+    bonds: {
+      npc_librarian: {
+        axes: { familiarity: 12 },
+        grudges: [],
+        memories: [],
+        onceEvents: [],
+        giftCounts: {},
+        giftReceipts: [],
+        knownPreferences: [],
+        actionNextAt: {},
+        actionReceipts: [],
+      },
+    },
+    scopes: {},
+  };
+  const second = applyDiscoveryEvent({
+    source: 'observe',
+    locationId: 'town',
+    npcId: 'npc_librarian',
+    progression: b,
+    worldStore: first.worldStore,
+    playerId: 'p2',
+  });
+  assert.ok(second.revealed.some((row) => row.id === 'world_lantern_watch'));
+  assert.ok(second.progression.discoveredKnowledge.includes('world_lantern_watch'));
 });

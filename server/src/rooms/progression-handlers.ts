@@ -27,6 +27,8 @@ import {
   claimSharedReward,
   questRewards,
   withBondJournal,
+  applyDiscoveryEvent,
+  type DiscoverySource,
   type QuestSignal,
   type ReputationTrack,
 } from '@witchcraft/shared';
@@ -35,6 +37,7 @@ import { craftingSystem } from '../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
 import { applyPocketSpellToRecipient, resolveAndReleasePocketSpell } from '../systems/pocket-spell-system.js';
 import { questSystem } from '../systems/quest-system.js';
+import { knowledgeStore } from '../systems/knowledge-store.js';
 import { broadcastSharedQuestMirror } from './game-room-registry.js';
 import { currentNpcWorld, isInteractableNpcAvailable } from '../systems/npc-schedule.js';
 import { getWorldHour } from '../systems/world-clock.js';
@@ -194,12 +197,62 @@ export function settleQuestSignal(
     );
     ctx.data.progression = result.progression;
     for (const _started of result.started) grantXp(ctx, 'quest_stage');
-    for (const questId of result.completed) completeQuestRewards(ctx, questId, signal.partyId);
+    for (const questId of result.completed) {
+      completeQuestRewards(ctx, questId, signal.partyId);
+      applyPlayerDiscovery(ctx, {
+        source: 'quest',
+        questId,
+        npcId: signal.npcId,
+      });
+    }
+    if (signal.type === 'interact' || signal.type === 'discover') {
+      applyPlayerDiscovery(ctx, {
+        source: signal.type === 'discover' ? 'observe' : 'interact',
+        interactableId: signal.interactableId,
+        locationId: signal.locationId,
+        npcId: signal.npcId,
+      });
+    }
     const shared = result.completed.some((id) => (questSystem.quests.get(id)?.scope ?? 'personal') !== 'personal');
     if (shared || signal.partyId) broadcastSharedQuestMirror();
     return result.completed;
   } finally {
     questSettleDepth -= 1;
+  }
+}
+
+/** Server-only discovery pipeline. Client cannot invent discoveries. */
+export function applyPlayerDiscovery(
+  ctx: HandlerCtx,
+  event: {
+    source: DiscoverySource;
+    npcId?: string;
+    questId?: string;
+    objectiveId?: string;
+    interactableId?: string;
+    locationId?: string;
+    lessonId?: string;
+    giftPreferenceId?: string;
+    eventId?: string;
+    activityId?: string;
+    knowledgeId?: string;
+  }
+): void {
+  const result = applyDiscoveryEvent({
+    ...event,
+    progression: ctx.data.progression,
+    stats: ctx.player.stats,
+    worldStore: knowledgeStore.get(),
+    playerId: questPlayerId(ctx),
+    now: Date.now(),
+  });
+  ctx.data.progression = result.progression;
+  if (result.worldStore) knowledgeStore.set(result.worldStore);
+  for (const message of result.notifications) {
+    ctx.client.send('notification', { type: 'notification', message, level: 'info' });
+  }
+  if (result.revealed.some((row) => !row.alreadyKnown)) {
+    ctx.sendProgression(ctx.client, ctx.data.progression);
   }
 }
 
