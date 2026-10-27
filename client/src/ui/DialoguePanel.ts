@@ -1,30 +1,7 @@
-import { meetsDialogueRecognitionGate, type PlayerProgression } from '@witchcraft/shared';
+import type { PublishedDialogueChoice } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
 import { escapeHtml, ledgerOverlayShell } from './ledger-chrome';
-
-type DialogueChoiceRow = {
-  label: string;
-  requiresRecognition?: string;
-  requiresLicense?: string;
-  requiresAnyLicense?: string[];
-};
-
-type DialogueNodeRow = {
-  id: string;
-  text?: string;
-  choices: DialogueChoiceRow[];
-  requiresRecognition?: string;
-  requiresLicense?: string;
-  requiresAnyLicense?: string[];
-};
-
-type DialogueTreeRow = {
-  id: string;
-  nodes: DialogueNodeRow[];
-};
-
-type ServerDialogueChoice = { index: number; label: string };
 
 /** NPC conversation, drawn as a practitioner-ledger page. */
 export class DialoguePanel {
@@ -62,7 +39,9 @@ export class DialoguePanel {
     npcId: string,
     dialogueTreeId: string,
     nodeId = 'start',
-    serverChoices?: ServerDialogueChoice[]
+    text = '',
+    choices: PublishedDialogueChoice[] = [],
+    notice = ''
   ): void {
     window.clearTimeout(this.closeTimer);
     this.treeId = dialogueTreeId;
@@ -71,27 +50,11 @@ export class DialoguePanel {
     this.root.classList.add('is-open');
 
     const npc = gameState.content?.npcs.find((n) => n.id === npcId);
-    const tree = gameState.content?.dialogues?.find((d) => d.id === dialogueTreeId) as DialogueTreeRow | undefined;
-    const node = tree?.nodes.find((n) => n.id === nodeId);
-    const progression = this.progression();
-
     this.titleEl.textContent = npc?.name ?? 'A practitioner';
     this.subtitleEl.textContent = npc?.role ?? '';
     const frame = this.root.querySelector('.ledger-frame');
     frame?.setAttribute('aria-label', npc?.name ?? 'Conversation');
-
-    if (!serverChoices && node && !meetsDialogueRecognitionGate(node, progression)) {
-      this.renderBody(
-        `${npc?.name ?? 'They'} has nothing further to offer at your recognition.`,
-        ''
-      );
-      return;
-    }
-
-    this.renderBody(
-      node?.text ?? `${npc?.name ?? 'They'} has nothing to say.`,
-      this.choiceHtml(node, progression, serverChoices)
-    );
+    this.renderBody(text || `${npc?.name ?? 'They'} has nothing to say.`, this.choiceHtml(choices), notice);
   }
 
   hide(): void {
@@ -103,55 +66,30 @@ export class DialoguePanel {
     if (gameState.activeUI === 'dialogue') gameState.activeUI = 'none';
   }
 
-  private progression(): PlayerProgression {
-    return (gameState.progression ?? {
-      earnedLicenses: [],
-      recognitionTierId: 'initiate',
-    }) as PlayerProgression;
-  }
-
-  private renderBody(text: string, choices: string): void {
-    this.scroller.innerHTML = `<p class="ledger-lead">${escapeHtml(text)}</p>${choices}`;
-    this.scroller.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach((btn) => {
+  private renderBody(text: string, choices: string, notice = ''): void {
+    const note = notice ? `<p class="ledger-aside">${escapeHtml(notice)}</p>` : '';
+    this.scroller.innerHTML = `<p class="ledger-lead">${escapeHtml(text)}</p>${note}${choices}`;
+    this.scroller.querySelectorAll<HTMLButtonElement>('[data-choice-id]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const choiceIndex = Number(btn.dataset.choice);
-        if (!Number.isInteger(choiceIndex)) return;
+        const choiceId = btn.dataset.choiceId;
+        if (!choiceId || btn.disabled) return;
         network.send('dialogue_choice', {
           dialogueTreeId: this.treeId,
           nodeId: this.nodeId,
-          choiceIndex,
+          choiceId,
         });
       });
     });
   }
 
-  private choiceHtml(
-    node: DialogueNodeRow | undefined,
-    progression: PlayerProgression,
-    serverChoices?: ServerDialogueChoice[]
-  ): string {
-    if (serverChoices) {
-      if (!serverChoices.length) {
-        return '<p class="ledger-aside dim">There is nothing further to answer.</p>';
-      }
-      const rows = serverChoices.map(
-        (choice) =>
-          `<button type="button" class="ledger-choice" data-choice="${choice.index}"><span class="k">Answer</span>${escapeHtml(choice.label)}</button>`
-      );
-      return `<div class="ledger-choices">${rows.join('')}</div>`;
-    }
-    if (!node?.choices.length) {
+  private choiceHtml(choices: PublishedDialogueChoice[]): string {
+    if (!choices.length) {
       return '<p class="ledger-aside dim">There is nothing further to answer.</p>';
     }
-    const rows = node.choices.flatMap((choice, originalIndex) => {
-      if (!meetsDialogueRecognitionGate(choice, progression)) return [];
-      return [
-        `<button type="button" class="ledger-choice" data-choice="${originalIndex}"><span class="k">Answer</span>${escapeHtml(choice.label)}</button>`,
-      ];
+    const rows = choices.map((choice) => {
+      const requirement = choice.requirement ? `<small>${escapeHtml(choice.requirement)}</small>` : '';
+      return `<button type="button" class="ledger-choice" data-choice-id="${escapeHtml(choice.id)}"${choice.available ? '' : ' disabled'}><span class="k">Answer</span>${escapeHtml(choice.label)}${requirement}</button>`;
     });
-    if (!rows.length) {
-      return '<p class="ledger-aside dim">None of the remaining answers are open to you yet.</p>';
-    }
     return `<div class="ledger-choices">${rows.join('')}</div>`;
   }
 
@@ -160,19 +98,18 @@ export class DialoguePanel {
     nodeId: string;
     message: string;
     dialogueTreeId: string;
-    choices?: ServerDialogueChoice[];
+    choices?: PublishedDialogueChoice[];
+    notice?: string;
   }>): void => {
     if (!this.visible) return;
-    const { ended, nodeId, message, dialogueTreeId, choices } = e.detail;
+    const { ended, nodeId, message, choices, notice } = e.detail;
     if (ended) {
-      this.renderBody(message, '');
+      this.renderBody(message, '', notice ?? '');
       window.clearTimeout(this.closeTimer);
       this.closeTimer = window.setTimeout(() => this.hide(), 2000);
       return;
     }
     this.nodeId = nodeId;
-    const tree = gameState.content?.dialogues?.find((d) => d.id === dialogueTreeId) as DialogueTreeRow | undefined;
-    const node = tree?.nodes.find((n) => n.id === nodeId);
-    this.renderBody(message, this.choiceHtml(node, this.progression(), choices));
+    this.renderBody(message, this.choiceHtml(choices ?? []), notice ?? '');
   };
 }

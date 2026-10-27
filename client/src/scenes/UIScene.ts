@@ -8,6 +8,7 @@ import { AuraPanel } from '../ui/AuraPanel';
 import { CharacterSheet } from '../ui/CharacterSheet';
 import { FamiliarPanel } from '../ui/FamiliarPanel';
 import { DialoguePanel } from '../ui/DialoguePanel';
+import { NpcActionPanel } from '../ui/NpcActionPanel';
 import { HUD } from '../ui/HUD';
 import { hudWindows } from '../ui/hud/HUDManager';
 import type { HUDWindowId } from '../ui/hud/types';
@@ -30,6 +31,7 @@ export class UIScene extends Phaser.Scene {
   private characterSheet!: CharacterSheet;
   private familiarPanel!: FamiliarPanel;
   private dialoguePanel!: DialoguePanel;
+  private npcActionPanel!: NpcActionPanel;
   private hud!: HUD;
   private adminConsole!: AdminConsole;
   private adminPanel!: AdminPanel;
@@ -49,6 +51,7 @@ export class UIScene extends Phaser.Scene {
     this.characterSheet = new CharacterSheet(this);
     this.familiarPanel = new FamiliarPanel(this);
     this.dialoguePanel = new DialoguePanel();
+    this.npcActionPanel = new NpcActionPanel();
     this.hud = new HUD(this);
     this.adminConsole = new AdminConsole(this);
     this.adminPanel = new AdminPanel(this);
@@ -179,9 +182,14 @@ export class UIScene extends Phaser.Scene {
     ui: string;
     shopId?: string;
     npcId?: string;
+    name?: string;
+    role?: string;
     dialogueTreeId?: string;
     nodeId?: string;
-    choices?: { index: number; label: string }[];
+    text?: string;
+    notice?: string;
+    choices?: import('@witchcraft/shared').PublishedDialogueChoice[];
+    options?: import('@witchcraft/shared').NpcInteractionOffer[];
     stationType?: string;
     interactableId?: string;
     recipes?: unknown[];
@@ -203,8 +211,16 @@ export class UIScene extends Phaser.Scene {
       case 'dialogue':
         if (d.npcId && d.dialogueTreeId) {
           gameState.activeUI = 'dialogue';
-          this.dialoguePanel.show(d.npcId, d.dialogueTreeId, d.nodeId ?? 'start', d.choices);
+          this.dialoguePanel.show(d.npcId, d.dialogueTreeId, d.nodeId ?? 'start', d.text ?? '', d.choices ?? [], d.notice ?? '');
         }
+        break;
+      case 'npc_actions':
+        if (d.npcId) {
+          gameState.activeUI = 'npc_actions';
+          this.npcActionPanel.show({ npcId: d.npcId, name: d.name, role: d.role, options: d.options });
+        }
+        break;
+      case 'none':
         break;
       case 'crafting':
         progressionPanels.showCrafting(
@@ -292,6 +308,7 @@ export class UIScene extends Phaser.Scene {
     this.characterSheet.hide();
     this.familiarPanel.hide();
     this.dialoguePanel.hide();
+    this.npcActionPanel.hide();
     this.targetPanel.hide();
     friendsPanel.hide();
     progressionPanels.hideAll();

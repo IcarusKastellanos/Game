@@ -32,11 +32,28 @@ export async function mergeNpcSpritesFromDb(): Promise<number> {
   return merged;
 }
 
-function npcToDb(npc: ContentNpc) {
-  const { spritePixels, ...core } = npc;
+function npcToDb(npc: ContentNpc, previousData?: unknown) {
+  const prev =
+    previousData && typeof previousData === 'object' && !Array.isArray(previousData)
+      ? { ...(previousData as Record<string, unknown>) }
+      : {};
+  const spritePixels = npc.spritePixels?.length === 256 ? npc.spritePixels : prev.spritePixels ?? null;
   return {
-    ...core,
-    data: { spritePixels: spritePixels?.length === 256 ? spritePixels : null },
+    id: npc.id,
+    name: npc.name,
+    role: npc.role,
+    locationId: npc.locationId,
+    schedule: npc.schedule ?? [],
+    relationshipLevel: npc.relationshipLevel ?? 0,
+    magicalKnowledge: npc.magicalKnowledge ?? 0,
+    dialogueTreeId: npc.dialogueTreeId,
+    shopId: npc.shopId ?? null,
+    faction: npc.faction ?? null,
+    secrets: npc.secrets ?? null,
+    data: {
+      ...prev,
+      spritePixels,
+    },
   };
 }
 
