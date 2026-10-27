@@ -1236,6 +1236,22 @@ body.hud-expanded #hud-resources {
 .hud-grimoire__prose p { margin: 0 0 0.55em; }
 .hud-grimoire__prose ul,
 .hud-grimoire__prose ol { margin: 0 0 0.55em 1.2em; }
+.hud-grimoire__tools { display: flex; gap: 8px; margin: 8px 0; }
+.hud-grimoire__sheet {
+  min-height: 140px;
+  padding: 12px 14px;
+  border: 1px solid rgba(212, 175, 106, 0.28);
+  border-radius: 6px;
+  background: rgba(18, 12, 28, 0.55);
+  color: var(--grimoire-ink, #d5d8e4);
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+.hud-grimoire__sheet:focus { outline: 1px solid rgba(232, 201, 138, 0.55); }
+.hud-grimoire__sheet b, .hud-grimoire__sheet strong { font-weight: 700; }
+.hud-grimoire__sheet i, .hud-grimoire__sheet em { font-style: italic; }
+.hud-grimoire__sheet u { text-decoration: underline; }
 
 .hud-grimoire__tabs {
   display: flex;

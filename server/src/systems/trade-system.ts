@@ -1,10 +1,17 @@
 import type { InventorySlot } from '@witchcraft/shared';
-import { MAX_ITEM_STACK } from '@witchcraft/shared';
+import { isEmptyInventorySlot, MAX_ITEM_STACK, takeInventorySlot } from '@witchcraft/shared';
 import { inventorySystem } from './inventory-ward-aura.js';
+
+export interface TradeItemOffer {
+  itemId: string;
+  quantity: number;
+  /** When set, moves that exact inventory slot (keeps manuscript metadata). */
+  slotIndex?: number;
+}
 
 export interface TradeSide {
   coins: number;
-  items: { itemId: string; quantity: number }[];
+  items: TradeItemOffer[];
 }
 
 export interface TradeSession {
@@ -41,43 +48,86 @@ function sideValue(side: TradeSide): number {
   return side.coins + side.items.reduce((n, i) => n + i.quantity, 0);
 }
 
-function mergeItems(items: { itemId: string; quantity: number }[]): { itemId: string; quantity: number }[] {
-  const map = new Map<string, number>();
-  for (const item of items) {
-    map.set(item.itemId, (map.get(item.itemId) ?? 0) + item.quantity);
+function normalizeItems(items: TradeItemOffer[]): TradeItemOffer[] {
+  const bulk = new Map<string, number>();
+  const unique: TradeItemOffer[] = [];
+  for (const item of items ?? []) {
+    const itemId = String(item.itemId ?? '').trim();
+    const quantity = Math.max(0, Math.floor(Number(item.quantity) || 0));
+    if (!itemId || quantity <= 0) continue;
+    if (typeof item.slotIndex === 'number' && Number.isFinite(item.slotIndex)) {
+      unique.push({ itemId, quantity: 1, slotIndex: Math.floor(item.slotIndex) });
+      continue;
+    }
+    bulk.set(itemId, (bulk.get(itemId) ?? 0) + quantity);
   }
-  return [...map.entries()].map(([itemId, quantity]) => ({ itemId, quantity }));
+  return [...unique, ...[...bulk.entries()].map(([itemId, quantity]) => ({ itemId, quantity }))];
+}
+
+function hasUniqueMeta(slot: InventorySlot): boolean {
+  if (!slot.metadata) return false;
+  return Object.keys(slot.metadata).some((key) => key !== 'slotIndex');
 }
 
 function canAfford(snapshot: TradePlayerSnapshot, offer: TradeSide): boolean {
   if (offer.coins > snapshot.coins) return false;
+  const reserved = new Set<number>();
+  const needed = new Map<string, number>();
   for (const item of offer.items) {
-    if (!inventorySystem.hasItem(snapshot.inventory, item.itemId, item.quantity)) return false;
+    if (typeof item.slotIndex === 'number') {
+      if (reserved.has(item.slotIndex)) return false;
+      const slot = snapshot.inventory[item.slotIndex];
+      if (!slot || isEmptyInventorySlot(slot) || slot.itemId !== item.itemId) return false;
+      reserved.add(item.slotIndex);
+      continue;
+    }
+    needed.set(item.itemId, (needed.get(item.itemId) ?? 0) + item.quantity);
+  }
+  for (const [itemId, quantity] of needed) {
+    let available = 0;
+    for (let index = 0; index < snapshot.inventory.length; index++) {
+      if (reserved.has(index)) continue;
+      const slot = snapshot.inventory[index];
+      if (isEmptyInventorySlot(slot) || slot.itemId !== itemId) continue;
+      if (hasUniqueMeta(slot)) continue;
+      available += slot.quantity;
+    }
+    if (available < quantity) return false;
   }
   return true;
 }
 
-function applyOffer(
-  inventory: InventorySlot[],
-  coins: number,
-  give: TradeSide,
-  receive: TradeSide
-): { inventory: InventorySlot[]; coins: number } | null {
-  let inv = inventory;
-  for (const item of give.items) {
-    const removed = inventorySystem.removeItem(inv, item.itemId, item.quantity);
+function transferOffers(
+  fromInventory: InventorySlot[],
+  toInventory: InventorySlot[],
+  offer: TradeSide
+): { from: InventorySlot[]; to: InventorySlot[] } | null {
+  let from = fromInventory;
+  let to = toInventory;
+  for (const item of offer.items) {
+    if (typeof item.slotIndex === 'number') {
+      const taken = takeInventorySlot(from, item.slotIndex);
+      if (!taken.slot || taken.slot.itemId !== item.itemId) return null;
+      from = taken.inventory;
+      to = inventorySystem.addItem(to, taken.slot.itemId, 1, taken.slot.metadata);
+      continue;
+    }
+    const removed = inventorySystem.removeItem(from, item.itemId, item.quantity);
     if (!removed.ok) return null;
-    inv = removed.inventory;
-  }
-  for (const item of receive.items) {
-    inv = inventorySystem.addItem(inv, item.itemId, item.quantity);
-    const stacks = inv.filter((s) => s.itemId === item.itemId);
+    from = removed.inventory;
+    to = inventorySystem.addItem(to, item.itemId, item.quantity);
+    const stacks = to.filter((s) => s.itemId === item.itemId);
     const total = stacks.reduce((n, s) => n + s.quantity, 0);
-    if (total > MAX_ITEM_STACK * stacks.length) return null;
+    if (total > MAX_ITEM_STACK * Math.max(1, stacks.length)) return null;
   }
-  const nextCoins = coins - give.coins + receive.coins;
-  if (nextCoins < 0) return null;
-  return { inventory: inv, coins: nextCoins };
+  return { from, to };
+}
+
+function cloneInventory(inventory: InventorySlot[]): InventorySlot[] {
+  return inventory.map((slot) => ({
+    ...slot,
+    metadata: slot.metadata ? { ...slot.metadata } : undefined,
+  }));
 }
 
 export class TradeSystem {
@@ -118,17 +168,13 @@ export class TradeSystem {
     return this.sessions.get(tradeId);
   }
 
-  updateOffer(
-    tradeId: string,
-    sessionId: string,
-    offer: TradeSide
-  ): TradeSession | null {
+  updateOffer(tradeId: string, sessionId: string, offer: TradeSide): TradeSession | null {
     const session = this.sessions.get(tradeId);
     if (!session) return null;
 
     const normalized: TradeSide = {
       coins: Math.max(0, Math.floor(offer.coins ?? 0)),
-      items: mergeItems(offer.items ?? []).filter((i) => i.quantity > 0),
+      items: normalizeItems(offer.items ?? []),
     };
 
     if (session.aSessionId === sessionId) {
@@ -171,11 +217,7 @@ export class TradeSystem {
     }
   }
 
-  tryExecute(
-    tradeId: string,
-    a: TradePlayerSnapshot,
-    b: TradePlayerSnapshot
-  ): TradeExecuteResult {
+  tryExecute(tradeId: string, a: TradePlayerSnapshot, b: TradePlayerSnapshot): TradeExecuteResult {
     const session = this.sessions.get(tradeId);
     if (!session) return { ok: false, error: 'Trade session ended.' };
     if (session.aSessionId !== a.sessionId || session.bSessionId !== b.sessionId) {
@@ -191,19 +233,30 @@ export class TradeSystem {
       return { ok: false, error: 'Someone cannot afford their side of the trade.' };
     }
 
-    const aResult = applyOffer(a.inventory, a.coins, session.aOffer, session.bOffer);
-    const bResult = applyOffer(b.inventory, b.coins, session.bOffer, session.aOffer);
-    if (!aResult || !bResult) {
-      return { ok: false, error: 'Trade could not be completed.' };
-    }
+    let aInv = cloneInventory(a.inventory);
+    let bInv = cloneInventory(b.inventory);
+
+    const aGives = transferOffers(aInv, bInv, session.aOffer);
+    if (!aGives) return { ok: false, error: 'Trade could not be completed.' };
+    aInv = aGives.from;
+    bInv = aGives.to;
+
+    const bGives = transferOffers(bInv, aInv, session.bOffer);
+    if (!bGives) return { ok: false, error: 'Trade could not be completed.' };
+    bInv = bGives.from;
+    aInv = bGives.to;
+
+    const aCoins = a.coins - session.aOffer.coins + session.bOffer.coins;
+    const bCoins = b.coins - session.bOffer.coins + session.aOffer.coins;
+    if (aCoins < 0 || bCoins < 0) return { ok: false, error: 'Trade could not be completed.' };
 
     this.sessions.delete(tradeId);
     return {
       ok: true,
-      aInventory: aResult.inventory,
-      bInventory: bResult.inventory,
-      aCoins: aResult.coins,
-      bCoins: bResult.coins,
+      aInventory: aInv,
+      bInventory: bInv,
+      aCoins,
+      bCoins,
     };
   }
 }

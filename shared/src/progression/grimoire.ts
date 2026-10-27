@@ -4,8 +4,14 @@
  * A malevolent spell written here gives a microscopic edge when that same working is turned on you.
  */
 
+import { censorWords } from '../chat/filter.js';
+import { sanitizeGrimoireMarkup } from '../grimoire/markup.js';
+import type { InventorySlot, InventorySlotMetadata } from '../types/index.js';
+
 export const GRIMOIRE_NOTE_COUNT = 5;
 export const GRIMOIRE_MALEVOLENT_WARD = 1;
+/** Tradeable page written in the Author section. Right-click copies it into Shared. */
+export const GRIMOIRE_MANUSCRIPT_ITEM_ID = 'grimoire_manuscript';
 
 export const GRIMOIRE_INKS = ['iron', 'violet', 'gold', 'moss', 'blood'] as const;
 export type GrimoireInk = (typeof GRIMOIRE_INKS)[number];
@@ -56,6 +62,23 @@ export interface GrimoireCustomization {
   showLockedShared: boolean;
 }
 
+/** A page the player wrote and may export as a tradeable manuscript. */
+export interface GrimoireAuthoredPage {
+  id: string;
+  title: string;
+  body: string;
+  updatedAt: number;
+}
+
+/** A manuscript another practitioner sold or gave you, taken into the book. */
+export interface GrimoireSharedPage {
+  id: string;
+  title: string;
+  body: string;
+  authorName: string;
+  receivedAt: number;
+}
+
 export interface GrimoireState {
   custom: GrimoireCustomization;
   spells: GrimoireSpellEntry[];
@@ -65,6 +88,19 @@ export interface GrimoireState {
   selectedSpiritId?: string;
   notes: string[];
   notesActive: number;
+  authored: GrimoireAuthoredPage[];
+  authoredActive?: string;
+  sharedPages: GrimoireSharedPage[];
+  sharedActive?: string;
+}
+
+export interface GrimoireManuscriptMeta {
+  manuscriptTitle: string;
+  manuscriptBody: string;
+  manuscriptAuthor: string;
+  manuscriptAuthorId?: string;
+  manuscriptAuthoredAt: number;
+  manuscriptPageId: string;
 }
 
 export interface GrimoireSpiritDraft {
@@ -84,7 +120,11 @@ const MAX_MARGIN = 280;
 const MAX_TITLE = 48;
 const MAX_DEDICATION = 180;
 const MAX_NAME = 80;
+const MAX_AUTHORED = 24;
+const MAX_SHARED_PAGES = 48;
+const MAX_AUTHOR_TITLE = 80;
 const DEFAULT_TITLE = 'Personal Grimoire';
+const DEFAULT_PAGE_TITLE = 'Untitled page';
 
 function clip(text: unknown, max: number): string {
   return String(text ?? '').replace(/\u0000/g, '').slice(0, max);
@@ -120,6 +160,102 @@ export function defaultGrimoire(): GrimoireState {
     npcs: [],
     notes: Array.from({ length: GRIMOIRE_NOTE_COUNT }, () => ''),
     notesActive: 0,
+    authored: [],
+    sharedPages: [],
+  };
+}
+
+function newPageId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function cleanAuthoredGrimoireTitle(raw: unknown, filterWords: readonly string[] = []): string {
+  const plain = String(raw ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clip(censorWords(plain, filterWords), MAX_AUTHOR_TITLE).trim() || DEFAULT_PAGE_TITLE;
+}
+
+export function cleanAuthoredGrimoireBody(raw: unknown, filterWords: readonly string[] = []): string {
+  return sanitizeGrimoireMarkup(censorWords(String(raw ?? ''), filterWords));
+}
+
+function parseAuthored(raw: unknown): GrimoireAuthoredPage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GrimoireAuthoredPage[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const id = cleanId(o.id) || newPageId('page');
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const title = cleanAuthoredGrimoireTitle(o.title);
+    const body = cleanAuthoredGrimoireBody(o.body);
+    if (!body && title === DEFAULT_PAGE_TITLE) continue;
+    out.push({
+      id,
+      title,
+      body,
+      updatedAt: finiteTime(o.updatedAt, Date.now()),
+    });
+    if (out.length >= MAX_AUTHORED) break;
+  }
+  return out;
+}
+
+function parseSharedPages(raw: unknown): GrimoireSharedPage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GrimoireSharedPage[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const id = cleanId(o.id) || newPageId('shared');
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const body = cleanAuthoredGrimoireBody(o.body);
+    if (!body) continue;
+    out.push({
+      id,
+      title: cleanAuthoredGrimoireTitle(o.title),
+      body,
+      authorName: clip(o.authorName, MAX_NAME).trim() || 'Someone',
+      receivedAt: finiteTime(o.receivedAt, Date.now()),
+    });
+    if (out.length >= MAX_SHARED_PAGES) break;
+  }
+  return out;
+}
+
+export function readManuscriptMeta(slot: InventorySlot | null | undefined): GrimoireManuscriptMeta | null {
+  if (!slot || slot.itemId !== GRIMOIRE_MANUSCRIPT_ITEM_ID || !slot.metadata) return null;
+  const meta = slot.metadata as InventorySlotMetadata;
+  const body = cleanAuthoredGrimoireBody(meta.manuscriptBody);
+  if (!body) return null;
+  return {
+    manuscriptTitle: cleanAuthoredGrimoireTitle(meta.manuscriptTitle),
+    manuscriptBody: body,
+    manuscriptAuthor: clip(meta.manuscriptAuthor, MAX_NAME).trim() || 'Someone',
+    manuscriptAuthorId: cleanId(meta.manuscriptAuthorId) || undefined,
+    manuscriptAuthoredAt: finiteTime(meta.manuscriptAuthoredAt, Date.now()),
+    manuscriptPageId: cleanId(meta.manuscriptPageId) || newPageId('page'),
+  };
+}
+
+export function manuscriptMetadataFromPage(
+  page: GrimoireAuthoredPage,
+  authorName: string,
+  authorPlayerId?: string
+): InventorySlotMetadata {
+  return {
+    manuscriptTitle: page.title,
+    manuscriptBody: page.body,
+    manuscriptAuthor: clip(authorName, MAX_NAME).trim() || 'Someone',
+    manuscriptAuthorId: cleanId(authorPlayerId) || undefined,
+    manuscriptAuthoredAt: page.updatedAt,
+    manuscriptPageId: page.id,
   };
 }
 
@@ -234,6 +370,10 @@ export function parseGrimoire(raw: unknown): GrimoireState {
   while (notes.length < GRIMOIRE_NOTE_COUNT) notes.push('');
   const spirits = parseSpirits(o.spirits);
   const selected = cleanId(o.selectedSpiritId);
+  const authored = parseAuthored(o.authored);
+  const sharedPages = parseSharedPages(o.sharedPages);
+  const authoredActive = cleanId(o.authoredActive);
+  const sharedActive = cleanId(o.sharedActive);
   return {
     custom: {
       title: clip(customRaw.title, MAX_TITLE).trim() || DEFAULT_TITLE,
@@ -251,6 +391,10 @@ export function parseGrimoire(raw: unknown): GrimoireState {
       GRIMOIRE_NOTE_COUNT - 1,
       Math.max(0, Math.floor(Number(o.notesActive) || 0))
     ),
+    authored,
+    authoredActive: authoredActive && authored.some((page) => page.id === authoredActive) ? authoredActive : undefined,
+    sharedPages,
+    sharedActive: sharedActive && sharedPages.some((page) => page.id === sharedActive) ? sharedActive : undefined,
   };
 }
 
@@ -385,7 +529,7 @@ export function recordGrimoireIngredients(
   let changed = false;
   for (const entry of entries) {
     const itemId = cleanId(typeof entry === 'string' ? entry : entry.itemId);
-    if (!itemId || itemId.startsWith('taglock')) continue;
+    if (!itemId || itemId.startsWith('taglock') || itemId === GRIMOIRE_MANUSCRIPT_ITEM_ID) continue;
     const count = Math.max(1, Math.min(99, clampCount(typeof entry === 'string' ? 1 : entry.count ?? 1, 99) || 1));
     const idx = ingredients.findIndex((row) => row.itemId === itemId);
     if (idx >= 0) {
@@ -551,4 +695,95 @@ export function setGrimoireSpiritNote(grimoire: GrimoireState, spiritId: string,
   const spirits = grimoire.spirits.slice();
   spirits[idx] = { ...spirits[idx], note: clipped || undefined };
   return { ...grimoire, spirits };
+}
+
+export function upsertAuthoredGrimoirePage(
+  grimoire: GrimoireState,
+  draft: { id?: string; title?: string; body?: string },
+  filterWords: readonly string[] = [],
+  at = Date.now()
+): { grimoire: GrimoireState; page: GrimoireAuthoredPage | null; status: 'saved' | 'full' | 'empty' } {
+  const title = cleanAuthoredGrimoireTitle(draft.title, filterWords);
+  const body = cleanAuthoredGrimoireBody(draft.body, filterWords);
+  if (!body) return { grimoire, page: null, status: 'empty' };
+  const id = cleanId(draft.id);
+  const existingIdx = id ? grimoire.authored.findIndex((page) => page.id === id) : -1;
+  if (existingIdx < 0 && grimoire.authored.length >= MAX_AUTHORED) {
+    return { grimoire, page: null, status: 'full' };
+  }
+  const page: GrimoireAuthoredPage = {
+    id: existingIdx >= 0 ? grimoire.authored[existingIdx].id : id || newPageId('page'),
+    title,
+    body,
+    updatedAt: at,
+  };
+  const authored =
+    existingIdx >= 0
+      ? grimoire.authored.map((row, index) => (index === existingIdx ? page : row))
+      : [...grimoire.authored, page];
+  return { grimoire: { ...grimoire, authored, authoredActive: page.id }, page, status: 'saved' };
+}
+
+export function deleteAuthoredGrimoirePage(grimoire: GrimoireState, pageId: string): GrimoireState {
+  const id = cleanId(pageId);
+  if (!id) return grimoire;
+  if (!grimoire.authored.some((page) => page.id === id)) return grimoire;
+  const authored = grimoire.authored.filter((page) => page.id !== id);
+  return {
+    ...grimoire,
+    authored,
+    authoredActive: grimoire.authoredActive === id ? authored[0]?.id : grimoire.authoredActive,
+  };
+}
+
+export function setAuthoredGrimoireActive(grimoire: GrimoireState, pageId: string): GrimoireState {
+  const id = cleanId(pageId);
+  if (!id || !grimoire.authored.some((page) => page.id === id)) return grimoire;
+  if (grimoire.authoredActive === id) return grimoire;
+  return { ...grimoire, authoredActive: id };
+}
+
+export function receiveSharedGrimoirePage(
+  grimoire: GrimoireState,
+  manuscript: GrimoireManuscriptMeta,
+  at = Date.now()
+): { grimoire: GrimoireState; page: GrimoireSharedPage | null; status: 'added' | 'full' | 'empty' } {
+  const body = cleanAuthoredGrimoireBody(manuscript.manuscriptBody);
+  if (!body) return { grimoire, page: null, status: 'empty' };
+  if (grimoire.sharedPages.length >= MAX_SHARED_PAGES) return { grimoire, page: null, status: 'full' };
+  const page: GrimoireSharedPage = {
+    id: newPageId('shared'),
+    title: cleanAuthoredGrimoireTitle(manuscript.manuscriptTitle),
+    body,
+    authorName: clip(manuscript.manuscriptAuthor, MAX_NAME).trim() || 'Someone',
+    receivedAt: at,
+  };
+  return {
+    status: 'added',
+    page,
+    grimoire: {
+      ...grimoire,
+      sharedPages: [...grimoire.sharedPages, page],
+      sharedActive: page.id,
+    },
+  };
+}
+
+export function setSharedGrimoireActive(grimoire: GrimoireState, pageId: string): GrimoireState {
+  const id = cleanId(pageId);
+  if (!id || !grimoire.sharedPages.some((page) => page.id === id)) return grimoire;
+  if (grimoire.sharedActive === id) return grimoire;
+  return { ...grimoire, sharedActive: id };
+}
+
+export function deleteSharedGrimoirePage(grimoire: GrimoireState, pageId: string): GrimoireState {
+  const id = cleanId(pageId);
+  if (!id) return grimoire;
+  if (!grimoire.sharedPages.some((page) => page.id === id)) return grimoire;
+  const sharedPages = grimoire.sharedPages.filter((page) => page.id !== id);
+  return {
+    ...grimoire,
+    sharedPages,
+    sharedActive: grimoire.sharedActive === id ? sharedPages[0]?.id : grimoire.sharedActive,
+  };
 }
