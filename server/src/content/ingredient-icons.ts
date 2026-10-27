@@ -5,6 +5,7 @@ import {
   resolveItemIconPixels,
 } from '@witchcraft/shared';
 import { prisma } from '../services/db.js';
+import { isLegacyProceduralIcon } from './legacy-icon-hashes.js';
 import { contentRegistry } from './registry.js';
 
 export function hydrateIngredientIcon(item: ContentIngredient): ContentIngredient {
@@ -30,7 +31,7 @@ export async function mergeIngredientIconsFromDb(): Promise<number> {
       const existing = contentRegistry.ingredients.get(row.id);
       if (!existing) continue;
       const data = (row.data ?? {}) as { iconPixels?: string[] | null };
-      if (data.iconPixels?.length === 256) {
+      if (data.iconPixels?.length === 256 && !isLegacyProceduralIcon(data.iconPixels)) {
         contentRegistry.ingredients.set(row.id, { ...existing, iconPixels: data.iconPixels });
         merged++;
       }
