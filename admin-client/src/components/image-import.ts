@@ -15,16 +15,9 @@ function loadImageElement(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Scale an image to target size with nearest-neighbor sampling into hex pixel rows. */
-export function imageElementToPixels(img: HTMLImageElement, widthPx: number, heightPx: number): string[] {
-  const canvas = document.createElement('canvas');
-  canvas.width = widthPx;
-  canvas.height = heightPx;
+function canvasToHexPixels(canvas: HTMLCanvasElement): string[] {
   const ctx = canvas.getContext('2d')!;
-  ctx.clearRect(0, 0, widthPx, heightPx);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, 0, 0, widthPx, heightPx);
-  const data = ctx.getImageData(0, 0, widthPx, heightPx).data;
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
   const out: string[] = [];
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3]!;
@@ -32,6 +25,50 @@ export function imageElementToPixels(img: HTMLImageElement, widthPx: number, hei
     else out.push(rgbToHex(data[i]!, data[i + 1]!, data[i + 2]!));
   }
   return out;
+}
+
+/** Nearest-neighbor resample of a flat pixel buffer into a new size. */
+export function nearestNeighborResizePixels(
+  pixels: string[],
+  fromW: number,
+  fromH: number,
+  toW: number,
+  toH: number
+): string[] {
+  const out = Array(toW * toH).fill(MAP_TRANSPARENT_PIXEL) as string[];
+  if (fromW <= 0 || fromH <= 0 || toW <= 0 || toH <= 0) return out;
+  for (let y = 0; y < toH; y++) {
+    const sy = Math.min(fromH - 1, Math.floor(((y + 0.5) * fromH) / toH));
+    for (let x = 0; x < toW; x++) {
+      const sx = Math.min(fromW - 1, Math.floor(((x + 0.5) * fromW) / toW));
+      out[y * toW + x] = pixels[sy * fromW + sx] ?? MAP_TRANSPARENT_PIXEL;
+    }
+  }
+  return out;
+}
+
+/**
+ * Sample an image into a hex pixel grid.
+ * Exact-size imports stay 1:1 (no canvas stretch). Otherwise nearest-neighbor resize.
+ */
+export function imageElementToPixels(img: HTMLImageElement, widthPx: number, heightPx: number): string[] {
+  const srcW = img.naturalWidth || img.width;
+  const srcH = img.naturalHeight || img.height;
+  if (srcW <= 0 || srcH <= 0) {
+    throw new Error('Image has no pixel dimensions');
+  }
+
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = srcW;
+  srcCanvas.height = srcH;
+  const srcCtx = srcCanvas.getContext('2d')!;
+  srcCtx.imageSmoothingEnabled = false;
+  srcCtx.clearRect(0, 0, srcW, srcH);
+  srcCtx.drawImage(img, 0, 0);
+  const native = canvasToHexPixels(srcCanvas);
+
+  if (srcW === widthPx && srcH === heightPx) return native;
+  return nearestNeighborResizePixels(native, srcW, srcH, widthPx, heightPx);
 }
 
 export async function readImageFileAsPixels(
@@ -56,7 +93,7 @@ export function imageDropZoneHtml(idPrefix = 'img-drop'): string {
     <div class="image-drop-zone" id="${idPrefix}-zone" tabindex="0" role="button" aria-label="Drop image to import">
       <input type="file" id="${idPrefix}-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
       <p class="image-drop-title">Drop image here</p>
-      <p class="muted-text image-drop-hint">PNG, JPG, WebP, or GIF — scaled to fit with crisp pixels</p>
+      <p class="muted-text image-drop-hint">PNG, JPG, WebP, or GIF — keeps exact size when it matches; otherwise crisp nearest-neighbor scale</p>
       <button type="button" class="btn secondary image-drop-browse" id="${idPrefix}-browse">Browse image…</button>
     </div>`;
 }
@@ -91,7 +128,15 @@ export function mountImageDropImport(
   const importFile = async (file: File | undefined): Promise<void> => {
     if (!file) return;
     try {
-      const pixels = await readImageFileAsPixels(file, opts.widthPx(), opts.heightPx());
+      const widthPx = opts.widthPx();
+      const heightPx = opts.heightPx();
+      if (!(widthPx > 0) || !(heightPx > 0)) {
+        throw new Error('Sprite import size is invalid');
+      }
+      const pixels = await readImageFileAsPixels(file, widthPx, heightPx);
+      if (pixels.length !== widthPx * heightPx) {
+        throw new Error(`Import produced ${pixels.length} pixels; expected ${widthPx * heightPx}`);
+      }
       opts.onImport(pixels);
     } catch (e) {
       fail(String(e));

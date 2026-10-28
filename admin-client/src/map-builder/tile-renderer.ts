@@ -1,8 +1,10 @@
 /** Canvas 2D tile drawing — matches client SpriteGenerator stardew tiles */
 
-import { isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
+import { TILE_SIZE, isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
 
-const TILE = 16;
+/** Drawer math is authored against a 16×16 cell; output uses the game tile size. */
+const LOGICAL_TILE = 16;
+const TILE = TILE_SIZE;
 
 const PAL = {
   grass: '#5a9e4b',
@@ -26,7 +28,7 @@ function fillCircle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: nu
 
 const DRAWERS: Record<string, DrawFn> = {
   tile_grass(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.grass;
     ctx.fillRect(ox, oy, size, size);
     ctx.fillStyle = PAL.grassLight;
@@ -40,14 +42,14 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.globalAlpha = 1;
   },
   tile_path(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.path;
     ctx.fillRect(ox, oy, size, size);
     ctx.fillStyle = 'rgba(0,0,0,0.08)';
     for (let i = 0; i < 4; i++) ctx.fillRect(ox + i * 4 * s, oy + ((i * 3) % 12) * s, 2 * s, 2 * s);
   },
   tile_floor_wood(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.wood;
     ctx.fillRect(ox, oy, size, size);
     ctx.strokeStyle = PAL.woodDark;
@@ -60,7 +62,7 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.globalAlpha = 1;
   },
   tile_floor_stone(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = '#888899';
     ctx.fillRect(ox, oy, size, size);
     ctx.fillStyle = 'rgba(102,102,119,0.5)';
@@ -68,7 +70,7 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.fillRect(ox + 9 * s, oy + 9 * s, 6 * s, 6 * s);
   },
   tile_wall_brick(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.brick;
     ctx.fillRect(ox, oy, size, size);
     ctx.fillStyle = 'rgba(107,58,36,0.6)';
@@ -76,7 +78,7 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.fillRect(ox + 7 * s, oy, 2 * s, 7 * s);
   },
   tile_fence(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = 'rgba(61,122,53,0.3)';
     ctx.fillRect(ox, oy, size, size);
     ctx.fillStyle = PAL.woodDark;
@@ -86,7 +88,7 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.fillRect(ox, oy + 12 * s, size, 2 * s);
   },
   obj_altar(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.woodDark;
     ctx.fillRect(ox + 2 * s, oy + 8 * s, 12 * s, 6 * s);
     ctx.fillStyle = '#4a0080';
@@ -95,7 +97,7 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.fillRect(ox + 6 * s, oy + 2 * s, 4 * s, 3 * s);
   },
   obj_door(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.wood;
     ctx.fillRect(ox + 3 * s, oy + 2 * s, 10 * s, 12 * s);
     ctx.fillStyle = PAL.woodDark;
@@ -103,14 +105,14 @@ const DRAWERS: Record<string, DrawFn> = {
     fillCircle(ctx, ox + 11 * s, oy + 8 * s, 1 * s, '#ffcc44');
   },
   obj_tree(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.woodDark;
     ctx.fillRect(ox + 6 * s, oy + 10 * s, 4 * s, 6 * s);
     fillCircle(ctx, ox + 8 * s, oy + 6 * s, 7 * s, PAL.grassDark);
     fillCircle(ctx, ox + 7 * s, oy + 5 * s, 5 * s, PAL.grass);
   },
   obj_shop(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.brick;
     ctx.fillRect(ox + 1 * s, oy + 4 * s, 14 * s, 11 * s);
     ctx.fillStyle = '#884422';
@@ -119,7 +121,7 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.fillRect(ox + 5 * s, oy + 2 * s, 6 * s, 3 * s);
   },
   obj_shelf(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.wood;
     ctx.fillRect(ox + 2 * s, oy + 4 * s, 12 * s, 10 * s);
     ctx.strokeStyle = PAL.woodDark;
@@ -130,14 +132,14 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.stroke();
   },
   obj_bed(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.wood;
     ctx.fillRect(ox + 1 * s, oy + 6 * s, 14 * s, 8 * s);
     ctx.fillStyle = '#6b4c8a';
     ctx.fillRect(ox + 2 * s, oy + 3 * s, 12 * s, 5 * s);
   },
   obj_red_bed(ctx, ox, oy, size) {
-    const s = size / TILE;
+    const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.wood;
     ctx.fillRect(ox + 1 * s, oy + 6 * s, 14 * s, 8 * s);
     ctx.fillStyle = '#cc3333';
