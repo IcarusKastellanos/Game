@@ -28,6 +28,12 @@ import { validatePersonality } from '../npc/personality.js';
 import { lessonsForNpc } from '../npc/lessons.js';
 import { knowledgeKnownByNpc } from '../npc/knowledge.js';
 import { normalizeNpcAuthoredSpriteSheet } from '../npc/visual.js';
+import {
+  parseTraditionAffinityGate,
+  spiritualReputationBlockReason,
+  traditionAffinityBlockReason,
+  type TraditionAffinityGate,
+} from '../npc/teacher-gates.js';
 
 export interface DialogueTextVariant {
   text: string;
@@ -71,6 +77,10 @@ export interface DialogueChoice {
   requiresQuestComplete?: string;
   requiresKnowledge?: string;
   requiresLesson?: string;
+  /** Tradition affinity floors (player stats.affinities). */
+  requiresTraditionAffinity?: TraditionAffinityGate;
+  /** Occult-community reputation floor for mentor paths. */
+  requiresSpiritualReputation?: number;
   /** Validated action registry — applied after the choice succeeds. */
   actions?: DialogueAction[];
 }
@@ -741,6 +751,10 @@ function choiceBlock(
   }
   const bond = bondBlockReason(progression, npcId, choice.requiresBond);
   if (bond) return bond;
+  const affinityBlock = traditionAffinityBlockReason(stats, choice.requiresTraditionAffinity);
+  if (affinityBlock) return affinityBlock;
+  const spiritBlock = spiritualReputationBlockReason(stats, choice.requiresSpiritualReputation);
+  if (spiritBlock) return spiritBlock;
   if (progression) {
     const visits = progression.dialogueState?.[treeId ?? '']?.visitCount ?? 0;
     if (choice.visitMin != null && visits < choice.visitMin) return 'Come back another day.';
@@ -820,6 +834,11 @@ function parseChoice(
   }
   if (typeof raw.requiresLesson === 'string' && raw.requiresLesson.trim()) {
     choice.requiresLesson = raw.requiresLesson.trim();
+  }
+  const traditionGate = parseTraditionAffinityGate(raw.requiresTraditionAffinity);
+  if (traditionGate) choice.requiresTraditionAffinity = traditionGate;
+  if (typeof raw.requiresSpiritualReputation === 'number' && Number.isFinite(raw.requiresSpiritualReputation)) {
+    choice.requiresSpiritualReputation = Math.max(0, Math.round(raw.requiresSpiritualReputation));
   }
   if (raw.actions != null) {
     const actions = parseDialogueActions(raw.actions);

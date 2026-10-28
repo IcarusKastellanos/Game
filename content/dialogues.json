@@ -291,6 +291,9 @@
             "next": "train",
             "requiresBond": {
               "stage": "familiar"
+            },
+            "requiresTraditionAffinity": {
+              "traditional_european": 5
             }
           },
           {
@@ -359,6 +362,10 @@
             "id": "take_healing_marks",
             "label": "Learn Healing Charm Marks (25 coins)",
             "next": "end",
+            "requiresTraditionAffinity": {
+              "traditional_european": 15
+            },
+            "requiresSpiritualReputation": 5,
             "actions": [
               {
                 "type": "unlock_lesson",

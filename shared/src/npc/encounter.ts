@@ -111,7 +111,13 @@ export function buildNpcEncounterView(input: {
     ? describeGiftWindow(input.progression, input.npc.id, input.giftSlots ?? [], now)
     : null;
 
-  const lessons = listLessonOffers(input.npc.id, input.progression, input.coins, input.inventory);
+  const lessons = listLessonOffers(
+    input.npc.id,
+    input.progression,
+    input.coins,
+    input.inventory,
+    input.stats
+  );
   const knowledge = knowledgeKnownByNpc(input.npc.id);
   const rumorsKnown = knowledge.filter((entry) => playerKnowsKnowledge(input.progression, entry)).length;
 
@@ -213,7 +219,7 @@ export function buildPeopleDossierPatch(input: {
   const services: string[] = [];
   if (feedback.showServices) {
     if (input.npc.shopId) services.push('Keeps a shop.');
-    const lessons = listLessonOffers(input.npc.id, input.progression);
+    const lessons = listLessonOffers(input.npc.id, input.progression, undefined, undefined, undefined);
     if (lessons.some((lesson) => lesson.completed)) services.push('Has taught you.');
     if (lessons.some((lesson) => lesson.available || lesson.completed)) services.push('Offers lessons.');
   }

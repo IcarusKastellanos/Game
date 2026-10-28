@@ -223,6 +223,57 @@ test('teachers unlock existing progression without duplicate rewards', () => {
   assert.equal(again.alreadyComplete, true);
 });
 
+test('teacher lessons gate on tradition affinity and spiritual reputation', () => {
+  const progression = defaultProgression();
+  progression.questProgress = { quest_first_steps: { completedAt: 1 } };
+  progression.completedLessons = ['lesson_rowan_ward_basics'];
+  progression.social = {
+    bonds: {
+      npc_circle_leader: {
+        axes: { familiarity: 40, affinity: 20, respect: 15, trust: 15 },
+        grudges: [],
+        memories: [],
+        onceEvents: [],
+        giftCounts: {},
+        giftReceipts: [],
+        knownPreferences: [],
+        actionNextAt: {},
+        actionReceipts: [],
+      },
+    },
+    scopes: {},
+  };
+
+  const weak = purchaseLesson({
+    lessonId: 'lesson_rowan_healing_charm',
+    npcId: 'npc_circle_leader',
+    progression,
+    stats: {
+      ...DEFAULT_STATS,
+      affinities: { ...DEFAULT_STATS.affinities, traditional_european: 8 },
+      spiritualReputation: 0,
+    },
+    coins: 40,
+    inventory: [],
+  });
+  assert.equal(weak.ok, false);
+
+  const ready = purchaseLesson({
+    lessonId: 'lesson_rowan_healing_charm',
+    npcId: 'npc_circle_leader',
+    progression,
+    stats: {
+      ...DEFAULT_STATS,
+      affinities: { ...DEFAULT_STATS.affinities, traditional_european: 20 },
+      spiritualReputation: 10,
+    },
+    coins: 40,
+    inventory: [],
+  });
+  assert.equal(ready.ok, true);
+  assert.equal(ready.alreadyComplete, false);
+});
+
 test('NPC memories influence subsequent conversations', () => {
   const progression = beginDialogueVisit(defaultProgression(), 'mara_intro', 'npc_mara');
   progression.social.bonds.npc_mara.memories = [

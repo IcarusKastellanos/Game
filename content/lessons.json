@@ -15,6 +15,9 @@
       "requires": {
         "stage": "familiar"
       },
+      "requiresTraditionAffinity": {
+        "traditional_european": 5
+      },
       "requiresQuestIds": [
         "quest_first_steps"
       ],
@@ -34,6 +37,10 @@
         "stage": "friendly",
         "affinityMin": 10
       },
+      "requiresTraditionAffinity": {
+        "traditional_european": 15
+      },
+      "requiresSpiritualReputation": 5,
       "requiresLessonIds": [
         "lesson_rowan_ward_basics"
       ],

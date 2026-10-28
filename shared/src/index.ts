@@ -41,6 +41,7 @@ export * from './npc/diagnostics.js';
 export * from './npc/presence-diff.js';
 export * from './npc/experiment.js';
 export * from './npc/visual.js';
+export * from './npc/teacher-gates.js';
 export * from './quests/engine.js';
 export * from './social/index.js';
 export * from './hexagram/index.js';

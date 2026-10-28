@@ -104,6 +104,8 @@ export const CLIENT_DIALOGUE_CHOICE_FORBIDDEN_KEYS = [
   'socialEvent',
   'requiresBond',
   'requiresRecognition',
+  'requiresTraditionAffinity',
+  'requiresSpiritualReputation',
 ] as const;
 
 /**

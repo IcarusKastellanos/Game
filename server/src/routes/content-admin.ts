@@ -160,4 +160,4 @@ adminRouter.delete('/spells/:id', async (req: Request, res: Response) => {
   }
 });
 
-// TODO: admin CRUD for ingredients, npcs, shops, tiles, decorations, maps
+// Admin CRUD for ingredients / NPCs / shops / tiles / decorations / maps lives under admin/routes/content.ts.
