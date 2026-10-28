@@ -1,0 +1,66 @@
+/* In-world local speech. The Phaser canvas is 512×384 and stretched with
+   image-rendering: pixelated, so a label drawn in the framebuffer is a tiny
+   bitmap enlarged by nearest-neighbor. These nodes are real CSS pixels:
+   integer positions, no transform scale, no blur. */
+.world-speech-layer {
+  position: fixed;
+  z-index: 30;
+  overflow: hidden;
+  pointer-events: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  filter: none;
+  backdrop-filter: none;
+  transform: none;
+}
+
+.world-speech-bubble {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+  filter: none;
+  backdrop-filter: none;
+  transform: none;
+  text-shadow: none;
+}
+
+.world-speech-bubble__plate {
+  box-sizing: border-box;
+  margin: 0;
+  background: rgba(248, 237, 212, 0.96);
+  border-style: solid;
+  border-color: #c4a15a;
+  color: #3b2412;
+  font-family: "EB Garamond", "Book Antiqua", Georgia, serif;
+  font-weight: 400;
+  font-style: normal;
+  font-synthesis: none;
+  line-height: 1.2;
+  text-align: center;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  filter: none;
+  text-shadow: none;
+  transform: none;
+}
+
+.world-speech-bubble__tail {
+  position: relative;
+  width: 100%;
+  pointer-events: none;
+  filter: none;
+  transform: none;
+}
