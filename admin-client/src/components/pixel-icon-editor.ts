@@ -1,8 +1,11 @@
 /** 32×32 pixel icon editor for admin item manager */
 import { ICON_PIXEL_SIZE, isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
+import { nearestNeighborResizePixels } from './image-import.js';
 import { mountPixelColorTools } from './pixel-color-tools.js';
 
 const ICON_SIZE = ICON_PIXEL_SIZE;
+/** Display scale — 8px/cell keeps a 32×32 grid ~256px so layout does not CSS-shrink the canvas. */
+const DISPLAY_SCALE = ICON_SIZE <= 16 ? 12 : 8;
 const PALETTE = [
   '#000000', '#1a1025', '#3d3654', '#9a8fb0',
   '#c9a227', '#7b5ea7', '#4a8a55', '#3a7d44',
@@ -21,7 +24,7 @@ export function mountPixelIconEditor(
 
   host.innerHTML = `
     <div class="pixel-editor">
-      <canvas id="px-canvas" width="${ICON_SIZE * 12}" height="${ICON_SIZE * 12}" style="image-rendering:pixelated;border:1px solid #3d3654;border-radius:4px;cursor:crosshair;background:repeating-conic-gradient(#2a2a3a 0% 25%, #1a1a28 0% 50%) 50% / 16px 16px;"></canvas>
+      <canvas id="px-canvas" width="${ICON_SIZE * DISPLAY_SCALE}" height="${ICON_SIZE * DISPLAY_SCALE}" style="image-rendering:pixelated;border:1px solid #3d3654;border-radius:4px;cursor:crosshair;max-width:100%;background:repeating-conic-gradient(#2a2a3a 0% 25%, #1a1a28 0% 50%) 50% / ${DISPLAY_SCALE}px ${DISPLAY_SCALE}px;"></canvas>
       <div class="pixel-palette" id="px-palette"></div>
       <div class="pixel-tools flex mt">
         <button type="button" class="btn secondary" id="px-clear">Clear</button>
@@ -32,7 +35,7 @@ export function mountPixelIconEditor(
 
   const canvas = host.querySelector('#px-canvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d')!;
-  const scale = 12;
+  const scale = DISPLAY_SCALE;
 
   const paletteEl = host.querySelector('#px-palette')!;
   paletteEl.innerHTML = PALETTE.map(
@@ -66,8 +69,12 @@ export function mountPixelIconEditor(
 
   const paint = (ev: MouseEvent): void => {
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((ev.clientX - rect.left) / scale);
-    const y = Math.floor((ev.clientY - rect.top) / scale);
+    // Use CSS box size so max-width shrink still maps across the full 32×32 grid.
+    const cellW = rect.width / ICON_SIZE;
+    const cellH = rect.height / ICON_SIZE;
+    if (cellW <= 0 || cellH <= 0) return;
+    const x = Math.floor((ev.clientX - rect.left) / cellW);
+    const y = Math.floor((ev.clientY - rect.top) / cellH);
     if (x < 0 || y < 0 || x >= ICON_SIZE || y >= ICON_SIZE) return;
     if (colorTools.isEyedropperActive()) {
       colorTools.sampleAt(x, y);
@@ -135,12 +142,22 @@ export function mountPixelIconEditor(
 }
 
 function normalizePixels(input: string[] | undefined): string[] {
-  const out = Array(ICON_SIZE * ICON_SIZE).fill(MAP_TRANSPARENT_PIXEL);
-  if (!input?.length) return out;
-  for (let i = 0; i < Math.min(input.length, out.length); i++) {
-    out[i] = input[i] ?? MAP_TRANSPARENT_PIXEL;
+  const target = ICON_SIZE * ICON_SIZE;
+  if (!input?.length) return Array(target).fill(MAP_TRANSPARENT_PIXEL);
+  if (input.length === target) return [...input];
+
+  let oldW: number;
+  let oldH: number;
+  const side = Math.round(Math.sqrt(input.length));
+  if (side * side === input.length) {
+    oldW = side;
+    oldH = side;
+  } else {
+    oldW = ICON_SIZE;
+    oldH = Math.max(1, Math.ceil(input.length / oldW));
   }
-  return out;
+  // Upscale legacy 16×16 buffers instead of stamping them into the top-left of 32×32.
+  return nearestNeighborResizePixels(input, oldW, oldH, ICON_SIZE, ICON_SIZE);
 }
 
 export function pixelsToDataUrl(pixels: string[]): string {
