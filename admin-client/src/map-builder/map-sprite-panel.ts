@@ -48,7 +48,7 @@ export function spriteEditorPanelHtml(previewId = 'asset-sprite-preview'): strin
 
     <div class="card editor-preview mb-sprite-panel">
 
-      <h2 class="mb-sprite-size-title">32×32 Sprite</h2>
+      <h2 class="mb-sprite-size-title">${SPRITE_TILE_PX}×${SPRITE_TILE_PX} Sprite</h2>
 
       <p class="muted-text">Drop an image to import, or paint pixels in the editor below.</p>
 

@@ -212,7 +212,13 @@ pre { background: var(--panel2); padding: 0.75rem; border-radius: 6px; overflow:
 .pixel-palette { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .palette-swatch { width: 22px; height: 22px; border: 2px solid transparent; border-radius: 3px; cursor: pointer; padding: 0; }
 .palette-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.pixel-editor canvas { display: block; }
+.pixel-editor canvas {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  image-rendering: pixelated;
+}
 .pixel-tools { flex-wrap: wrap; align-items: flex-start; gap: 0.35rem; }
 .pixel-color-panel {
   flex: 1 1 100%;
