@@ -385,7 +385,7 @@ export interface ContentIngredient {
   rarity: 'common' | 'uncommon' | 'rare' | 'exotic';
   basePotency: number;
   traditions: MagicTradition[];
-  /** Optional 16×16 #rrggbb pixels (256 entries) for custom icon art */
+  /** Optional 32×32 #rrggbb pixels (1024 entries) for custom icon art */
   iconPixels?: string[];
   /** Restricted to admin give / use until released publicly */
   adminOnly?: boolean;
@@ -508,11 +508,11 @@ export interface ContentNpc {
   secrets?: string[];
   /** Actions offered at this NPC. Omitted lists are derived from dialogue, shop, and quests. */
   capabilities?: NpcCapability[];
-  /** Custom 16×16 portrait pixels (People / encounter UI). Overworld uses walk/idle sheets. */
+  /** Custom 32×32 portrait pixels (People / encounter UI). Overworld uses walk/idle sheets. */
   spritePixels?: string[];
   /** Procedural overworld look; omitted uses shipped defaults in NpcVisualProfile table. */
   visual?: import('../npc/visual.js').NpcVisualProfile;
-  /** Optional authored 16×24 walk/idle sheets (hybrid override). */
+  /** Optional authored 32×48 walk/idle sheets (hybrid override). */
   spriteSheet?: import('../npc/visual.js').NpcAuthoredSpriteSheet;
   /** Trait scores 0–100. Colors reactions; never bypasses permissions or quest gates. */
   personality?: import('../npc/personality.js').PersonalityProfile;

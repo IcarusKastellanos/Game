@@ -27,7 +27,7 @@ import { parseConversationPolicy } from '../npc/behavior.js';
 import { validatePersonality } from '../npc/personality.js';
 import { lessonsForNpc } from '../npc/lessons.js';
 import { knowledgeKnownByNpc } from '../npc/knowledge.js';
-import { normalizeNpcAuthoredSpriteSheet } from '../npc/visual.js';
+import { NPC_PORTRAIT_PIXEL_COUNT, normalizeNpcAuthoredSpriteSheet } from '../npc/visual.js';
 import {
   parseTraditionAffinityGate,
   spiritualReputationBlockReason,
@@ -640,8 +640,8 @@ export function validateNpcDefinition(
   if (typeof secrets === 'string') return { ok: false, error: secrets };
   const spritePixels = optionalStringList(raw.spritePixels);
   if (typeof spritePixels === 'string') return { ok: false, error: spritePixels };
-  if (spritePixels && spritePixels.length !== 256) {
-    return { ok: false, error: 'NPC spritePixels must be 256 colors.' };
+  if (spritePixels && spritePixels.length !== NPC_PORTRAIT_PIXEL_COUNT) {
+    return { ok: false, error: 'NPC spritePixels must be 1024 colors (32×32).' };
   }
   let spriteSheet: ContentNpc['spriteSheet'] | undefined;
   // null = explicit clear (persist layer); object = authored override.
@@ -651,7 +651,7 @@ export function validateNpcDefinition(
       return {
         ok: false,
         error:
-          'NPC spriteSheet must use 16×24 frames with walk (4×8) and/or idle (2×8) pixel planes.',
+          'NPC spriteSheet must use 32×48 frames with walk (4×8) and/or idle (2×8) pixel planes.',
       };
     }
   }

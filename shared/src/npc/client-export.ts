@@ -3,6 +3,7 @@
 import type { ContentNpc } from '../types/index.js';
 import type { DialogueChoice, DialogueTree } from '../dialogue/index.js';
 import {
+  NPC_PORTRAIT_PIXEL_COUNT,
   hashNpcAuthoredSpriteSheet,
   normalizeNpcAuthoredSpriteSheet,
   type NpcAuthoredSpriteSheet,
@@ -42,7 +43,7 @@ export function npcVisualContentHash(npc: {
   spriteSheet?: NpcAuthoredSpriteSheet | null;
 }): string {
   const portrait =
-    npc.spritePixels?.length === 256 ? hashIconPixels(npc.spritePixels) : '';
+    npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT ? hashIconPixels(npc.spritePixels) : '';
   const sheet = hashNpcAuthoredSpriteSheet(npc.spriteSheet);
   if (!portrait && !sheet) return `gen:${npc.id}`;
   return [portrait || 'gen', sheet ?? '-'].join('|');
@@ -68,7 +69,7 @@ export function toClientNpc(npc: ContentNpc, opts?: { omitSpritePixels?: boolean
     ...(npc.shopId ? { shopId: npc.shopId } : {}),
     ...(npc.faction ? { faction: npc.faction } : {}),
     ...(npc.biography ? { biography: npc.biography } : {}),
-    ...(!opts?.omitSpritePixels && npc.spritePixels?.length === 256
+    ...(!opts?.omitSpritePixels && npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT
       ? { spritePixels: npc.spritePixels }
       : {}),
     spriteHash,

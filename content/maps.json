@@ -5,7 +5,7 @@
     "sceneId": "apartment",
     "width": 16,
     "height": 12,
-    "tileSize": 16,
+    "tileSize": 32,
     "layers": {
       "floor": [],
       "walls": [],
@@ -46,7 +46,7 @@
     "sceneId": "town",
     "width": 32,
     "height": 24,
-    "tileSize": 16,
+    "tileSize": 32,
     "layers": {
       "floor": [],
       "walls": [],

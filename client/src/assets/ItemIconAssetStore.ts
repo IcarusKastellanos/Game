@@ -1,17 +1,19 @@
 /** Persistent local item icon assets + one verify sync per login session */
 
 import {
+  ICON_PIXEL_COUNT,
+  ICON_PIXEL_SIZE,
   getIngredientIconHash,
   hashIconPixels,
   resolveItemIconPixels,
   type ContentIngredient,
 } from '@witchcraft/shared';
 
-const ASSET_STORE_KEY = 'witchcraft_icon_assets_v1';
+const ASSET_STORE_KEY = 'witchcraft_icon_assets_v2';
 const SESSION_VERIFY_KEY = 'witchcraft_icons_verified';
 
-const ICON_SIZE = 32;
-const PIXEL_ART_SIZE = 16;
+const ICON_SIZE = ICON_PIXEL_SIZE;
+const PIXEL_ART_SIZE = ICON_PIXEL_SIZE;
 
 interface StoredIconAsset {
   hash: string;
@@ -162,7 +164,7 @@ function applyLocalAssetsToIngredients(
   const store = loadStore();
   for (const ing of ingredients) {
     const cached = store.items[ing.id];
-    if (cached?.iconPixels?.length === 256) {
+    if (cached?.iconPixels?.length === ICON_PIXEL_COUNT) {
       ing.iconPixels = cached.iconPixels;
     } else if (!ing.iconPixels?.length) {
       ing.iconPixels = resolveItemIconPixels(ing);

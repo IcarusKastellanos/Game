@@ -262,8 +262,9 @@ export const MAGIC_SYSTEMS: Record<
   },
 };
 
-export const TILE_SIZE = 16;
-export const PLAYER_SPEED = 80;
+export const TILE_SIZE = 32;
+/** Keep ~5 tiles/sec after the 16→32 art scale. */
+export const PLAYER_SPEED = 160;
 
 export const SCENE_TRANSITIONS: Record<string, { target: string; spawn: string }> = {
   apartment_door: { target: 'town', spawn: 'apartment_building' },

@@ -18,12 +18,12 @@ import './ui/character-sheet.css';
 import './ui/ledger-overlay.css';
 import './ui/aura/aura-visualization.css';
 
-/** Phaser game bootstrap — 16-bit pixel scale */
+/** Phaser game bootstrap — 32px tile art, same on-screen tile count as the old 16px view. */
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: 512,
-  height: 384,
+  width: 1024,
+  height: 768,
   backgroundColor: '#2d1b3d',
   pixelArt: true,
   scale: {

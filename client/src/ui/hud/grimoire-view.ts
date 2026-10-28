@@ -26,6 +26,7 @@ import {
   type GrimoireSpellEntry,
   type GrimoireState,
   type PlayerProgression,
+  NPC_PORTRAIT_PIXEL_COUNT,
 } from '@witchcraft/shared';
 import { gameState } from '../../data/game-state.js';
 import { network } from '../../net/NetworkManager.js';
@@ -563,8 +564,8 @@ function listBlock(title: string, rows: string[] | undefined): string {
 }
 
 function npcPortraitMarkup(npcId: string, spritePixels: string[] | undefined): string {
-  if (spritePixels?.length === 256) {
-    const dataUrl = pixelsToDataUrl(spritePixels, 16);
+  if (spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT) {
+    const dataUrl = pixelsToDataUrl(spritePixels, 32);
     if (dataUrl) {
       return `<img class="hud-grimoire__portrait" src="${dataUrl}" alt="" width="64" height="64" />`;
     }

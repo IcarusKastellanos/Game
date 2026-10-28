@@ -7,7 +7,7 @@ import type {
   ContentSpell,
   LevelDocument,
 } from '@witchcraft/shared';
-import { normalizeLevelDocument } from '@witchcraft/shared';
+import { ICON_PIXEL_COUNT, NPC_PORTRAIT_PIXEL_COUNT, normalizeLevelDocument } from '@witchcraft/shared';
 import { contentRegistry } from './registry.js';
 import { readContentJson, readContentObject, writeContentJson, writeContentObject } from './json-persist.js';
 
@@ -74,12 +74,12 @@ function preserveLiveOverlays(): () => void {
   const maps = new Map(contentRegistry.maps);
   const icons = new Map<string, string[]>();
   for (const [id, item] of contentRegistry.ingredients) {
-    if (item.iconPixels?.length === 256) icons.set(id, [...item.iconPixels]);
+    if (item.iconPixels?.length === ICON_PIXEL_COUNT) icons.set(id, [...item.iconPixels]);
   }
   const sprites = new Map<string, { spritePixels?: string[]; spriteSheet?: ContentNpc['spriteSheet'] }>();
   for (const [id, npc] of contentRegistry.npcs) {
     const entry: { spritePixels?: string[]; spriteSheet?: ContentNpc['spriteSheet'] } = {};
-    if (npc.spritePixels?.length === 256) entry.spritePixels = [...npc.spritePixels];
+    if (npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT) entry.spritePixels = [...npc.spritePixels];
     if (npc.spriteSheet) entry.spriteSheet = npc.spriteSheet;
     if (entry.spritePixels || entry.spriteSheet) sprites.set(id, entry);
   }

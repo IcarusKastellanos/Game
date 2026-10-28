@@ -1,7 +1,12 @@
-/** 16×16 procedural item icons — shared by game client and admin editor */
+/** 32×32 procedural item icons — shared by game client and admin editor.
+ * Drawers author against a logical 16×16 grid; each logical pixel is 2×2 on the sheet.
+ */
 
-export const ICON_PIXEL_SIZE = 16;
+export const ICON_PIXEL_SIZE = 32;
 export const ICON_PIXEL_COUNT = ICON_PIXEL_SIZE * ICON_PIXEL_SIZE;
+/** Logical art grid used by drawer helpers (scaled ×2 onto ICON_PIXEL_SIZE). */
+const LOGICAL_ICON_SIZE = 16;
+const ICON_ART_SCALE = ICON_PIXEL_SIZE / LOGICAL_ICON_SIZE;
 
 const C = {
   bg: '#1a1025',
@@ -42,8 +47,14 @@ function canvas(): Px {
 }
 
 function px(p: Px, x: number, y: number, color: string): void {
-  if (x < 0 || x >= ICON_PIXEL_SIZE || y < 0 || y >= ICON_PIXEL_SIZE) return;
-  p[y * ICON_PIXEL_SIZE + x] = color;
+  if (x < 0 || x >= LOGICAL_ICON_SIZE || y < 0 || y >= LOGICAL_ICON_SIZE) return;
+  const sx = Math.floor(x) * ICON_ART_SCALE;
+  const sy = Math.floor(y) * ICON_ART_SCALE;
+  for (let dy = 0; dy < ICON_ART_SCALE; dy++) {
+    for (let dx = 0; dx < ICON_ART_SCALE; dx++) {
+      p[(sy + dy) * ICON_PIXEL_SIZE + (sx + dx)] = color;
+    }
+  }
 }
 
 function rect(p: Px, x: number, y: number, w: number, h: number, color: string): void {
@@ -290,7 +301,7 @@ function drawGenericItem(p: Px, _id: string, category: string): void {
   outlineRect(p, 4, 4, 8, 8, fill);
 }
 
-/** Generate a 16×16 #rrggbb pixel array for an item */
+/** Generate a 32×32 #rrggbb pixel array for an item */
 export function generateItemIconPixels(itemId: string, category: string, name = itemId): string[] {
   const p = canvas();
   const drawer = ITEM_DRAWERS[itemId] ?? CATEGORY_DRAWERS[category] ?? drawGenericItem;

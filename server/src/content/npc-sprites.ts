@@ -1,5 +1,6 @@
 import type { ContentNpc, NpcAuthoredSpriteSheet } from '@witchcraft/shared';
 import {
+  NPC_PORTRAIT_PIXEL_COUNT,
   computeIconManifestRevision,
   normalizeNpcAuthoredSpriteSheet,
   npcVisualContentHash,
@@ -16,9 +17,9 @@ export function hydrateNpcSprite(
   npc: ContentNpc & { data?: NpcSpriteData | null }
 ): ContentNpc {
   let next: ContentNpc = npc;
-  if (!(npc.spritePixels?.length === 256)) {
+  if (!(npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT)) {
     const fromData = npc.data?.spritePixels;
-    if (fromData?.length === 256) next = { ...next, spritePixels: fromData };
+    if (fromData?.length === NPC_PORTRAIT_PIXEL_COUNT) next = { ...next, spritePixels: fromData };
   }
   if (!normalizeNpcAuthoredSpriteSheet(npc.spriteSheet)) {
     const fromData = normalizeNpcAuthoredSpriteSheet(npc.data?.spriteSheet);
@@ -40,7 +41,7 @@ export async function mergeNpcSpritesFromDb(): Promise<number> {
       const data = (row.data ?? {}) as NpcSpriteData;
       let next = existing;
       let changed = false;
-      if (data.spritePixels?.length === 256) {
+      if (data.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT) {
         next = { ...next, spritePixels: data.spritePixels };
         changed = true;
       }
@@ -94,7 +95,7 @@ export function verifyNpcSpriteHashes(clientHashes: Record<string, string>): {
   for (const npc of contentRegistry.npcs.values()) {
     const serverHash = getNpcSpriteHash(npc);
     if (clientHashes[npc.id] === serverHash) continue;
-    const portrait = npc.spritePixels?.length === 256 ? npc.spritePixels : undefined;
+    const portrait = npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT ? npc.spritePixels : undefined;
     const sheet = normalizeNpcAuthoredSpriteSheet(npc.spriteSheet);
     if (!portrait && !sheet) continue;
     updates[npc.id] = {
@@ -115,7 +116,7 @@ function npcToDb(
     previousData && typeof previousData === 'object' && !Array.isArray(previousData)
       ? { ...(previousData as Record<string, unknown>) }
       : {};
-  const spritePixels = npc.spritePixels?.length === 256 ? npc.spritePixels : prev.spritePixels ?? null;
+  const spritePixels = npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT ? npc.spritePixels : prev.spritePixels ?? null;
   const sheet = normalizeNpcAuthoredSpriteSheet(npc.spriteSheet);
   const spriteSheet = sheet
     ? sheet
