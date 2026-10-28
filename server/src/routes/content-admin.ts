@@ -17,23 +17,31 @@ export const contentRouter = Router();
 
 /** Public content API for client bootstrap — NPCs are stripped of server-only fields. */
 contentRouter.get('/all', (_req: Request, res: Response) => {
-  res.json({
-    ingredients: getPublicIngredients(),
-    spells: [...contentRegistry.spells.values()],
-    familiars: [...contentRegistry.familiars.values()],
-    shops: [...contentRegistry.shops.values()],
-    npcs: toClientNpcs(contentRegistry.npcs.values()),
-    tiles: [...contentRegistry.tiles.values()],
-    decorations: [...contentRegistry.decorations.values()],
-    maps: [...contentRegistry.maps.values()],
-    /** Client dialogue trees strip spoilers; live choices come from the server. */
-    dialogues: toClientDialogues(contentRegistry.dialogues.values()),
-    recognitionTiers: getRecognitionDocument(),
-    licenses: getLicensesDocument(),
-    spirits: [...contentRegistry.spirits.values()],
-    grimoireEntries: getGrimoireEntries(),
-    grimoireEntryNames: grimoireEntryNames(),
-  });
+  try {
+    res.json({
+      ingredients: getPublicIngredients(),
+      spells: [...contentRegistry.spells.values()],
+      familiars: [...contentRegistry.familiars.values()],
+      shops: [...contentRegistry.shops.values()],
+      npcs: toClientNpcs(contentRegistry.npcs.values()),
+      tiles: [...contentRegistry.tiles.values()],
+      decorations: [...contentRegistry.decorations.values()],
+      maps: [...contentRegistry.maps.values()],
+      /** Client dialogue trees strip spoilers; live choices come from the server. */
+      dialogues: toClientDialogues(contentRegistry.dialogues.values()),
+      recognitionTiers: getRecognitionDocument(),
+      licenses: getLicensesDocument(),
+      spirits: [...contentRegistry.spirits.values()],
+      grimoireEntries: getGrimoireEntries(),
+      grimoireEntryNames: grimoireEntryNames(),
+    });
+  } catch (err) {
+    console.error('[content/all] failed:', err);
+    res.status(500).json({
+      error: 'Failed to assemble content bundle',
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
 });
 
 /** Icon hash manifest for client cache verification */

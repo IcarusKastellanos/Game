@@ -157,7 +157,19 @@ class GameState {
 
   async loadContent(): Promise<void> {
     const res = await fetch('/api/content/all');
-    this.content = await res.json();
+    const raw = await res.text();
+    if (!res.ok) {
+      throw new Error(
+        `Content API failed (${res.status}). Is the game server running on port 2567? ${raw.slice(0, 180)}`
+      );
+    }
+    try {
+      this.content = JSON.parse(raw) as ClientContentBundle;
+    } catch {
+      throw new Error(
+        `Content API returned non-JSON (is the game server running on port 2567?). ${raw.slice(0, 180)}`
+      );
+    }
     if (this.content?.recognitionTiers) {
       setRecognitionContent(this.content.recognitionTiers);
     }

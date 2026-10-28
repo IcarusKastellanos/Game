@@ -415,21 +415,30 @@ export async function createPreviewInvite(
 }
 
 export async function mergePublishedMapsIntoRegistry(): Promise<number> {
-  await ensureBuiltinFurnitureDefinitions();
-  const published = await prisma.mapProject.findMany({ where: { status: 'published' } });
-  let count = 0;
-  for (const row of published) {
-    if (!row.currentVersionId) continue;
-    const version = await prisma.mapVersion.findUnique({ where: { id: row.currentVersionId } });
-    if (!version) continue;
-    const meta = rowToMeta(row);
-    const doc = version.document as unknown as MapBuilderDocument;
-    const runtime = await documentToRuntimeMapWithAssets(meta, doc);
-    contentRegistry.maps.set(runtime.id, runtime as never);
-    count++;
+  try {
+    await ensureBuiltinFurnitureDefinitions();
+    const published = await prisma.mapProject.findMany({ where: { status: 'published' } });
+    let count = 0;
+    for (const row of published) {
+      if (!row.currentVersionId) continue;
+      const version = await prisma.mapVersion.findUnique({ where: { id: row.currentVersionId } });
+      if (!version) continue;
+      const meta = rowToMeta(row);
+      const doc = version.document as unknown as MapBuilderDocument;
+      const runtime = await documentToRuntimeMapWithAssets(meta, doc);
+      contentRegistry.maps.set(runtime.id, runtime as never);
+      count++;
+    }
+    applyCanonicalWorldMapsToRegistry(contentRegistry);
+    return count;
+  } catch (err) {
+    console.warn(
+      '[MapBuilder] Published map merge failed; using JSON maps only:',
+      err instanceof Error ? err.message : err
+    );
+    applyCanonicalWorldMapsToRegistry(contentRegistry);
+    return 0;
   }
-  applyCanonicalWorldMapsToRegistry(contentRegistry);
-  return count;
 }
 
 export async function listTilesets(includeArchived = false) {

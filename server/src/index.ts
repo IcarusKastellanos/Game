@@ -17,22 +17,36 @@ import { disconnectDb } from './services/db.js';
 
 const PORT = Number(process.env.PORT ?? 2567);
 
+/** DB overlays are optional — JSON content must still boot without Postgres. */
+async function tryDbOverlay(label: string, fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    console.warn(`[server] ${label} skipped (DB unavailable or failed):`, err instanceof Error ? err.message : err);
+  }
+}
+
 async function main() {
   contentRegistry.load();
   loadChatFilter();
   loadManuscriptRegistry();
-  await mergeIngredientIconsFromDb();
-  await mergeNpcSpritesFromDb();
-  const mergedMaps = await contentRegistry.mergePublishedMaps();
-  if (mergedMaps > 0) {
-    console.log(`[ContentRegistry] Merged ${mergedMaps} published map(s) from database`);
-  }
-  const { ensureCanonicalMapProjects } = await import('./content/canonical-maps.js');
-  await ensureCanonicalMapProjects();
-
-  const { syncAdminRbacFromCatalog } = await import('./admin/rbac-sync.js');
-  await syncAdminRbacFromCatalog();
-  console.log('[Admin] RBAC permissions synced from catalog');
+  await tryDbOverlay('ingredient icon merge', () => mergeIngredientIconsFromDb());
+  await tryDbOverlay('NPC sprite merge', () => mergeNpcSpritesFromDb());
+  await tryDbOverlay('published map merge', async () => {
+    const mergedMaps = await contentRegistry.mergePublishedMaps();
+    if (mergedMaps > 0) {
+      console.log(`[ContentRegistry] Merged ${mergedMaps} published map(s) from database`);
+    }
+  });
+  await tryDbOverlay('canonical map projects', async () => {
+    const { ensureCanonicalMapProjects } = await import('./content/canonical-maps.js');
+    await ensureCanonicalMapProjects();
+  });
+  await tryDbOverlay('admin RBAC sync', async () => {
+    const { syncAdminRbacFromCatalog } = await import('./admin/rbac-sync.js');
+    await syncAdminRbacFromCatalog();
+    console.log('[Admin] RBAC permissions synced from catalog');
+  });
 
   const app = express();
   app.use(cors());
