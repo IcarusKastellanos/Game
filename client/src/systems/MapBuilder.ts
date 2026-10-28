@@ -143,10 +143,22 @@ function addInteractableSprite(
           : inter.type === 'cleanser'
             ? 'obj_cleanser'
           : inter.type === 'npc'
-            ? `npc_${npcId}`
+            ? scene.textures.exists(`${npcId}_walk`)
+              ? `${npcId}_walk`
+              : npcId
             : 'obj_shelf';
 
   const obj = scene.add.sprite(x, y, spriteKey).setData('interactable', inter);
+  if (inter.type === 'npc') {
+    obj.setOrigin(0.5, 0.85);
+    const idleKey = `${npcId}_idle_down`;
+    const walkDown = `${npcId}_walk_down`;
+    if (scene.anims.exists(idleKey)) obj.play(idleKey, true);
+    else if (scene.anims.exists(walkDown)) {
+      obj.anims.stop();
+      obj.setFrame(0);
+    }
+  }
   interactables.add(obj);
 
   if (inter.type === 'altar' || inter.type === 'shop' || inter.type === 'door' || inter.type === 'cleanser' || inter.type === 'bed') {

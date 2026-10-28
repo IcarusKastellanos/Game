@@ -318,8 +318,8 @@ export async function renderNpcEditor(
         <p class="muted-text">Stored on the social profile for this NPC. Affinity numbers stay hidden; these toggles only control visible signals.</p>
         <div id="npc-ui-feedback" class="form-grid"></div>
         <div id="npc-routine"></div>
-        <h3 class="section-head mt">Map sprite — paint here (16×16)</h3>
-        <p class="muted-text">This is the picture drawn on the town map. Paint the pixels in this panel, or drop an image onto it. Save NPC writes the painting with the character.</p>
+        <h3 class="section-head mt">Portrait (16×16)</h3>
+        <p class="muted-text">People / encounter portrait only. Overworld walk and idle use procedural 16×24 8-direction sheets (authored sheet overrides come later).</p>
         <div id="npc-sprite-drop"></div>
         ${spriteArtDivider('or paint pixels')}
         <div id="npc-sprite-editor"></div>

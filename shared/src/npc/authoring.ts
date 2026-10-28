@@ -51,7 +51,9 @@ export const NPC_CONFIG_SCHEMA = {
     locationId: 'home / resting place id from npc places',
     dialogueTreeId: 'dialogue document id',
     shopId: 'optional shop id for trade capability',
-    spritePixels: 'optional 16×16 painted portrait/overworld sprite',
+    spritePixels: 'optional 16×16 painted portrait (People UI); overworld uses walk/idle sheets',
+    visual: 'optional procedural palette/silhouette override',
+    spriteSheet: 'optional authored 16×24 walk/idle override (hybrid)',
   },
   schedule: {
     rows: 'hour windows with place, activity, interaction open|busy|away',

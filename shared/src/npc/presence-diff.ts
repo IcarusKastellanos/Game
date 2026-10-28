@@ -31,6 +31,7 @@ export function presenceKey(presence: NpcPublicPresence): string {
     presence.dialogueNodeId ?? '',
     presence.notice ?? '',
     presence.tile ? `${presence.tile.x},${presence.tile.y}` : '',
+    presence.facing ?? '',
   ].join('|');
 }
 
