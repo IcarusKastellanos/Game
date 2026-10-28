@@ -9,7 +9,7 @@ import {
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { getPublicIngredients, getIconManifest, mergeIngredientIconsFromDb, verifyIconHashes } from '../content/ingredient-icons.js';
-import { mergeNpcSpritesFromDb } from '../content/npc-sprites.js';
+import { mergeNpcSpritesFromDb, verifyNpcSpriteHashes } from '../content/npc-sprites.js';
 import { prisma } from '../services/db.js';
 import { getGrimoireEntries, grimoireEntryNames } from '../content/grimoire-entries.js';
 
@@ -45,6 +45,12 @@ contentRouter.get('/icons/manifest', (_req: Request, res: Response) => {
 contentRouter.post('/icons/verify', (req: Request, res: Response) => {
   const clientHashes = (req.body?.items ?? {}) as Record<string, string>;
   res.json(verifyIconHashes(clientHashes));
+});
+
+/** One-shot per login: NPC sprite hash verify (mirrors ingredient icons). */
+contentRouter.post('/npc-sprites/verify', (req: Request, res: Response) => {
+  const clientHashes = (req.body?.items ?? {}) as Record<string, string>;
+  res.json(verifyNpcSpriteHashes(clientHashes));
 });
 
 contentRouter.get('/maps/:sceneId', (req: Request, res: Response) => {

@@ -60,7 +60,7 @@ export const NPC_STATE_OWNERSHIP: readonly NpcOwnershipRow[] = [
     scope: 'world_shared',
     persistence: 'world_file',
     replication: 'never',
-    notes: 'Shared knowledge store; personal copies still player_private.',
+    notes: 'Dual-written to data/shared-knowledge.json and WorldDocument (Postgres); personal copies stay player_private.',
   },
   {
     field: 'conversationLocks / in-flight social ops',

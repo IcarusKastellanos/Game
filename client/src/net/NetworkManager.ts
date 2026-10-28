@@ -3,7 +3,7 @@ import * as Colyseus from 'colyseus.js';
 import { applyShopStock, gameState, type NearbyPlayer } from '../data/game-state';
 import { triggerScreenDistortion } from '../ui/screen-distortion';
 import type { ContentMapDefinition, NpcPublicPresence, WardState, PlayerProgression } from '@witchcraft/shared';
-import { migrateInventoryToGrid, shouldApplySeq } from '@witchcraft/shared';
+import { applyNpcPresenceDiff, migrateInventoryToGrid, shouldApplySeq } from '@witchcraft/shared';
 import { connectionMonitor } from './ConnectionMonitor';
 import { apartmentInvitePanel } from '../ui/ApartmentInvitePanel';
 
@@ -748,13 +748,21 @@ class NetworkManager {
       hour: number;
       hiddenNpcIds?: string[];
       npcPresences?: NpcPublicPresence[];
+      mode?: 'full' | 'diff';
+      changedNpcIds?: string[];
+      removedNpcIds?: string[];
       seq?: number;
     }) => {
       if (!shouldApplySeq(gameState.worldStateSeq, data.seq)) return;
       if (typeof data.seq === 'number') gameState.worldStateSeq = data.seq;
       gameState.worldHour = data.hour;
       gameState.hiddenNpcIds = data.hiddenNpcIds ?? [];
-      gameState.npcPresences = data.npcPresences ?? [];
+      gameState.npcPresences = applyNpcPresenceDiff(gameState.npcPresences, {
+        mode: data.mode === 'diff' ? 'diff' : 'full',
+        changedNpcIds: data.changedNpcIds ?? [],
+        removedNpcIds: data.removedNpcIds ?? [],
+        npcPresences: data.npcPresences ?? [],
+      });
       window.dispatchEvent(new CustomEvent('game:world-state', { detail: data }));
     });
 

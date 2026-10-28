@@ -3,6 +3,7 @@ import { renderSpellList, renderSpellEditor } from './editors/spell-editor.js';
 import { renderRecipeManager } from './editors/recipe-editor.js';
 import { renderItemList, renderItemEditor } from './editors/item-editor.js';
 import { renderNpcList, renderNpcEditor } from './editors/npc-editor.js';
+import { renderNpcInsights } from './editors/npc-insights.js';
 import { renderQuestEditor } from './editors/quest-editor.js';
 import { renderWardManager, renderEventManager } from './editors/ward-event-manager.js';
 import { renderMapBuilder } from './map-builder/index.js';
@@ -12,7 +13,7 @@ import { renderLicenseEditor } from './editors/license-editor.js';
 import { renderModerator } from './editors/moderator.js';
 import { renderGrimoireEditor } from './editors/grimoire-editor.js';
 
-type Page = 'dashboard' | 'players' | 'moderator' | 'spells' | 'grimoire' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'quests' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
+type Page = 'dashboard' | 'players' | 'moderator' | 'spells' | 'grimoire' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'npc-insights' | 'quests' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
 
 const NAV: { id: Page; label: string; perm?: string | string[]; group: string }[] = [
   { id: 'dashboard', label: 'Dashboard', perm: 'dashboard.view', group: 'Overview' },
@@ -30,6 +31,7 @@ const NAV: { id: Page; label: string; perm?: string | string[]; group: string }[
   { id: 'recipes', label: 'Recipe Manager', perm: 'content.item.view', group: 'Content' },
   { id: 'items', label: 'Item Editor', perm: 'content.item.view', group: 'Content' },
   { id: 'npcs', label: 'NPC Builder', perm: 'content.npc.view', group: 'World' },
+  { id: 'npc-insights', label: 'NPC Insights', perm: 'content.npc.view', group: 'World' },
   { id: 'quests', label: 'Quest Editor', perm: 'content.quest.edit', group: 'World' },
   { id: 'maps', label: 'Map Builder', perm: 'content.map.view', group: 'World' },
   { id: 'hud', label: 'Player HUD', perm: 'content.hud.view', group: 'World' },
@@ -162,6 +164,8 @@ async function loadPage(): Promise<void> {
     case 'npcs':
       if (editNpcId) return renderNpcEditor(el, editNpcId, () => { editNpcId = null; void loadPage(); });
       return renderNpcList(el, (id) => { editNpcId = id; void loadPage(); });
+    case 'npc-insights':
+      return renderNpcInsights(el);
     case 'quests':
       return renderQuestEditor(el);
     case 'maps':

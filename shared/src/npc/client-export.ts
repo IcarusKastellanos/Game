@@ -24,9 +24,11 @@ export type ClientNpc = Pick<
 > & {
   /** Public resting place only — not the full authored routine. */
   schedule?: { locationId: string; activity?: string; interaction?: string }[];
+  /** Sprite content hash for verify/cache (mirrors ingredient icons). */
+  spriteHash?: string;
 };
 
-export function toClientNpc(npc: ContentNpc): ClientNpc {
+export function toClientNpc(npc: ContentNpc, opts?: { omitSpritePixels?: boolean }): ClientNpc {
   const schedule = (npc.schedule ?? [])
     .filter((row) => row.interaction !== 'away')
     .slice(0, 6)
@@ -35,6 +37,10 @@ export function toClientNpc(npc: ContentNpc): ClientNpc {
       ...(row.activity ? { activity: row.activity } : {}),
       ...(row.interaction ? { interaction: row.interaction } : {}),
     }));
+  const spriteHash =
+    npc.spritePixels?.length === 256
+      ? hashSpritePixels(npc.spritePixels)
+      : `gen:${npc.id}`;
   return {
     id: npc.id,
     name: npc.name,
@@ -44,15 +50,29 @@ export function toClientNpc(npc: ContentNpc): ClientNpc {
     ...(npc.shopId ? { shopId: npc.shopId } : {}),
     ...(npc.faction ? { faction: npc.faction } : {}),
     ...(npc.biography ? { biography: npc.biography } : {}),
-    ...(npc.spritePixels?.length === 256 ? { spritePixels: npc.spritePixels } : {}),
+    ...(!opts?.omitSpritePixels && npc.spritePixels?.length === 256
+      ? { spritePixels: npc.spritePixels }
+      : {}),
+    spriteHash,
     ...(npc.capabilities?.length ? { capabilities: npc.capabilities } : {}),
     ...(npc.conversationPolicy ? { conversationPolicy: npc.conversationPolicy } : {}),
     ...(schedule.length ? { schedule } : {}),
   };
 }
 
-export function toClientNpcs(npcs: Iterable<ContentNpc>): ClientNpc[] {
-  return [...npcs].map(toClientNpc);
+function hashSpritePixels(pixels: string[]): string {
+  let h = 2166136261;
+  for (const px of pixels) {
+    for (let i = 0; i < px.length; i++) {
+      h ^= px.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+  }
+  return (h >>> 0).toString(36);
+}
+
+export function toClientNpcs(npcs: Iterable<ContentNpc>, opts?: { omitSpritePixels?: boolean }): ClientNpc[] {
+  return [...npcs].map((npc) => toClientNpc(npc, opts));
 }
 
 /** Fields that must never appear on client NPC exports. */
