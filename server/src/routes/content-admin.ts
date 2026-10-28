@@ -18,8 +18,10 @@ export const contentRouter = Router();
 /** Public content API for client bootstrap — NPCs are stripped of server-only fields. */
 contentRouter.get('/all', (_req: Request, res: Response) => {
   try {
+    const iconManifest = getIconManifest();
     res.json({
       ingredients: getPublicIngredients(),
+      iconRevision: iconManifest.revision,
       spells: [...contentRegistry.spells.values()],
       familiars: [...contentRegistry.familiars.values()],
       shops: [...contentRegistry.shops.values()],

@@ -1,17 +1,19 @@
-/** Persistent local item icon assets + one verify sync per login session */
+/**
+ * Local item-icon cache. Server `/api/content/all` (admin → DB → registry) is authoritative;
+ * this store only speeds redraws and must never override fresher server pixels.
+ */
 
 import {
   ICON_PIXEL_COUNT,
   ICON_PIXEL_SIZE,
+  computeIconManifestRevision,
   getIngredientIconHash,
   hashIconPixels,
   resolveItemIconPixels,
-  type ContentIngredient,
 } from '@witchcraft/shared';
 
-/** Bump when shipped icon contracts change so stale local caches re-verify. */
-const ASSET_STORE_KEY = 'witchcraft_icon_assets_v3';
-const SESSION_VERIFY_KEY = 'witchcraft_icons_verified_v3';
+/** Bump when authority rules change so old local overrides are discarded. */
+const ASSET_STORE_KEY = 'witchcraft_icon_assets_v4';
 
 const ICON_SIZE = ICON_PIXEL_SIZE;
 const PIXEL_ART_SIZE = ICON_PIXEL_SIZE;
@@ -92,87 +94,31 @@ export function cacheIconLocally(
   return store.items[itemId]!.dataUrl;
 }
 
-/** Apply server updates to local store and game content ingredients */
-export function applyIconUpdatesToContent(
-  ingredients: { id: string; category: string; name: string; iconPixels?: string[] }[],
-  updates: Record<string, { hash: string; iconPixels: string[] }>,
-  revision: string
-): void {
-  const store = loadStore();
-  store.revision = revision;
-
-  for (const [itemId, payload] of Object.entries(updates)) {
-    storeAsset(store, itemId, payload.iconPixels, payload.hash);
-    const ing = ingredients.find((i) => i.id === itemId);
-    if (ing) ing.iconPixels = payload.iconPixels;
-  }
-
-  for (const ing of ingredients) {
-    const hash = getIngredientIconHash(ing);
-    if (store.items[ing.id]?.hash === hash) {
-      ing.iconPixels = store.items[ing.id].iconPixels;
-      continue;
-    }
-    const pixels = resolveItemIconPixels(ing);
-    if (!store.items[ing.id] || store.items[ing.id].hash !== hash) {
-      storeAsset(store, ing.id, pixels, hash);
-    }
-    ing.iconPixels = pixels;
-  }
-
-  saveStore(store);
-}
-
-/** One POST per browser session after login — sync stale icons from server */
+/**
+ * Adopt icons from the live content bundle (admin saves → DB → /api/content/all).
+ * Always trusts the server payload; refreshes the local cache to match.
+ */
 export async function verifyItemIconsOncePerLogin(
   ingredients: { id: string; category: string; name: string; iconPixels?: string[] }[]
 ): Promise<void> {
-  if (sessionStorage.getItem(SESSION_VERIFY_KEY) === '1') {
-    applyLocalAssetsToIngredients(ingredients);
-    return;
-  }
-
   const store = loadStore();
-  const clientHashes: Record<string, string> = {};
+  const hashes: Record<string, string> = {};
+
   for (const ing of ingredients) {
-    const local = store.items[ing.id];
-    clientHashes[ing.id] = local?.hash ?? getIngredientIconHash(ing);
-  }
-
-  try {
-    const res = await fetch('/api/content/icons/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: clientHashes }),
-    });
-    if (!res.ok) throw new Error(`verify failed ${res.status}`);
-    const data = (await res.json()) as {
-      revision: string;
-      updates: Record<string, { hash: string; iconPixels: string[] }>;
-    };
-    applyIconUpdatesToContent(ingredients, data.updates ?? {}, data.revision ?? '');
-  } catch (err) {
-    console.warn('[ItemIconAssetStore] verify failed, using local/cache fallback:', err);
-    applyLocalAssetsToIngredients(ingredients);
-  }
-
-  sessionStorage.setItem(SESSION_VERIFY_KEY, '1');
-}
-
-function applyLocalAssetsToIngredients(
-  ingredients: { id: string; category: string; name: string; iconPixels?: string[] }[]
-): void {
-  const store = loadStore();
-  for (const ing of ingredients) {
+    const pixels = resolveItemIconPixels(ing);
+    ing.iconPixels = pixels;
+    const hash = getIngredientIconHash({ ...ing, iconPixels: pixels });
+    hashes[ing.id] = hash;
     const cached = store.items[ing.id];
-    if (cached?.iconPixels?.length === ICON_PIXEL_COUNT) {
-      ing.iconPixels = cached.iconPixels;
-    } else if (!ing.iconPixels?.length) {
-      ing.iconPixels = resolveItemIconPixels(ing);
+    if (!cached || cached.hash !== hash || cached.iconPixels?.length !== ICON_PIXEL_COUNT) {
+      storeAsset(store, ing.id, pixels, hash);
     }
   }
+
+  store.revision = computeIconManifestRevision(hashes);
+  saveStore(store);
 }
 
 export function clearIconVerifySession(): void {
-  sessionStorage.removeItem(SESSION_VERIFY_KEY);
+  /* no session gate — server icons win on every content load */
 }
