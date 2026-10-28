@@ -30,8 +30,20 @@ export interface NpcWorldPayload {
 /** Last public observation. A restart clears it, so the next resolve snaps. */
 const observed = new Map<string, NpcPublicPresence>();
 
-export function currentNpcWorld(nowMs = Date.now()): NpcWorldPayload {
+/** Short-lived world cache so interact checks do not re-resolve every NPC. */
+const WORLD_CACHE_MS = 200;
+let worldCache: { hour: number; atMs: number; payload: NpcWorldPayload } | null = null;
+
+export function currentNpcWorld(nowMs = Date.now(), opts?: { fresh?: boolean }): NpcWorldPayload {
   const hour = getWorldHour();
+  if (
+    !opts?.fresh &&
+    worldCache &&
+    worldCache.hour === hour &&
+    nowMs - worldCache.atMs <= WORLD_CACHE_MS
+  ) {
+    return worldCache.payload;
+  }
   const weekday = getWorldWeekday();
   const places = [...contentRegistry.npcPlaces.values()];
   const maps = [...contentRegistry.maps.values()];
@@ -59,13 +71,15 @@ export function currentNpcWorld(nowMs = Date.now()): NpcWorldPayload {
     if (!seen.has(npcId)) observed.delete(npcId);
   }
   presences.sort((a, b) => a.npcId.localeCompare(b.npcId));
-  return {
+  const payload: NpcWorldPayload = {
     hour,
     weekday,
     hourLabel: formatHour(hour),
     hiddenNpcIds: hiddenNpcPostIds(presences, npcPosts(maps)),
     npcPresences: presences,
   };
+  worldCache = { hour, atMs: nowMs, payload };
+  return payload;
 }
 
 export function npcPresence(npcId: string, nowMs = Date.now()): NpcPublicPresence | undefined {
@@ -74,6 +88,11 @@ export function npcPresence(npcId: string, nowMs = Date.now()): NpcPublicPresenc
 
 export function getUnavailableNpcInteractableIds(): string[] {
   return currentNpcWorld().hiddenNpcIds;
+}
+
+/** Invalidate cache after content reload or schedule overrides. */
+export function invalidateNpcWorldCache(): void {
+  worldCache = null;
 }
 
 export function npcWorldSignature(payload: NpcWorldPayload): string {

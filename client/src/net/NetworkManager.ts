@@ -520,9 +520,12 @@ class NetworkManager {
 
 
     this.room.onMessage('open_ui', (data: Record<string, unknown>) => {
-
+      const ui = data.ui;
+      const isNpcUi = ui === 'npc_actions' || ui === 'npc_gift' || ui === 'dialogue';
+      if (isNpcUi && typeof data.seq === 'number') {
+        if (!shouldApplySeq(gameState.progressionSeq, data.seq)) return;
+      }
       window.dispatchEvent(new CustomEvent('game:open-ui', { detail: data }));
-
     });
 
     this.room.onMessage('hexagram_result', (data: Record<string, unknown>) => {

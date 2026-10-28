@@ -105,7 +105,7 @@ export const ADMIN_ROLES = {
     permissions: [
       'dashboard.view', 'content.spell.view', 'content.spell.edit',
       'content.item.view', 'content.item.edit', 'content.npc.view', 'content.npc.edit',
-      'content.quest.edit', 'audit.view',
+      'content.quest.edit', 'system.reload', 'system.debug', 'audit.view',
     ] as PermissionSlug[],
   },
   world_builder: {
@@ -132,7 +132,8 @@ export const ADMIN_ROLES = {
     description: 'View-only access',
     permissions: [
       'dashboard.view', 'player.view', 'audit.view', 'audit.export',
-      'content.spell.view', 'content.item.view', 'ward.view', 'aura.view',
+      'content.spell.view', 'content.item.view', 'content.npc.view',
+      'ward.view', 'aura.view',
     ] as PermissionSlug[],
   },
 } as const;

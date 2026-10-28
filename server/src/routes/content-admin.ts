@@ -1,7 +1,12 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { getLicensesDocument, getRecognitionDocument, toClientNpcs } from '@witchcraft/shared';
+import {
+  getLicensesDocument,
+  getRecognitionDocument,
+  toClientDialogues,
+  toClientNpcs,
+} from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { getPublicIngredients, getIconManifest, mergeIngredientIconsFromDb, verifyIconHashes } from '../content/ingredient-icons.js';
 import { mergeNpcSpritesFromDb } from '../content/npc-sprites.js';
@@ -21,7 +26,8 @@ contentRouter.get('/all', (_req: Request, res: Response) => {
     tiles: [...contentRegistry.tiles.values()],
     decorations: [...contentRegistry.decorations.values()],
     maps: [...contentRegistry.maps.values()],
-    dialogues: [...contentRegistry.dialogues.values()],
+    /** Client dialogue trees strip spoilers; live choices come from the server. */
+    dialogues: toClientDialogues(contentRegistry.dialogues.values()),
     recognitionTiers: getRecognitionDocument(),
     licenses: getLicensesDocument(),
     spirits: [...contentRegistry.spirits.values()],

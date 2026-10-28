@@ -1,6 +1,7 @@
 /** Strip server-only NPC fields before any client-facing content payload. */
 
 import type { ContentNpc } from '../types/index.js';
+import type { DialogueChoice, DialogueTree } from '../dialogue/index.js';
 
 /**
  * Public NPC shape the game client may cache.
@@ -64,3 +65,41 @@ export const CLIENT_NPC_FORBIDDEN_KEYS = [
   'data',
   'revision',
 ] as const;
+
+/** Choice fields that spoil rewards / private gates when shipped wholesale. */
+export const CLIENT_DIALOGUE_CHOICE_FORBIDDEN_KEYS = [
+  'grantItem',
+  'actions',
+  'relationshipDelta',
+  'statBoost',
+  'socialEvent',
+  'requiresBond',
+  'requiresRecognition',
+] as const;
+
+/**
+ * Dialogue trees for client bootstrap — keep structure/text for offline cache,
+ * strip reward and private gate payloads (server publishes live choices).
+ */
+export function toClientDialogue(tree: DialogueTree): DialogueTree {
+  return {
+    ...tree,
+    nodes: tree.nodes.map((node) => ({
+      ...node,
+      choices: (node.choices ?? []).map((choice) => toClientDialogueChoice(choice)),
+    })),
+  };
+}
+
+export function toClientDialogues(trees: Iterable<DialogueTree>): DialogueTree[] {
+  return [...trees].map(toClientDialogue);
+}
+
+function toClientDialogueChoice(choice: DialogueChoice): DialogueChoice {
+  const next: DialogueChoice = {
+    id: choice.id,
+    label: choice.label,
+    next: choice.next,
+  };
+  return next;
+}

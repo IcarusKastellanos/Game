@@ -1,12 +1,15 @@
 /**
  * NPC / progression sync helpers.
  *
- * Ownership:
+ * See `NPC_STATE_OWNERSHIP` in ownership.ts for the full field matrix.
+ *
+ * Ownership (summary):
  * - World presence (`world_state`): server world clock + schedule resolver. Shared by all players
  *   in the room. Never includes bonds, gifts, or discoveries.
  * - Player progression (`progression_update`): per-player. Includes social bonds, discoveries,
  *   dialogue state, quest progress, grimoire People. Private to that session.
  * - Encounter open_ui: ephemeral, per-player, rebuilt from authoritative progression each open.
+ *   Carry progression `seq` so stale panels cannot overwrite newer ones.
  *
  * Lifecycle:
  * - Persistent: bonds, discoveries, dialogue unlocks, gift/action cooldowns, quest associations,
@@ -15,7 +18,8 @@
  * - Derived: encounter options, People dossier patches, demeanor signals.
  *
  * Recovery: on reconnect / presence_ready the server re-sends world_state + progression_update
- * with monotonically increasing sequence numbers. Clients ignore older sequences.
+ * with monotonically increasing sequence numbers. Clients ignore older sequences and reset
+ * cursors on player_loaded.
  */
 
 export interface SequencedPayload {
