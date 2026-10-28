@@ -3,7 +3,7 @@
 import { isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
 import { mountPixelColorTools } from './pixel-color-tools.js';
 
-const TILE_PX = 16;
+const TILE_PX = 32;
 const DEFAULT_BG = MAP_TRANSPARENT_PIXEL;
 
 const PALETTE = [

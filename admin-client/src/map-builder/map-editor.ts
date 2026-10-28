@@ -499,14 +499,14 @@ export async function renderMapEditor(
     box.innerHTML = tiles.map((t) => {
       const globalIdx = tileIndexFromSpriteKey(t.spriteKey);
       return `<button type="button" class="mb-tile-swatch ${st.brushTile === globalIdx ? 'active' : ''}" data-tile="${globalIdx}" title="${esc(t.name)}">
-        <canvas width="16" height="16" data-sprite="${t.spriteKey}"></canvas>
+        <canvas width="32" height="32" data-sprite="${t.spriteKey}"></canvas>
         <span>${esc(t.name)}</span>
       </button>`;
     }).join('');
     box.querySelectorAll('canvas[data-sprite]').forEach((c) => {
       const spriteKey = (c as HTMLCanvasElement).dataset.sprite!;
       const ctx = (c as HTMLCanvasElement).getContext('2d')!;
-      drawTileSprite(ctx, spriteKey, 0, 0, 16);
+      drawTileSprite(ctx, spriteKey, 0, 0, 32);
     });
     box.querySelectorAll('.mb-tile-swatch').forEach((sw) => {
       sw.addEventListener('click', () => {

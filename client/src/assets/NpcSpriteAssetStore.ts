@@ -1,12 +1,13 @@
 /** Persistent local NPC sprite assets + one verify sync per login session */
 
 import {
+  NPC_PORTRAIT_PIXEL_COUNT,
   hashIconPixels,
   normalizeNpcAuthoredSpriteSheet,
   type NpcAuthoredSpriteSheet,
 } from '@witchcraft/shared';
 
-const ASSET_STORE_KEY = 'witchcraft_npc_sprites_v2';
+const ASSET_STORE_KEY = 'witchcraft_npc_sprites_v3';
 const SESSION_VERIFY_KEY = 'witchcraft_npc_sprites_verified';
 
 interface StoredSpriteAsset {
@@ -52,7 +53,7 @@ export async function verifyNpcSpritesOncePerLogin(npcs: ClientNpcLike[]): Promi
     clientHashes[npc.id] =
       local?.hash ??
       npc.spriteHash ??
-      (npc.spritePixels?.length === 256 ? hashIconPixels(npc.spritePixels) : `gen:${npc.id}`);
+      (npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT ? hashIconPixels(npc.spritePixels) : `gen:${npc.id}`);
   }
 
   try {
@@ -74,12 +75,12 @@ export async function verifyNpcSpritesOncePerLogin(npcs: ClientNpcLike[]): Promi
       const sheet = normalizeNpcAuthoredSpriteSheet(payload.spriteSheet);
       store.items[npcId] = {
         hash: payload.hash,
-        ...(payload.spritePixels?.length === 256 ? { spritePixels: payload.spritePixels } : {}),
+        ...(payload.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT ? { spritePixels: payload.spritePixels } : {}),
         ...(sheet ? { spriteSheet: sheet } : {}),
       };
       const npc = npcs.find((row) => row.id === npcId);
       if (npc) {
-        if (payload.spritePixels?.length === 256) npc.spritePixels = payload.spritePixels;
+        if (payload.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT) npc.spritePixels = payload.spritePixels;
         if (sheet) npc.spriteSheet = sheet;
         npc.spriteHash = payload.hash;
       }
@@ -101,7 +102,7 @@ function applyLocalAssets(npcs: ClientNpcLike[]): void {
     if (cached) {
       const sheet = normalizeNpcAuthoredSpriteSheet(cached.spriteSheet);
       if (
-        cached.spritePixels?.length === 256 &&
+        cached.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT &&
         (!npc.spriteHash || cached.hash === npc.spriteHash || !npc.spritePixels?.length)
       ) {
         npc.spritePixels = cached.spritePixels;
@@ -110,10 +111,10 @@ function applyLocalAssets(npcs: ClientNpcLike[]): void {
         npc.spriteSheet = sheet;
       }
       if (cached.hash) npc.spriteHash = cached.hash;
-    } else if (npc.spritePixels?.length === 256 || normalizeNpcAuthoredSpriteSheet(npc.spriteSheet)) {
+    } else if (npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT || normalizeNpcAuthoredSpriteSheet(npc.spriteSheet)) {
       store.items[npc.id] = {
         hash: npc.spriteHash ?? hashIconPixels(npc.spritePixels),
-        ...(npc.spritePixels?.length === 256 ? { spritePixels: npc.spritePixels } : {}),
+        ...(npc.spritePixels?.length === NPC_PORTRAIT_PIXEL_COUNT ? { spritePixels: npc.spritePixels } : {}),
         ...(normalizeNpcAuthoredSpriteSheet(npc.spriteSheet)
           ? { spriteSheet: normalizeNpcAuthoredSpriteSheet(npc.spriteSheet) }
           : {}),

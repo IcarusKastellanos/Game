@@ -18,7 +18,7 @@ import {
   type NpcAuthoredSpriteSheet,
 } from '@witchcraft/shared';
 
-const NPC_SPRITE_PX = 16;
+const NPC_SPRITE_PX = 32;
 
 type ScheduleInteraction = 'open' | 'busy' | 'away';
 
@@ -331,14 +331,14 @@ export async function renderNpcEditor(
         <p class="muted-text">Stored on the social profile for this NPC. Affinity numbers stay hidden; these toggles only control visible signals.</p>
         <div id="npc-ui-feedback" class="form-grid"></div>
         <div id="npc-routine"></div>
-        <h3 class="section-head mt">Portrait (16×16)</h3>
-        <p class="muted-text">People / encounter portrait only. Overworld uses 16×24 walk/idle sheets (procedural by default, authored override below).</p>
+        <h3 class="section-head mt">Portrait (32×32)</h3>
+        <p class="muted-text">People / encounter portrait only. Overworld uses 32×48 walk/idle sheets (procedural by default, authored override below).</p>
         <div id="npc-sprite-drop"></div>
         ${spriteArtDivider('or paint pixels')}
         <div id="npc-sprite-editor"></div>
         <img id="npc-sprite-preview" class="icon-preview-img mt" alt="NPC portrait preview" width="64" height="64" />
         <h3 class="section-head mt">Overworld sheets (authored override)</h3>
-        <p class="muted-text">Optional. Same contract as the player: 16×24 frames, 8 direction rows (down → down-left). Walk atlas ${NPC_WALK_SHEET_W}×${NPC_WALK_SHEET_H} (4 frames/dir). Idle atlas ${NPC_IDLE_SHEET_W}×${NPC_IDLE_SHEET_H} (2 frames/dir). Leave empty to keep procedural art.</p>
+        <p class="muted-text">Optional. Same contract as the player: 32×48 frames, 8 direction rows (down → down-left). Walk atlas ${NPC_WALK_SHEET_W}×${NPC_WALK_SHEET_H} (4 frames/dir). Idle atlas ${NPC_IDLE_SHEET_W}×${NPC_IDLE_SHEET_H} (2 frames/dir). Leave empty to keep procedural art.</p>
         <div class="form-grid">
           <div>
             <label class="field-label">Walk sheet PNG</label>
@@ -873,8 +873,8 @@ export async function renderNpcEditor(
         spritePixels: npcSpritePixels.length === NPC_SPRITE_PX * NPC_SPRITE_PX ? npcSpritePixels : undefined,
         spriteSheet:
           normalizeNpcAuthoredSpriteSheet({
-            frameW: 16,
-            frameH: 24,
+            frameW: 32,
+            frameH: 48,
             walkFrames: NPC_WALK_FRAMES_PER_DIR,
             idleFrames: NPC_IDLE_FRAMES_PER_DIR,
             ...(walkSheetPixels.length === NPC_WALK_SHEET_W * NPC_WALK_SHEET_H

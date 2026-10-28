@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ICON_PIXEL_COUNT } from '@witchcraft/shared';
 import { prisma } from '../services/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -21,7 +22,7 @@ async function syncContent() {
       select: { data: true },
     });
     const stored = (existing?.data ?? {}) as { iconPixels?: string[] | null };
-    const keptPixels = stored.iconPixels?.length === 256 ? stored.iconPixels : (iconPixels ?? null);
+    const keptPixels = stored.iconPixels?.length === ICON_PIXEL_COUNT ? stored.iconPixels : (iconPixels ?? null);
     await prisma.contentIngredient.upsert({
       where: { id: ing.id as string },
       create: {

@@ -51,9 +51,12 @@ export interface NpcVisualProfile {
   idleStyle?: 'breathe' | 'shift' | 'fidget';
 }
 
-/** Shared frame contract for procedural + authored overworld sheets. */
-export const NPC_SHEET_FRAME_W = 16;
-export const NPC_SHEET_FRAME_H = 24;
+/** Shared frame contract for procedural + authored overworld sheets (32×48 on 32px tiles). */
+export const NPC_SHEET_FRAME_W = 32;
+export const NPC_SHEET_FRAME_H = 48;
+/** Overworld/portrait bust size (matches TILE_SIZE). */
+export const NPC_PORTRAIT_SIZE = 32;
+export const NPC_PORTRAIT_PIXEL_COUNT = NPC_PORTRAIT_SIZE * NPC_PORTRAIT_SIZE;
 export const NPC_WALK_FRAMES_PER_DIR = 4;
 export const NPC_IDLE_FRAMES_PER_DIR = 2;
 export const NPC_WALK_SHEET_COLS = NPC_WALK_FRAMES_PER_DIR;
@@ -68,8 +71,8 @@ export const NPC_IDLE_PIXEL_COUNT = NPC_IDLE_SHEET_W * NPC_IDLE_SHEET_H;
 
 /** Optional authored override — same grid as procedural sheets. */
 export interface NpcAuthoredSpriteSheet {
-  frameW: 16;
-  frameH: 24;
+  frameW: 32;
+  frameH: 48;
   walkFrames: number;
   idleFrames: number;
   /** Flattened CSS colors for the walk atlas (cols×rows frames). */
@@ -121,8 +124,8 @@ export function normalizeNpcAuthoredSpriteSheet(
     typeof raw.idleFrames === 'number' && Number.isFinite(raw.idleFrames)
       ? Math.max(1, Math.round(raw.idleFrames))
       : NPC_IDLE_FRAMES_PER_DIR;
-  const frameW = raw.frameW === 16 || raw.frameW == null ? 16 : null;
-  const frameH = raw.frameH === 24 || raw.frameH == null ? 24 : null;
+  const frameW = raw.frameW === 32 || raw.frameW === 16 || raw.frameW == null ? 32 : null;
+  const frameH = raw.frameH === 48 || raw.frameH === 24 || raw.frameH == null ? 48 : null;
   if (frameW == null || frameH == null) return undefined;
 
   const walkPixels = Array.isArray(raw.walkPixels)
@@ -137,8 +140,8 @@ export function normalizeNpcAuthoredSpriteSheet(
   if (!walkOk && !idleOk) return undefined;
 
   return {
-    frameW: 16,
-    frameH: 24,
+    frameW: 32,
+    frameH: 48,
     walkFrames,
     idleFrames,
     ...(walkOk ? { walkPixels } : {}),

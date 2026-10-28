@@ -77,8 +77,8 @@ test('normalizeNpcAuthoredSpriteSheet accepts walk-only and idle-only planes', (
   const walk = Array.from({ length: NPC_WALK_PIXEL_COUNT }, () => '#ff00aa');
   const idle = Array.from({ length: NPC_IDLE_PIXEL_COUNT }, () => '#00ffaa');
   const walkOnly = normalizeNpcAuthoredSpriteSheet({
-    frameW: 16,
-    frameH: 24,
+    frameW: 32,
+    frameH: 48,
     walkFrames: 4,
     idleFrames: 2,
     walkPixels: walk,
@@ -87,8 +87,8 @@ test('normalizeNpcAuthoredSpriteSheet accepts walk-only and idle-only planes', (
   assert.equal(walkOnly?.idlePixels, undefined);
 
   const idleOnly = normalizeNpcAuthoredSpriteSheet({
-    frameW: 16,
-    frameH: 24,
+    frameW: 32,
+    frameH: 48,
     walkFrames: 4,
     idleFrames: 2,
     idlePixels: idle,
@@ -103,15 +103,15 @@ test('authored sheet hash changes when pixels change', () => {
   const walkA = Array.from({ length: NPC_WALK_PIXEL_COUNT }, () => '#111111');
   const walkB = Array.from({ length: NPC_WALK_PIXEL_COUNT }, () => '#222222');
   const a = hashNpcAuthoredSpriteSheet({
-    frameW: 16,
-    frameH: 24,
+    frameW: 32,
+    frameH: 48,
     walkFrames: 4,
     idleFrames: 2,
     walkPixels: walkA,
   });
   const b = hashNpcAuthoredSpriteSheet({
-    frameW: 16,
-    frameH: 24,
+    frameW: 32,
+    frameH: 48,
     walkFrames: 4,
     idleFrames: 2,
     walkPixels: walkB,
@@ -120,7 +120,7 @@ test('authored sheet hash changes when pixels change', () => {
   assert.ok(b);
   assert.notEqual(a, b);
   assert.match(
-    npcVisualContentHash({ id: 'npc_mara', spriteSheet: { frameW: 16, frameH: 24, walkFrames: 4, idleFrames: 2, walkPixels: walkA } }),
+    npcVisualContentHash({ id: 'npc_mara', spriteSheet: { frameW: 32, frameH: 48, walkFrames: 4, idleFrames: 2, walkPixels: walkA } }),
     /\|/
   );
 });

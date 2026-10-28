@@ -6,7 +6,7 @@ import {
 import { slugifyId } from '../helpers/spell-content.js';
 import { categoryFillColor, mountPixelIconEditor, pixelsToDataUrl } from '../components/pixel-icon-editor.js';
 import { mountImageDropImport, spriteArtDivider } from '../components/image-import.js';
-import { generateItemIconPixels, resolveItemIconPixels } from '@witchcraft/shared';
+import { ICON_PIXEL_COUNT, generateItemIconPixels, resolveItemIconPixels } from '@witchcraft/shared';
 
 type ItemRecord = Record<string, unknown>;
 
@@ -93,7 +93,7 @@ export async function renderItemEditor(
         </div>
       </div>
       <div class="card editor-preview">
-        <h2>16-bit Icon</h2>
+        <h2>32×32 Icon</h2>
         <p class="muted-text">Drop an image to import, or paint pixels in the editor below.</p>
         <div id="it-icon-drop"></div>
         ${spriteArtDivider('or paint pixels')}
@@ -119,8 +119,8 @@ export async function renderItemEditor(
 
   mountImageDropImport(document.getElementById('it-icon-drop')!, {
     idPrefix: 'it-icon',
-    widthPx: () => 16,
-    heightPx: () => 16,
+    widthPx: () => 32,
+    heightPx: () => 32,
     onImport: (px) => {
       iconEditor.setPixels(px);
       updateIconPreview();
@@ -136,7 +136,7 @@ export async function renderItemEditor(
   document.getElementById('it-icon-editor')!.addEventListener('pixel-fill-category', () => {
     const cat = (document.getElementById('it-category') as HTMLSelectElement).value;
     const color = categoryFillColor(cat);
-    iconEditor.setPixels(Array(256).fill(color));
+    iconEditor.setPixels(Array(ICON_PIXEL_COUNT).fill(color));
     updateIconPreview();
     refreshPreview();
   });

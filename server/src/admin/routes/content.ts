@@ -5,7 +5,7 @@ import { adminAuthMiddleware, requirePerm, auditContext, type AdminRequest } fro
 import { writeAuditLog } from '../audit.js';
 import { param } from '../util.js';
 import type { ContentIngredient, ContentNpc } from '@witchcraft/shared';
-import { hashIconPixels } from '@witchcraft/shared';
+import { ICON_PIXEL_COUNT, hashIconPixels } from '@witchcraft/shared';
 import { craftingSystem } from '../../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../../systems/hexagram-enchant-system.js';
 import { questSystem } from '../../systems/quest-system.js';
@@ -72,15 +72,15 @@ function respondContentSaveError(res: import('express').Response, error: unknown
 }
 
 function hydrateItemIcon(item: ContentIngredient & { data?: { iconPixels?: string[] | null } }): ContentIngredient {
-  if (item.iconPixels?.length === 256) return item;
+  if (item.iconPixels?.length === ICON_PIXEL_COUNT) return item;
   const fromData = item.data?.iconPixels;
-  if (fromData?.length === 256) return { ...item, iconPixels: fromData };
+  if (fromData?.length === ICON_PIXEL_COUNT) return { ...item, iconPixels: fromData };
   return item;
 }
 
 function ingredientToDb(item: ContentIngredient) {
   const { iconPixels, ...core } = item;
-  const iconHash = iconPixels?.length === 256 ? hashIconPixels(iconPixels) : null;
+  const iconHash = iconPixels?.length === ICON_PIXEL_COUNT ? hashIconPixels(iconPixels) : null;
   return {
     id: core.id,
     name: core.name,
