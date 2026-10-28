@@ -1,13 +1,18 @@
 /** Persistent local NPC sprite assets + one verify sync per login session */
 
-import { hashIconPixels } from '@witchcraft/shared';
+import {
+  hashIconPixels,
+  normalizeNpcAuthoredSpriteSheet,
+  type NpcAuthoredSpriteSheet,
+} from '@witchcraft/shared';
 
-const ASSET_STORE_KEY = 'witchcraft_npc_sprites_v1';
+const ASSET_STORE_KEY = 'witchcraft_npc_sprites_v2';
 const SESSION_VERIFY_KEY = 'witchcraft_npc_sprites_verified';
 
 interface StoredSpriteAsset {
   hash: string;
-  spritePixels: string[];
+  spritePixels?: string[];
+  spriteSheet?: NpcAuthoredSpriteSheet;
 }
 
 interface SpriteAssetStore {
@@ -15,7 +20,12 @@ interface SpriteAssetStore {
   items: Record<string, StoredSpriteAsset>;
 }
 
-type ClientNpcLike = { id: string; spritePixels?: string[]; spriteHash?: string };
+type ClientNpcLike = {
+  id: string;
+  spritePixels?: string[];
+  spriteHash?: string;
+  spriteSheet?: NpcAuthoredSpriteSheet;
+};
 
 function loadStore(): SpriteAssetStore {
   try {
@@ -40,7 +50,9 @@ export async function verifyNpcSpritesOncePerLogin(npcs: ClientNpcLike[]): Promi
   for (const npc of npcs) {
     const local = store.items[npc.id];
     clientHashes[npc.id] =
-      local?.hash ?? npc.spriteHash ?? (npc.spritePixels?.length === 256 ? hashIconPixels(npc.spritePixels) : `gen:${npc.id}`);
+      local?.hash ??
+      npc.spriteHash ??
+      (npc.spritePixels?.length === 256 ? hashIconPixels(npc.spritePixels) : `gen:${npc.id}`);
   }
 
   try {
@@ -52,14 +64,23 @@ export async function verifyNpcSpritesOncePerLogin(npcs: ClientNpcLike[]): Promi
     if (!res.ok) throw new Error(`verify failed ${res.status}`);
     const data = (await res.json()) as {
       revision: string;
-      updates: Record<string, { hash: string; spritePixels: string[] }>;
+      updates: Record<
+        string,
+        { hash: string; spritePixels?: string[]; spriteSheet?: NpcAuthoredSpriteSheet }
+      >;
     };
     store.revision = data.revision ?? store.revision;
     for (const [npcId, payload] of Object.entries(data.updates ?? {})) {
-      store.items[npcId] = { hash: payload.hash, spritePixels: payload.spritePixels };
+      const sheet = normalizeNpcAuthoredSpriteSheet(payload.spriteSheet);
+      store.items[npcId] = {
+        hash: payload.hash,
+        ...(payload.spritePixels?.length === 256 ? { spritePixels: payload.spritePixels } : {}),
+        ...(sheet ? { spriteSheet: sheet } : {}),
+      };
       const npc = npcs.find((row) => row.id === npcId);
       if (npc) {
-        npc.spritePixels = payload.spritePixels;
+        if (payload.spritePixels?.length === 256) npc.spritePixels = payload.spritePixels;
+        if (sheet) npc.spriteSheet = sheet;
         npc.spriteHash = payload.hash;
       }
     }
@@ -77,15 +98,25 @@ function applyLocalAssets(npcs: ClientNpcLike[]): void {
   const store = loadStore();
   for (const npc of npcs) {
     const cached = store.items[npc.id];
-    if (cached?.spritePixels?.length === 256) {
-      if (!npc.spriteHash || cached.hash === npc.spriteHash || !npc.spritePixels?.length) {
+    if (cached) {
+      const sheet = normalizeNpcAuthoredSpriteSheet(cached.spriteSheet);
+      if (
+        cached.spritePixels?.length === 256 &&
+        (!npc.spriteHash || cached.hash === npc.spriteHash || !npc.spritePixels?.length)
+      ) {
         npc.spritePixels = cached.spritePixels;
-        npc.spriteHash = cached.hash;
       }
-    } else if (npc.spritePixels?.length === 256) {
+      if (sheet && (!npc.spriteHash || cached.hash === npc.spriteHash || !npc.spriteSheet)) {
+        npc.spriteSheet = sheet;
+      }
+      if (cached.hash) npc.spriteHash = cached.hash;
+    } else if (npc.spritePixels?.length === 256 || normalizeNpcAuthoredSpriteSheet(npc.spriteSheet)) {
       store.items[npc.id] = {
         hash: npc.spriteHash ?? hashIconPixels(npc.spritePixels),
-        spritePixels: npc.spritePixels,
+        ...(npc.spritePixels?.length === 256 ? { spritePixels: npc.spritePixels } : {}),
+        ...(normalizeNpcAuthoredSpriteSheet(npc.spriteSheet)
+          ? { spriteSheet: normalizeNpcAuthoredSpriteSheet(npc.spriteSheet) }
+          : {}),
       };
     }
   }

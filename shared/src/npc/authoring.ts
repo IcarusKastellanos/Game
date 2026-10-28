@@ -53,7 +53,8 @@ export const NPC_CONFIG_SCHEMA = {
     shopId: 'optional shop id for trade capability',
     spritePixels: 'optional 16×16 painted portrait (People UI); overworld uses walk/idle sheets',
     visual: 'optional procedural palette/silhouette override',
-    spriteSheet: 'optional authored 16×24 walk/idle override (hybrid)',
+    spriteSheet:
+      'optional authored 16×24 walk (4×8 / 64×192) and/or idle (2×8 / 32×192) override; preferred over procedural',
   },
   schedule: {
     rows: 'hour windows with place, activity, interaction open|busy|away',

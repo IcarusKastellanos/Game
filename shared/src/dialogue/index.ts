@@ -27,6 +27,7 @@ import { parseConversationPolicy } from '../npc/behavior.js';
 import { validatePersonality } from '../npc/personality.js';
 import { lessonsForNpc } from '../npc/lessons.js';
 import { knowledgeKnownByNpc } from '../npc/knowledge.js';
+import { normalizeNpcAuthoredSpriteSheet } from '../npc/visual.js';
 
 export interface DialogueTextVariant {
   text: string;
@@ -632,6 +633,22 @@ export function validateNpcDefinition(
   if (spritePixels && spritePixels.length !== 256) {
     return { ok: false, error: 'NPC spritePixels must be 256 colors.' };
   }
+  let spriteSheet: ContentNpc['spriteSheet'] | undefined;
+  // null = explicit clear (persist layer); object = authored override.
+  if (raw.spriteSheet != null) {
+    spriteSheet = normalizeNpcAuthoredSpriteSheet(raw.spriteSheet);
+    if (!spriteSheet) {
+      return {
+        ok: false,
+        error:
+          'NPC spriteSheet must use 16×24 frames with walk (4×8) and/or idle (2×8) pixel planes.',
+      };
+    }
+  }
+  let visual: ContentNpc['visual'] | undefined;
+  if (raw.visual != null && typeof raw.visual === 'object' && !Array.isArray(raw.visual)) {
+    visual = raw.visual as ContentNpc['visual'];
+  }
   const personalityCheck = validatePersonality(raw.personality);
   if (!personalityCheck.ok) return personalityCheck;
   const conversationPolicy = raw.conversationPolicy != null ? parseConversationPolicy(raw.conversationPolicy) : undefined;
@@ -653,6 +670,8 @@ export function validateNpcDefinition(
       ...(secrets ? { secrets } : {}),
       ...(capabilities ? { capabilities } : {}),
       ...(spritePixels ? { spritePixels } : {}),
+      ...(visual ? { visual } : {}),
+      ...(spriteSheet ? { spriteSheet } : {}),
       ...(personalityCheck.personality ? { personality: personalityCheck.personality } : {}),
       ...(conversationPolicy ? { conversationPolicy } : {}),
       ...(biography ? { biography } : {}),

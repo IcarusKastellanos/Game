@@ -7,6 +7,16 @@ import {
 } from '../components/node-graph.js';
 import { mountImageDropImport, spriteArtDivider } from '../components/image-import.js';
 import { mountSpritePixelEditor, spritePixelsToDataUrl } from '../components/sprite-pixel-editor.js';
+import {
+  NPC_IDLE_FRAMES_PER_DIR,
+  NPC_IDLE_SHEET_H,
+  NPC_IDLE_SHEET_W,
+  NPC_WALK_FRAMES_PER_DIR,
+  NPC_WALK_SHEET_H,
+  NPC_WALK_SHEET_W,
+  normalizeNpcAuthoredSpriteSheet,
+  type NpcAuthoredSpriteSheet,
+} from '@witchcraft/shared';
 
 const NPC_SPRITE_PX = 16;
 
@@ -95,6 +105,9 @@ type NpcRecord = {
   faction?: string;
   secrets?: string[];
   spritePixels?: string[];
+  /** null clears an authored overworld override on save. */
+  spriteSheet?: NpcAuthoredSpriteSheet | null;
+  visual?: unknown;
   personality?: Personality;
   conversationPolicy?: string;
   biography?: string;
@@ -319,11 +332,27 @@ export async function renderNpcEditor(
         <div id="npc-ui-feedback" class="form-grid"></div>
         <div id="npc-routine"></div>
         <h3 class="section-head mt">Portrait (16×16)</h3>
-        <p class="muted-text">People / encounter portrait only. Overworld walk and idle use procedural 16×24 8-direction sheets (authored sheet overrides come later).</p>
+        <p class="muted-text">People / encounter portrait only. Overworld uses 16×24 walk/idle sheets (procedural by default, authored override below).</p>
         <div id="npc-sprite-drop"></div>
         ${spriteArtDivider('or paint pixels')}
         <div id="npc-sprite-editor"></div>
-        <img id="npc-sprite-preview" class="icon-preview-img mt" alt="NPC sprite preview" width="64" height="64" />
+        <img id="npc-sprite-preview" class="icon-preview-img mt" alt="NPC portrait preview" width="64" height="64" />
+        <h3 class="section-head mt">Overworld sheets (authored override)</h3>
+        <p class="muted-text">Optional. Same contract as the player: 16×24 frames, 8 direction rows (down → down-left). Walk atlas ${NPC_WALK_SHEET_W}×${NPC_WALK_SHEET_H} (4 frames/dir). Idle atlas ${NPC_IDLE_SHEET_W}×${NPC_IDLE_SHEET_H} (2 frames/dir). Leave empty to keep procedural art.</p>
+        <div class="form-grid">
+          <div>
+            <label class="field-label">Walk sheet PNG</label>
+            <div id="npc-walk-sheet-drop"></div>
+            <img id="npc-walk-sheet-preview" class="icon-preview-img mt" alt="Walk sheet preview" width="${NPC_WALK_SHEET_W}" height="${NPC_WALK_SHEET_H}" style="image-rendering:pixelated;max-width:100%;height:auto;background:#1a1018" />
+            <button type="button" class="btn secondary mt" id="clear-walk-sheet">Clear walk override</button>
+          </div>
+          <div>
+            <label class="field-label">Idle sheet PNG</label>
+            <div id="npc-idle-sheet-drop"></div>
+            <img id="npc-idle-sheet-preview" class="icon-preview-img mt" alt="Idle sheet preview" width="${NPC_IDLE_SHEET_W}" height="${NPC_IDLE_SHEET_H}" style="image-rendering:pixelated;max-width:100%;height:auto;background:#1a1018" />
+            <button type="button" class="btn secondary mt" id="clear-idle-sheet">Clear idle override</button>
+          </div>
+        </div>
         <div id="node-inspector" class="inspector mt"></div>
         <div id="edge-inspector" class="inspector mt hidden"></div>
         <button class="btn mt" id="save-npc">Save NPC & Dialogue</button>
@@ -342,9 +371,24 @@ export async function renderNpcEditor(
   document.getElementById('back-npc')!.onclick = onBack;
 
   let npcSpritePixels = npc.spritePixels?.length === NPC_SPRITE_PX * NPC_SPRITE_PX ? [...npc.spritePixels] : [];
+  const initialSheet = normalizeNpcAuthoredSpriteSheet(npc.spriteSheet);
+  let walkSheetPixels = initialSheet?.walkPixels ? [...initialSheet.walkPixels] : [];
+  let idleSheetPixels = initialSheet?.idlePixels ? [...initialSheet.idlePixels] : [];
   const spritePreview = document.getElementById('npc-sprite-preview') as HTMLImageElement;
+  const walkSheetPreview = document.getElementById('npc-walk-sheet-preview') as HTMLImageElement;
+  const idleSheetPreview = document.getElementById('npc-idle-sheet-preview') as HTMLImageElement;
   const updateNpcSpritePreview = (): void => {
     spritePreview.src = spritePixelsToDataUrl(npcSpritePixels, NPC_SPRITE_PX, NPC_SPRITE_PX);
+  };
+  const updateSheetPreviews = (): void => {
+    walkSheetPreview.src =
+      walkSheetPixels.length === NPC_WALK_SHEET_W * NPC_WALK_SHEET_H
+        ? spritePixelsToDataUrl(walkSheetPixels, NPC_WALK_SHEET_W, NPC_WALK_SHEET_H)
+        : '';
+    idleSheetPreview.src =
+      idleSheetPixels.length === NPC_IDLE_SHEET_W * NPC_IDLE_SHEET_H
+        ? spritePixelsToDataUrl(idleSheetPixels, NPC_IDLE_SHEET_W, NPC_IDLE_SHEET_H)
+        : '';
   };
   const npcSpriteEditor = mountSpritePixelEditor(document.getElementById('npc-sprite-editor')!, {
     widthPx: NPC_SPRITE_PX,
@@ -365,7 +409,36 @@ export async function renderNpcEditor(
     },
     onError: (msg) => alert(msg),
   });
+  mountImageDropImport(document.getElementById('npc-walk-sheet-drop')!, {
+    idPrefix: 'npc-walk-sheet',
+    widthPx: () => NPC_WALK_SHEET_W,
+    heightPx: () => NPC_WALK_SHEET_H,
+    onImport: (px) => {
+      walkSheetPixels = px;
+      updateSheetPreviews();
+    },
+    onError: (msg) => alert(msg),
+  });
+  mountImageDropImport(document.getElementById('npc-idle-sheet-drop')!, {
+    idPrefix: 'npc-idle-sheet',
+    widthPx: () => NPC_IDLE_SHEET_W,
+    heightPx: () => NPC_IDLE_SHEET_H,
+    onImport: (px) => {
+      idleSheetPixels = px;
+      updateSheetPreviews();
+    },
+    onError: (msg) => alert(msg),
+  });
+  document.getElementById('clear-walk-sheet')!.onclick = () => {
+    walkSheetPixels = [];
+    updateSheetPreviews();
+  };
+  document.getElementById('clear-idle-sheet')!.onclick = () => {
+    idleSheetPixels = [];
+    updateSheetPreviews();
+  };
   updateNpcSpritePreview();
+  updateSheetPreviews();
 
   let capabilityRows: NpcCapability[] = (npc.capabilities ?? []).map((row) => ({ ...row }));
   let uiFeedback: UiFeedback = {
@@ -798,6 +871,19 @@ export async function renderNpcEditor(
         schedule: cleanRoutineRows(routineRows),
         scheduleOverride: cleanOverride(routineOverride),
         spritePixels: npcSpritePixels.length === NPC_SPRITE_PX * NPC_SPRITE_PX ? npcSpritePixels : undefined,
+        spriteSheet:
+          normalizeNpcAuthoredSpriteSheet({
+            frameW: 16,
+            frameH: 24,
+            walkFrames: NPC_WALK_FRAMES_PER_DIR,
+            idleFrames: NPC_IDLE_FRAMES_PER_DIR,
+            ...(walkSheetPixels.length === NPC_WALK_SHEET_W * NPC_WALK_SHEET_H
+              ? { walkPixels: walkSheetPixels }
+              : {}),
+            ...(idleSheetPixels.length === NPC_IDLE_SHEET_W * NPC_IDLE_SHEET_H
+              ? { idlePixels: idleSheetPixels }
+              : {}),
+          }) ?? null,
       };
 
       const edges = graph!.getEdges();

@@ -2,6 +2,12 @@
 
 import type { ContentNpc } from '../types/index.js';
 import type { DialogueChoice, DialogueTree } from '../dialogue/index.js';
+import {
+  hashNpcAuthoredSpriteSheet,
+  normalizeNpcAuthoredSpriteSheet,
+  type NpcAuthoredSpriteSheet,
+} from './visual.js';
+import { hashIconPixels } from '../icons/icon-hash.js';
 
 /**
  * Public NPC shape the game client may cache.
@@ -20,14 +26,27 @@ export type ClientNpc = Pick<
   | 'biography'
   | 'spritePixels'
   | 'visual'
+  | 'spriteSheet'
   | 'capabilities'
   | 'conversationPolicy'
 > & {
   /** Public resting place only — not the full authored routine. */
   schedule?: { locationId: string; activity?: string; interaction?: string }[];
-  /** Sprite content hash for verify/cache (mirrors ingredient icons). */
+  /** Sprite content hash for verify/cache (portrait + authored sheets). */
   spriteHash?: string;
 };
+
+export function npcVisualContentHash(npc: {
+  id: string;
+  spritePixels?: string[];
+  spriteSheet?: NpcAuthoredSpriteSheet | null;
+}): string {
+  const portrait =
+    npc.spritePixels?.length === 256 ? hashIconPixels(npc.spritePixels) : '';
+  const sheet = hashNpcAuthoredSpriteSheet(npc.spriteSheet);
+  if (!portrait && !sheet) return `gen:${npc.id}`;
+  return [portrait || 'gen', sheet ?? '-'].join('|');
+}
 
 export function toClientNpc(npc: ContentNpc, opts?: { omitSpritePixels?: boolean }): ClientNpc {
   const schedule = (npc.schedule ?? [])
@@ -38,10 +57,8 @@ export function toClientNpc(npc: ContentNpc, opts?: { omitSpritePixels?: boolean
       ...(row.activity ? { activity: row.activity } : {}),
       ...(row.interaction ? { interaction: row.interaction } : {}),
     }));
-  const spriteHash =
-    npc.spritePixels?.length === 256
-      ? hashSpritePixels(npc.spritePixels)
-      : `gen:${npc.id}`;
+  const spriteSheet = normalizeNpcAuthoredSpriteSheet(npc.spriteSheet);
+  const spriteHash = npcVisualContentHash(npc);
   return {
     id: npc.id,
     name: npc.name,
@@ -56,21 +73,11 @@ export function toClientNpc(npc: ContentNpc, opts?: { omitSpritePixels?: boolean
       : {}),
     spriteHash,
     ...(npc.visual ? { visual: npc.visual } : {}),
+    ...(!opts?.omitSpritePixels && spriteSheet ? { spriteSheet } : {}),
     ...(npc.capabilities?.length ? { capabilities: npc.capabilities } : {}),
     ...(npc.conversationPolicy ? { conversationPolicy: npc.conversationPolicy } : {}),
     ...(schedule.length ? { schedule } : {}),
   };
-}
-
-function hashSpritePixels(pixels: string[]): string {
-  let h = 2166136261;
-  for (const px of pixels) {
-    for (let i = 0; i < px.length; i++) {
-      h ^= px.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-  }
-  return (h >>> 0).toString(36);
 }
 
 export function toClientNpcs(npcs: Iterable<ContentNpc>, opts?: { omitSpritePixels?: boolean }): ClientNpc[] {
