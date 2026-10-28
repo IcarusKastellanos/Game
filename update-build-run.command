@@ -78,9 +78,9 @@ npm run build -w shared
 
 echo "→ Pushing DB schema (ok if DB is down — game has in-memory fallback)…"
 if npm run db:push; then
-  # Item icons live in Postgres (admin saves). Sync only seeds missing icons from
-  # ingredients.json — it never overwrites art you painted in the admin panel.
-  echo "→ Syncing content (preserving admin item icons)…"
+  # Always push authored item sprites from ingredients.json into Postgres so stale
+  # DB / cache art cannot beat the generated icons on boot.
+  echo "→ Syncing content + installing authored item icons from ingredients.json…"
   npm run content:sync || echo "⚠ content:sync failed — continuing."
   echo "→ Seeding DB (idempotent)…"
   npm run db:seed || echo "⚠ db:seed failed — continuing."

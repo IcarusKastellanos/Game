@@ -12,8 +12,8 @@ import {
   resolveItemIconPixels,
 } from '@witchcraft/shared';
 
-/** Bump when authority rules change so old local overrides are discarded. */
-const ASSET_STORE_KEY = 'witchcraft_icon_assets_v4';
+/** Bump when shipped icon pixels change so old local caches are discarded. */
+const ASSET_STORE_KEY = 'witchcraft_icon_assets_v5';
 
 const ICON_SIZE = ICON_PIXEL_SIZE;
 const PIXEL_ART_SIZE = ICON_PIXEL_SIZE;

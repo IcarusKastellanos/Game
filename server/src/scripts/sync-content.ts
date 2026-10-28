@@ -14,9 +14,9 @@ function load<T>(file: string): T[] {
 /** Sync JSON content files into PostgreSQL for admin editing */
 async function syncContent() {
   console.log('[sync-content] Starting...');
-  console.log('[sync-content] Item icons: DB wins — JSON only seeds missing icons (admin saves are never overwritten).');
+  console.log('[sync-content] Item icons: rewriting Postgres from ingredients.json (authored sprites).');
 
-  let iconsSeeded = 0;
+  let iconsWritten = 0;
   for (const ing of load<Record<string, unknown>>('ingredients.json')) {
     const iconPixels = ing.iconPixels as string[] | undefined;
     const existing = await prisma.contentIngredient.findUnique({
@@ -24,9 +24,8 @@ async function syncContent() {
       select: { data: true },
     });
     const stored = (existing?.data ?? {}) as { iconPixels?: string[] | null };
-    const hadValidDb = resolveStoredIngredientIconPixels(stored.iconPixels, null) !== null;
     const keptPixels = resolveStoredIngredientIconPixels(stored.iconPixels, iconPixels);
-    if (!hadValidDb && keptPixels) iconsSeeded++;
+    if (keptPixels) iconsWritten++;
     await prisma.contentIngredient.upsert({
       where: { id: ing.id as string },
       create: {
@@ -47,9 +46,7 @@ async function syncContent() {
       },
     });
   }
-  if (iconsSeeded > 0) {
-    console.log(`[sync-content] Seeded missing iconPixels for ${iconsSeeded} ingredient(s) from JSON`);
-  }
+  console.log(`[sync-content] Wrote iconPixels from JSON for ${iconsWritten} ingredient(s)`);
 
   for (const spell of load<Record<string, unknown>>('spells.json')) {
     const description =
