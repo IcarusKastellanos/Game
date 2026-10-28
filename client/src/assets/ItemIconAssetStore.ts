@@ -9,8 +9,9 @@ import {
   type ContentIngredient,
 } from '@witchcraft/shared';
 
-const ASSET_STORE_KEY = 'witchcraft_icon_assets_v2';
-const SESSION_VERIFY_KEY = 'witchcraft_icons_verified';
+/** Bump when shipped icon contracts change so stale local caches re-verify. */
+const ASSET_STORE_KEY = 'witchcraft_icon_assets_v3';
+const SESSION_VERIFY_KEY = 'witchcraft_icons_verified_v3';
 
 const ICON_SIZE = ICON_PIXEL_SIZE;
 const PIXEL_ART_SIZE = ICON_PIXEL_SIZE;
