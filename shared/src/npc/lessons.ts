@@ -5,8 +5,15 @@ import type { PlayerProgression } from '../progression/index.js';
 import { removeItemFromInventory } from '../inventory/index.js';
 import { bondBlockReason, type BondGate } from '../social/index.js';
 import { holdsActiveLicense, issueLicense } from '../progression/licenses.js';
+import { meetsDialogueRecognitionGate } from '../progression/recognition.js';
 import { grantSkillXp, type TechnicalSkillKey } from '../progression/skill-xp.js';
 import { tryRevealKnowledge } from './knowledge.js';
+import {
+  parseTraditionAffinityGate,
+  spiritualReputationBlockReason,
+  traditionAffinityBlockReason,
+  type TraditionAffinityGate,
+} from './teacher-gates.js';
 
 export type LessonTeachKind =
   | 'spell'
@@ -39,6 +46,10 @@ export interface LessonDef {
   requiresStoryFlags?: string[];
   /** Recognition tier id gate. */
   requiresRecognition?: string;
+  /** Tradition affinity floors (player stats.affinities). */
+  requiresTraditionAffinity?: TraditionAffinityGate;
+  /** Occult-community reputation floor. */
+  requiresSpiritualReputation?: number;
   nodeId?: string;
 }
 
@@ -88,13 +99,21 @@ export function lessonBlockReason(
   lesson: LessonDef,
   progression: PlayerProgression,
   coins?: number,
-  inventory?: InventorySlot[]
+  inventory?: InventorySlot[],
+  stats?: PlayerStats
 ): string | null {
   if (hasCompletedLesson(progression, lesson.id)) return null;
   if (lesson.requires) {
     const bond = bondBlockReason(progression, lesson.npcId, lesson.requires);
     if (bond) return bond;
   }
+  if (lesson.requiresRecognition && !meetsDialogueRecognitionGate(lesson, progression)) {
+    return 'You need deeper recognition before that lesson.';
+  }
+  const affinityBlock = traditionAffinityBlockReason(stats, lesson.requiresTraditionAffinity);
+  if (affinityBlock) return affinityBlock;
+  const spiritBlock = spiritualReputationBlockReason(stats, lesson.requiresSpiritualReputation);
+  if (spiritBlock) return spiritBlock;
   for (const questId of lesson.requiresQuestIds ?? []) {
     if (!progression.questProgress?.[questId]?.completedAt) {
       return 'You are not ready for that lesson yet.';
@@ -132,14 +151,15 @@ export function listLessonOffers(
   npcId: string,
   progression: PlayerProgression,
   coins?: number,
-  inventory?: InventorySlot[]
+  inventory?: InventorySlot[],
+  stats?: PlayerStats
 ): { id: string; label: string; available: boolean; requirement?: string; costCoins?: number; completed: boolean }[] {
   return lessonsForNpc(npcId).map((lesson) => {
     const completed = hasCompletedLesson(progression, lesson.id);
     if (completed) {
       return { id: lesson.id, label: lesson.label, available: false, completed: true, requirement: 'Already learned.' };
     }
-    const block = lessonBlockReason(lesson, progression, coins, inventory);
+    const block = lessonBlockReason(lesson, progression, coins, inventory, stats);
     return {
       id: lesson.id,
       label: lesson.label,
@@ -177,7 +197,13 @@ export function purchaseLesson(input: {
       notification: 'You already know that lesson.',
     };
   }
-  const block = lessonBlockReason(lesson, input.progression, input.coins, input.inventory);
+  const block = lessonBlockReason(
+    lesson,
+    input.progression,
+    input.coins,
+    input.inventory,
+    input.stats
+  );
   if (block) return { ok: false, reason: block };
 
   let progression = input.progression;
@@ -337,6 +363,12 @@ function parseLesson(raw: unknown): LessonDef | null {
     ...(stringList(o.requiresLicenseIds) ? { requiresLicenseIds: stringList(o.requiresLicenseIds)! } : {}),
     ...(stringList(o.requiresStoryFlags) ? { requiresStoryFlags: stringList(o.requiresStoryFlags)! } : {}),
     ...(typeof o.requiresRecognition === 'string' ? { requiresRecognition: o.requiresRecognition } : {}),
+    ...(parseTraditionAffinityGate(o.requiresTraditionAffinity)
+      ? { requiresTraditionAffinity: parseTraditionAffinityGate(o.requiresTraditionAffinity) }
+      : {}),
+    ...(typeof o.requiresSpiritualReputation === 'number' && Number.isFinite(o.requiresSpiritualReputation)
+      ? { requiresSpiritualReputation: Math.max(0, Math.round(o.requiresSpiritualReputation)) }
+      : {}),
     ...(typeof o.nodeId === 'string' ? { nodeId: o.nodeId } : {}),
   };
 }

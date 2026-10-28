@@ -71,7 +71,8 @@ export const NPC_CONFIG_SCHEMA = {
   },
   discovery: {
     knowledgeEntries: 'rumors/clues with reveal gates, triggers, conflicts, npcFact fields',
-    lessons: 'teacher unlocks that may grant knowledge through tryRevealKnowledge',
+    lessons:
+      'teacher unlocks; optional requiresTraditionAffinity / requiresSpiritualReputation / requiresRecognition gates',
   },
   clientExport: {
     forbidden: CLIENT_NPC_FORBIDDEN_KEYS,
