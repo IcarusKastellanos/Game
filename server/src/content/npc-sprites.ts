@@ -1,4 +1,5 @@
 import type { ContentNpc } from '@witchcraft/shared';
+import { computeIconManifestRevision, hashIconPixels } from '@witchcraft/shared';
 import { prisma } from '../services/db.js';
 import { contentRegistry } from './registry.js';
 
@@ -30,6 +31,35 @@ export async function mergeNpcSpritesFromDb(): Promise<number> {
     console.warn('[ContentRegistry] Could not merge NPC sprites from DB:', err);
   }
   return merged;
+}
+
+export function getNpcSpriteHash(npc: { id: string; spritePixels?: string[] }): string {
+  if (npc.spritePixels?.length === 256) return hashIconPixels(npc.spritePixels);
+  return `gen:${npc.id}`;
+}
+
+export function getNpcSpriteManifest(): { revision: string; items: Record<string, string> } {
+  const items: Record<string, string> = {};
+  for (const npc of contentRegistry.npcs.values()) {
+    items[npc.id] = getNpcSpriteHash(npc);
+  }
+  return { revision: computeIconManifestRevision(items), items };
+}
+
+export function verifyNpcSpriteHashes(clientHashes: Record<string, string>): {
+  revision: string;
+  updates: Record<string, { hash: string; spritePixels: string[] }>;
+} {
+  const manifest = getNpcSpriteManifest();
+  const updates: Record<string, { hash: string; spritePixels: string[] }> = {};
+  for (const npc of contentRegistry.npcs.values()) {
+    const serverHash = getNpcSpriteHash(npc);
+    if (clientHashes[npc.id] === serverHash) continue;
+    if (npc.spritePixels?.length === 256) {
+      updates[npc.id] = { hash: serverHash, spritePixels: npc.spritePixels };
+    }
+  }
+  return { revision: manifest.revision, updates };
 }
 
 function npcToDb(npc: ContentNpc, previousData?: unknown) {

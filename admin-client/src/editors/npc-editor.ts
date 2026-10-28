@@ -328,6 +328,7 @@ export async function renderNpcEditor(
         <div id="edge-inspector" class="inspector mt hidden"></div>
         <button class="btn mt" id="save-npc">Save NPC & Dialogue</button>
         <button class="btn secondary mt" id="diagnose-npc">Diagnose runtime</button>
+        <button class="btn secondary mt" id="compare-npc">Compare draft (offline)</button>
         <button class="btn secondary mt" id="add-choice">+ Choice from Selected Node</button>
         <pre id="npc-diagnose-out" class="muted-text mt" style="white-space:pre-wrap;max-height:220px;overflow:auto"></pre>
       </div>
@@ -715,6 +716,48 @@ export async function renderNpcEditor(
           : ['  (none)']),
         '',
         diagnosis.presence ? `Presence: ${JSON.stringify(diagnosis.presence)}` : 'Presence: (none)',
+      ];
+      if (out) out.textContent = lines.join('\n');
+    } catch (e) {
+      if (out) out.textContent = String(e);
+      else alert(String(e));
+    }
+  };
+
+  document.getElementById('compare-npc')!.onclick = async () => {
+    const out = document.getElementById('npc-diagnose-out');
+    try {
+      readRoutineFromDom();
+      readCapabilitiesFromDom();
+      const candidate = {
+        ...npc,
+        id: (document.getElementById('npc-id') as HTMLInputElement).value.trim() || npcId,
+        name: (document.getElementById('npc-name') as HTMLInputElement).value.trim(),
+        role: (document.getElementById('npc-role') as HTMLInputElement).value.trim(),
+        locationId: (document.getElementById('npc-loc') as HTMLSelectElement).value,
+        shopId: (document.getElementById('npc-shop') as HTMLInputElement).value.trim() || undefined,
+        conversationPolicy: (document.getElementById('npc-convo') as HTMLSelectElement).value || undefined,
+        capabilities: capabilityRows.length ? capabilityRows : undefined,
+        schedule: cleanRoutineRows(routineRows),
+        scheduleOverride: cleanOverride(routineOverride),
+      };
+      const result = await api<{
+        deltas?: string[];
+        candidate?: { authoring?: { level: string; message: string }[]; scheduleHoursOpen?: number };
+        current?: { scheduleHoursOpen?: number };
+      }>(`/content/npcs/${npcId}/compare`, {
+        method: 'POST',
+        body: JSON.stringify({ candidate }),
+      });
+      const lines = [
+        'Offline draft compare (not saved):',
+        ...(result.deltas ?? []).map((d) => `· ${d}`),
+        '',
+        `Current open windows: ${result.current?.scheduleHoursOpen ?? '?'}`,
+        `Candidate open windows: ${result.candidate?.scheduleHoursOpen ?? '?'}`,
+        ...(result.candidate?.authoring ?? [])
+          .filter((row) => row.level === 'error')
+          .map((row) => `ERROR: ${row.message}`),
       ];
       if (out) out.textContent = lines.join('\n');
     } catch (e) {

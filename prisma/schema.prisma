@@ -588,3 +588,10 @@ model MapPreviewInvite {
   mapProject MapProject @relation(fields: [mapProjectId], references: [id], onDelete: Cascade)
   mapVersion MapVersion @relation(fields: [mapVersionId], references: [id], onDelete: Cascade)
 }
+
+/** Shared world documents (NPC world knowledge, etc.) — dual-written with data/*.json. */
+model WorldDocument {
+  key       String   @id
+  document  Json
+  updatedAt DateTime @updatedAt
+}

@@ -91,7 +91,9 @@ import {
   npcPresenceTile,
   interactRangeFromEdgePx,
   nextSeq,
+  diffNpcPresences,
   type GiftItemFacts,
+  type NpcPublicPresence,
   type PlayerProgression,
   takeInventorySlot,
   withGrimoire,
@@ -225,7 +227,9 @@ export class GameRoom extends Room<GameRoomState> {
 
   private studyCircleNotifiedHour = -1;
   private lastNpcWorldSig = '';
+  private lastNpcPresences: NpcPublicPresence[] = [];
   private worldStateSeq = 0;
+  private worldFullEvery = 0;
   private progressionSeq = new Map<string, number>();
   private progressionSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private conversationLocks: NpcConversationLock[] = [];
@@ -309,8 +313,21 @@ export class GameRoom extends Room<GameRoomState> {
     if (!force && signature === this.lastNpcWorldSig) return;
     this.lastNpcWorldSig = signature;
     this.worldStateSeq = nextSeq(this.worldStateSeq);
+    this.worldFullEvery += 1;
+    const forceFull = force || this.worldFullEvery % 12 === 1 || !this.lastNpcPresences.length;
+    const diff = diffNpcPresences(this.lastNpcPresences, payload.npcPresences, {
+      forceFull,
+    });
+    this.lastNpcPresences = payload.npcPresences;
     this.broadcast('world_state', {
-      ...payload,
+      hour: payload.hour,
+      weekday: payload.weekday,
+      hourLabel: payload.hourLabel,
+      hiddenNpcIds: payload.hiddenNpcIds,
+      mode: diff.mode,
+      changedNpcIds: diff.changedNpcIds,
+      removedNpcIds: diff.removedNpcIds,
+      npcPresences: diff.npcPresences,
       seq: this.worldStateSeq,
       at: Date.now(),
     });
@@ -343,7 +360,15 @@ export class GameRoom extends Room<GameRoomState> {
   private sendAuthoritativeNpcSync(client: Client): void {
     const payload = currentNpcWorld();
     this.worldStateSeq = nextSeq(this.worldStateSeq);
-    client.send('world_state', { ...payload, seq: this.worldStateSeq, at: Date.now() });
+    this.lastNpcPresences = payload.npcPresences;
+    client.send('world_state', {
+      ...payload,
+      mode: 'full',
+      changedNpcIds: payload.npcPresences.map((row) => row.npcId),
+      removedNpcIds: [],
+      seq: this.worldStateSeq,
+      at: Date.now(),
+    });
     const progression = this.playerData.get(client.sessionId)?.progression;
     if (progression) this.emitProgression(client, progression);
   }

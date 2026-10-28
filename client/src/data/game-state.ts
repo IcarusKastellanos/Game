@@ -14,6 +14,7 @@ import {
   setRecognitionContent,
 } from '@witchcraft/shared';
 import { verifyItemIconsOncePerLogin } from '../assets/ItemIconAssetStore';
+import { verifyNpcSpritesOncePerLogin } from '../assets/NpcSpriteAssetStore';
 
 export interface DialogueNode {
   id: string;
@@ -54,6 +55,7 @@ export interface ClientContentBundle {
     biography?: string;
     dialogueTreeId: string;
     spritePixels?: string[];
+    spriteHash?: string;
     shopId?: string;
     locationId?: string;
   }[];
@@ -162,6 +164,9 @@ class GameState {
     }
     if (this.content?.ingredients) {
       await verifyItemIconsOncePerLogin(this.content.ingredients);
+    }
+    if (this.content?.npcs) {
+      await verifyNpcSpritesOncePerLogin(this.content.npcs);
     }
   }
 

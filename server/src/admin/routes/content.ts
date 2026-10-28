@@ -20,6 +20,7 @@ import {
   GRIMOIRE_ENTRY_KINDS,
   LEVEL_STAT_FLOOR_KEYS,
   defaultProgression,
+  compareNpcConfigurations,
   diagnoseNpcRuntime,
   getLevelDocument,
   getLicensesDocument,
@@ -28,7 +29,7 @@ import {
   type PermissionSlug,
 } from '@witchcraft/shared';
 import { currentNpcWorld, npcPresence } from '../../systems/npc-schedule.js';
-import { listNpcEvents, recordNpcEvent } from '../../systems/npc-event-log.js';
+import { aggregateNpcEvents, listNpcEvents, recordNpcEvent } from '../../systems/npc-event-log.js';
 import { getAdminPermissions } from '../rbac.js';
 import { grimoireCatalog, grimoireRecordExists, setGrimoireEntry } from '../../content/grimoire-entries.js';
 import { hydrateNpcSprite } from '../../content/npc-sprites.js';
@@ -448,7 +449,60 @@ contentRouter.get('/npc-events', requirePerm('content.npc.view'), (req, res) => 
   const npcId = typeof req.query.npcId === 'string' ? req.query.npcId : undefined;
   const kind = typeof req.query.kind === 'string' ? (req.query.kind as never) : undefined;
   const limit = typeof req.query.limit === 'string' ? Number(req.query.limit) : 100;
-  res.json({ events: listNpcEvents({ npcId, kind, limit }) });
+  const sinceMs = typeof req.query.sinceMs === 'string' ? Number(req.query.sinceMs) : undefined;
+  res.json({ events: listNpcEvents({ npcId, kind, limit, sinceMs }) });
+});
+
+/** Aggregate NPC sim metrics for designer insights (read-only). */
+contentRouter.get('/npc-events/summary', requirePerm('content.npc.view'), (req, res) => {
+  const npcId = typeof req.query.npcId === 'string' ? req.query.npcId : undefined;
+  const sinceMs = typeof req.query.sinceMs === 'string' ? Number(req.query.sinceMs) : undefined;
+  const provenance =
+    req.query.provenance === 'observed' || req.query.provenance === 'synthetic' || req.query.provenance === 'admin'
+      ? req.query.provenance
+      : undefined;
+  res.json({
+    summary: aggregateNpcEvents({ npcId, sinceMs, provenance }),
+    generatedAt: Date.now(),
+  });
+});
+
+/**
+ * Offline configuration compare. Candidate is not saved; does not mutate live state.
+ * Body: { candidate: ContentNpc, hour?: number }
+ */
+contentRouter.post('/npcs/:id/compare', requirePerm('content.npc.view'), async (req, res) => {
+  const id = param(req, 'id');
+  const current = contentRegistry.npcs.get(id);
+  if (!current) return res.status(404).json({ error: 'NPC not found' });
+  const candidate = req.body?.candidate;
+  if (!candidate || typeof candidate !== 'object') {
+    return res.status(400).json({ error: 'candidate NPC object required' });
+  }
+  const world = currentNpcWorld(Date.now(), { fresh: true });
+  const hour = typeof req.body?.hour === 'number' ? req.body.hour : world.hour;
+  const result = compareNpcConfigurations({
+    current,
+    candidate: { ...candidate, id: candidate.id || id },
+    placeIds: [...contentRegistry.npcPlaces.keys()],
+    shopIds: new Set(contentRegistry.shops.keys()),
+    dialogueTreeIds: new Set(contentRegistry.dialogues.keys()),
+    hour,
+    presence: npcPresence(id),
+  });
+  recordNpcEvent({
+    kind: 'diagnose',
+    npcId: id,
+    success: true,
+    provenance: 'synthetic',
+    meta: { compare: true, deltas: result.deltas.length },
+  });
+  await writeAuditLog(auditContext(req), {
+    action: 'content.npc.compare',
+    objectType: 'npc',
+    objectId: id,
+  });
+  res.json(result);
 });
 
 contentRouter.get('/dialogues', requirePerm('content.npc.view'), (_req, res) => {
