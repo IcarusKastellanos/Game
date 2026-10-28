@@ -11,6 +11,7 @@ import {
   NPC_IDLE_FRAMES_PER_DIR,
   NPC_IDLE_SHEET_H,
   NPC_IDLE_SHEET_W,
+  NPC_PORTRAIT_SIZE,
   NPC_WALK_FRAMES_PER_DIR,
   NPC_WALK_SHEET_H,
   NPC_WALK_SHEET_W,
@@ -18,7 +19,7 @@ import {
   type NpcAuthoredSpriteSheet,
 } from '@witchcraft/shared';
 
-const NPC_SPRITE_PX = 32;
+const NPC_SPRITE_PX = NPC_PORTRAIT_SIZE;
 
 type ScheduleInteraction = 'open' | 'busy' | 'away';
 
@@ -404,6 +405,11 @@ export async function renderNpcEditor(
     widthPx: () => NPC_SPRITE_PX,
     heightPx: () => NPC_SPRITE_PX,
     onImport: (px) => {
+      if (px.length !== NPC_SPRITE_PX * NPC_SPRITE_PX) {
+        alert(`Portrait must be ${NPC_SPRITE_PX}×${NPC_SPRITE_PX} (${NPC_SPRITE_PX * NPC_SPRITE_PX} pixels). Got ${px.length}.`);
+        return;
+      }
+      npcSpritePixels = [...px];
       npcSpriteEditor.setPixels(px);
       updateNpcSpritePreview();
     },
