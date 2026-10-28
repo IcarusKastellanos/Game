@@ -78,8 +78,10 @@ npm run build -w shared
 
 echo "→ Pushing DB schema (ok if DB is down — game has in-memory fallback)…"
 if npm run db:push; then
-  echo "→ Syncing content into DB…"
-  npm run content:sync || echo "⚠ content:sync failed — continuing."
+  # Force ingredients.json iconPixels into Postgres so stale procedural / leftover
+  # DB art cannot overlay the shipped sprites when the server boots.
+  echo "→ Syncing content + restoring shipped item icons…"
+  FORCE_SHIPPED_ITEM_ICONS=1 npm run content:sync || echo "⚠ content:sync failed — continuing."
   echo "→ Seeding DB (idempotent)…"
   npm run db:seed || echo "⚠ db:seed failed — continuing."
 else

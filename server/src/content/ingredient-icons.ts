@@ -6,6 +6,7 @@ import {
   resolveItemIconPixels,
 } from '@witchcraft/shared';
 import { prisma } from '../services/db.js';
+import { shouldMergeStoredIngredientIcon } from './legacy-icon-hashes.js';
 import { contentRegistry } from './registry.js';
 
 export function hydrateIngredientIcon(item: ContentIngredient): ContentIngredient {
@@ -20,7 +21,7 @@ export function getPublicIngredients(): ContentIngredient[] {
   });
 }
 
-/** Overlay iconPixels (and other DB fields in data) onto JSON-loaded registry. */
+/** Overlay custom (non-legacy) iconPixels from DB onto JSON-loaded registry. */
 export async function mergeIngredientIconsFromDb(): Promise<number> {
   let merged = 0;
   try {
@@ -31,13 +32,23 @@ export async function mergeIngredientIconsFromDb(): Promise<number> {
       const existing = contentRegistry.ingredients.get(row.id);
       if (!existing) continue;
       const data = (row.data ?? {}) as { iconPixels?: string[] | null };
-      if (data.iconPixels?.length === ICON_PIXEL_COUNT) {
-        contentRegistry.ingredients.set(row.id, { ...existing, iconPixels: data.iconPixels });
-        merged++;
+      if (
+        !shouldMergeStoredIngredientIcon(data.iconPixels, existing.iconPixels, {
+          id: existing.id,
+          category: existing.category,
+          name: existing.name,
+        })
+      ) {
+        continue;
       }
+      contentRegistry.ingredients.set(row.id, {
+        ...existing,
+        iconPixels: data.iconPixels as string[],
+      });
+      merged++;
     }
     if (merged > 0) {
-      console.log(`[ContentRegistry] Merged iconPixels from DB for ${merged} item(s)`);
+      console.log(`[ContentRegistry] Merged custom iconPixels from DB for ${merged} item(s)`);
     }
   } catch (err) {
     console.warn('[ContentRegistry] Could not merge icons from DB:', err);
