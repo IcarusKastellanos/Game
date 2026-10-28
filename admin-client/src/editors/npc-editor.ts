@@ -327,7 +327,9 @@ export async function renderNpcEditor(
         <div id="node-inspector" class="inspector mt"></div>
         <div id="edge-inspector" class="inspector mt hidden"></div>
         <button class="btn mt" id="save-npc">Save NPC & Dialogue</button>
+        <button class="btn secondary mt" id="diagnose-npc">Diagnose runtime</button>
         <button class="btn secondary mt" id="add-choice">+ Choice from Selected Node</button>
+        <pre id="npc-diagnose-out" class="muted-text mt" style="white-space:pre-wrap;max-height:220px;overflow:auto"></pre>
       </div>
       <div class="editor-graph card">
         <h2>Dialogue Graph</h2>
@@ -687,6 +689,38 @@ export async function renderNpcEditor(
     });
     edgeMeta.set(edgeId, {});
     graph!.setData(nodes, edgeList);
+  };
+
+  document.getElementById('diagnose-npc')!.onclick = async () => {
+    const out = document.getElementById('npc-diagnose-out');
+    try {
+      const diagnosis = await api<{
+        availability?: { available?: boolean; reasons?: string[] };
+        authoring?: { level: string; path: string; message: string }[];
+        schedulePreview?: { hour: number; locationId: string; activeNow?: boolean }[];
+        presence?: Record<string, unknown>;
+      }>(`/content/npcs/${npcId}/diagnose`, { method: 'POST', body: '{}' });
+      const lines = [
+        `Available: ${diagnosis.availability?.available ? 'yes' : 'no'}`,
+        ...(diagnosis.availability?.reasons ?? []).map((r) => `· ${r}`),
+        '',
+        'Schedule preview:',
+        ...(diagnosis.schedulePreview ?? []).map(
+          (row) => `  ${row.activeNow ? '*' : ' '} h${row.hour} @ ${row.locationId}`
+        ),
+        '',
+        'Authoring:',
+        ...((diagnosis.authoring ?? []).length
+          ? diagnosis.authoring!.map((row) => `  [${row.level}] ${row.path}: ${row.message}`)
+          : ['  (none)']),
+        '',
+        diagnosis.presence ? `Presence: ${JSON.stringify(diagnosis.presence)}` : 'Presence: (none)',
+      ];
+      if (out) out.textContent = lines.join('\n');
+    } catch (e) {
+      if (out) out.textContent = String(e);
+      else alert(String(e));
+    }
   };
 
   document.getElementById('save-npc')!.onclick = async () => {

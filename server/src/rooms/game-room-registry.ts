@@ -1,5 +1,6 @@
 import type { GameRoom } from './GameRoom.js';
 import type { ContentMapDefinition } from '@witchcraft/shared';
+import { invalidateNpcWorldCache } from '../systems/npc-schedule.js';
 
 const rooms = new Set<GameRoom>();
 
@@ -35,6 +36,7 @@ export function broadcastSharedQuestMirror(): void {
 
 /** Push the authoritative NPC world after a content reload. */
 export function broadcastNpcWorldState(): number {
+  invalidateNpcWorldCache();
   let clients = 0;
   for (const room of rooms) {
     room.publishNpcWorld(true);

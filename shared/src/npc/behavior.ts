@@ -103,6 +103,24 @@ export function releaseConversationLock(
   );
 }
 
+/** Drop every lock owned by a session (disconnect / leave). */
+export function releaseConversationLocksForSession(
+  locks: readonly NpcConversationLock[],
+  sessionId: string,
+  now = Date.now()
+): NpcConversationLock[] {
+  return locks.filter((lock) => lock.expiresAt > now && lock.sessionId !== sessionId);
+}
+
+/** Drop every lock owned by a player id (all sessions). */
+export function releaseConversationLocksForPlayer(
+  locks: readonly NpcConversationLock[],
+  playerId: string,
+  now = Date.now()
+): NpcConversationLock[] {
+  return locks.filter((lock) => lock.expiresAt > now && lock.playerId !== playerId);
+}
+
 export function refreshConversationLock(
   locks: readonly NpcConversationLock[],
   npcId: string,

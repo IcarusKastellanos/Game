@@ -16,14 +16,19 @@ import { rehydrateContentOverlays } from '../../content/rehydrate.js';
 import { licenseEditorCatalog, loadLicensesDocumentFromDisk, saveLicensesDocument } from '../../content/license-sync.js';
 import type { ContentRecipe, ContentHexagramRecipe } from '@witchcraft/shared';
 import {
+  DEFAULT_STATS,
   GRIMOIRE_ENTRY_KINDS,
   LEVEL_STAT_FLOOR_KEYS,
+  defaultProgression,
+  diagnoseNpcRuntime,
   getLevelDocument,
   getLicensesDocument,
   isGrimoireEntryKind,
   type GrimoireEntryKind,
   type PermissionSlug,
 } from '@witchcraft/shared';
+import { currentNpcWorld, npcPresence } from '../../systems/npc-schedule.js';
+import { listNpcEvents, recordNpcEvent } from '../../systems/npc-event-log.js';
 import { getAdminPermissions } from '../rbac.js';
 import { grimoireCatalog, grimoireRecordExists, setGrimoireEntry } from '../../content/grimoire-entries.js';
 import { hydrateNpcSprite } from '../../content/npc-sprites.js';
@@ -393,6 +398,57 @@ contentRouter.put('/npcs/:id', requirePerm('content.npc.edit'), async (req: Admi
   } catch (error) {
     respondContentSaveError(res, error);
   }
+});
+
+/** Designer dry-run: schedule, availability reasons, optional encounter. Does not mutate gameplay. */
+contentRouter.post('/npcs/:id/diagnose', requirePerm('content.npc.view'), async (req, res) => {
+  const id = param(req, 'id');
+  const npc = contentRegistry.npcs.get(id);
+  if (!npc) return res.status(404).json({ error: 'NPC not found' });
+  const world = currentNpcWorld(Date.now(), { fresh: true });
+  const hour = typeof req.body?.hour === 'number' ? req.body.hour : world.hour;
+  const presence = npcPresence(id);
+  const dialogue = contentRegistry.dialogues.get(npc.dialogueTreeId);
+  const nodeIds = new Set((dialogue?.nodes ?? []).map((node) => node.id));
+  const diagnosis = diagnoseNpcRuntime({
+    npc,
+    placeIds: [...contentRegistry.npcPlaces.keys()],
+    shopIds: new Set(contentRegistry.shops.keys()),
+    dialogueTreeIds: new Set(contentRegistry.dialogues.keys()),
+    dialogueNodeIds: nodeIds,
+    presence,
+    hour,
+    distanceOk: true,
+    encounterCtx: {
+      progression: defaultProgression(),
+      stats: { ...DEFAULT_STATS },
+      inventory: [],
+      coins: 0,
+      dialogue,
+      quests: questSystem.list(),
+    },
+  });
+  recordNpcEvent({
+    kind: 'diagnose',
+    npcId: id,
+    success: true,
+    provenance: 'admin',
+    meta: { available: diagnosis.availability.available },
+  });
+  await writeAuditLog(auditContext(req), {
+    action: 'content.npc.diagnose',
+    objectType: 'npc',
+    objectId: id,
+  });
+  res.json(diagnosis);
+});
+
+/** Recent NPC simulation events for designers (no affinity / private prefs). */
+contentRouter.get('/npc-events', requirePerm('content.npc.view'), (req, res) => {
+  const npcId = typeof req.query.npcId === 'string' ? req.query.npcId : undefined;
+  const kind = typeof req.query.kind === 'string' ? (req.query.kind as never) : undefined;
+  const limit = typeof req.query.limit === 'string' ? Number(req.query.limit) : 100;
+  res.json({ events: listNpcEvents({ npcId, kind, limit }) });
 });
 
 contentRouter.get('/dialogues', requirePerm('content.npc.view'), (_req, res) => {

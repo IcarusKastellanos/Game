@@ -25,5 +25,11 @@ jobs:
       - name: Lint (typecheck)
         run: npm run lint
 
+      - name: Shared unit tests
+        run: npm run test -w shared
+
+      - name: Validate NPC content
+        run: npm run content:validate-npc
+
       - name: Build
         run: npm run build

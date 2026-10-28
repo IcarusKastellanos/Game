@@ -100,11 +100,15 @@ import {
   resolveNodeText,
   acquireConversationLock,
   releaseConversationLock,
+  releaseConversationLocksForSession,
   refreshConversationLock,
   parseConversationPolicy,
+  behaviorFromSchedule,
+  canStartConversation,
   type NpcConversationLock,
 } from '@witchcraft/shared';
 import { knowledgeStore } from '../systems/knowledge-store.js';
+import { recordNpcEvent } from '../systems/npc-event-log.js';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
 import {
   createApartmentInvite,
@@ -188,6 +192,8 @@ import {
 /** Max spell casts per player within the rolling window. */
 const SPELL_CAST_RATE_LIMIT = 12;
 const SPELL_CAST_RATE_WINDOW_MS = 60_000;
+const NPC_ACTION_RATE_LIMIT = 40;
+const NPC_ACTION_RATE_WINDOW_MS = 60_000;
 
 /**
  * Main multiplayer room — movement, scenes, spellcasting, persistence.
@@ -211,6 +217,10 @@ export class GameRoom extends Room<GameRoomState> {
   private spellCastLimiter = new SlidingWindowRateLimiter(
     SPELL_CAST_RATE_LIMIT,
     SPELL_CAST_RATE_WINDOW_MS
+  );
+  private npcActionLimiter = new SlidingWindowRateLimiter(
+    NPC_ACTION_RATE_LIMIT,
+    NPC_ACTION_RATE_WINDOW_MS
   );
 
   private studyCircleNotifiedHour = -1;
@@ -312,6 +322,21 @@ export class GameRoom extends Room<GameRoomState> {
     this.progressionSeq.set(client.sessionId, next);
     client.send('progression_update', { progression, seq: next, at: Date.now() });
     this.scheduleProgressionSave(client.sessionId);
+  }
+
+  /** NPC open_ui carries progression seq so stale panels cannot overwrite newer ones. */
+  private sendNpcOpenUi(client: Client, payload: Record<string, unknown>): void {
+    const seq = this.progressionSeq.get(client.sessionId);
+    client.send('open_ui', {
+      ...payload,
+      ...(seq != null ? { seq, at: Date.now() } : { at: Date.now() }),
+    });
+  }
+
+  private allowNpcAction(client: Client): boolean {
+    if (this.npcActionLimiter.tryConsume(client.sessionId)) return true;
+    this.warnPlayer(client, 'Slow down — they need a moment.');
+    return false;
   }
 
   /** Reconnect / map-ready fallback: push authoritative world + private progression. */
@@ -499,8 +524,13 @@ export class GameRoom extends Room<GameRoomState> {
     this.vanishedSessions.delete(client.sessionId);
     this.adminSessions.delete(client.sessionId);
     this.spellCastLimiter.reset(client.sessionId);
+    this.npcActionLimiter.reset(client.sessionId);
     this.survivalActivity.delete(client.sessionId);
     this.progressionSeq.delete(client.sessionId);
+    this.conversationLocks = releaseConversationLocksForSession(
+      this.conversationLocks,
+      client.sessionId
+    );
     const saveTimer = this.progressionSaveTimers.get(client.sessionId);
     if (saveTimer) {
       clearTimeout(saveTimer);
@@ -722,18 +752,23 @@ export class GameRoom extends Room<GameRoomState> {
         this.handlePlaceWard(client, player, msg.wardPointId, msg.spellId);
         break;
       case 'dialogue_choice':
+        if (!this.allowNpcAction(client)) break;
         this.handleDialogueChoice(client, player, msg.dialogueTreeId, msg.nodeId, msg.choiceId, msg.choiceIndex);
         break;
       case 'npc_talk':
+        if (!this.allowNpcAction(client)) break;
         this.handleNpcTalk(client, player, msg.npcId);
         break;
       case 'npc_action':
+        if (!this.allowNpcAction(client)) break;
         this.handleNpcAction(client, player, msg.npcId, msg.actionId);
         break;
       case 'npc_gift':
+        if (!this.allowNpcAction(client)) break;
         this.handleNpcGift(client, player, msg.npcId, msg.slotIndex, msg.itemId, msg.operationId);
         break;
       case 'npc_social':
+        if (!this.allowNpcAction(client)) break;
         this.handleNpcSocial(client, player, msg.npcId, msg.actionId, msg.operationId);
         break;
       case 'grimoire_write':
@@ -2079,7 +2114,7 @@ export class GameRoom extends Room<GameRoomState> {
       facts: this.giftFacts(slot),
     }));
     const view = describeGiftWindow(data?.progression, npcId, slots, Date.now());
-    client.send('open_ui', {
+    this.sendNpcOpenUi(client, {
       ui: 'npc_gift',
       npcId,
       name: npc?.name ?? npcId,
@@ -2134,6 +2169,20 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
     const result = ran.value;
+    recordNpcEvent({
+      kind: 'gift',
+      npcId,
+      playerId: data.dbPlayerId ?? client.sessionId,
+      sessionId: client.sessionId,
+      success: result.ok,
+      reason: result.ok ? undefined : result.reason,
+      provenance: 'observed',
+      meta: {
+        duplicate: result.duplicate === true,
+        itemId,
+        ...(result.preferenceId ? { preferenceId: result.preferenceId } : {}),
+      },
+    });
     if (result.reaction) {
       client.send('notification', { type: 'notification', message: result.reaction, level: result.ok ? 'success' : 'info' });
     } else if (result.reason) {
@@ -2241,7 +2290,7 @@ export class GameRoom extends Room<GameRoomState> {
       data.progression = withBondJournal(refreshed, npcId, npc.name, dossier);
       this.emitProgression(client, data.progression);
     }
-    client.send('open_ui', {
+    this.sendNpcOpenUi(client, {
       ui: 'npc_actions',
       npcId,
       name: encounter.name,
@@ -2250,6 +2299,15 @@ export class GameRoom extends Room<GameRoomState> {
       options: encounter.options,
       encounter,
       ...(encounter.notice ? { notice: encounter.notice } : {}),
+    });
+    recordNpcEvent({
+      kind: 'talk_open',
+      npcId,
+      playerId: data?.dbPlayerId ?? client.sessionId,
+      sessionId: client.sessionId,
+      success: true,
+      provenance: 'observed',
+      meta: { ui: 'npc_actions' },
     });
   }
 
@@ -2303,6 +2361,32 @@ export class GameRoom extends Room<GameRoomState> {
     if (!met) return;
     const playerId = met.dbPlayerId ?? client.sessionId;
     const policy = parseConversationPolicy(npc.conversationPolicy);
+    const presence = npcPresence(npcId);
+    const behavior = behaviorFromSchedule(
+      presence?.interaction,
+      presence?.moving ? 'pace' : undefined
+    );
+    const startGate = canStartConversation(
+      behavior,
+      policy,
+      this.conversationLocks,
+      npcId,
+      playerId
+    );
+    if (!startGate.ok) {
+      this.warnPlayer(client, startGate.reason);
+      recordNpcEvent({
+        kind: 'talk_blocked',
+        npcId,
+        playerId,
+        sessionId: client.sessionId,
+        success: false,
+        reason: startGate.reason,
+        provenance: 'observed',
+        meta: { behavior },
+      });
+      return;
+    }
     const locked = acquireConversationLock({
       locks: this.conversationLocks,
       npcId,
@@ -2313,13 +2397,21 @@ export class GameRoom extends Room<GameRoomState> {
     this.conversationLocks = locked.locks;
     if (!locked.acquired) {
       this.warnPlayer(client, locked.reason ?? 'Someone else is speaking with them.');
+      recordNpcEvent({
+        kind: 'talk_blocked',
+        npcId,
+        playerId,
+        sessionId: client.sessionId,
+        success: false,
+        reason: locked.reason,
+        provenance: 'observed',
+      });
       return;
     }
 
     met.progression = beginDialogueVisit(met.progression, npc.dialogueTreeId, npcId);
     const progression = met.progression;
     const tree = dialogueSystem.getTree(npc.dialogueTreeId);
-    const presence = npcPresence(npcId);
     let openNode = nodeId;
     if (openNode === 'start' && presence?.dialogueNodeId && tree?.nodes.some((entry) => entry.id === presence.dialogueNodeId)) {
       openNode = presence.dialogueNodeId;
@@ -2330,7 +2422,10 @@ export class GameRoom extends Room<GameRoomState> {
     const text =
       remembered ||
       (node ? resolveNodeText(node, progression, npcId, npc.dialogueTreeId) : '');
-    client.send('open_ui', {
+    const dossier = buildPeopleDossierPatch({ npc, progression: met.progression });
+    met.progression = withBondJournal(met.progression, npcId, npc.name, dossier);
+    this.emitProgression(client, met.progression);
+    this.sendNpcOpenUi(client, {
       ui: 'dialogue',
       npcId,
       dialogueTreeId: npc.dialogueTreeId,
@@ -2339,10 +2434,15 @@ export class GameRoom extends Room<GameRoomState> {
       choices: dialogueSystem.publish(npc.dialogueTreeId, openNode, progression, player.stats, player.coins),
       ...(notice ? { notice } : {}),
     });
-
-    const dossier = buildPeopleDossierPatch({ npc, progression: met.progression });
-    met.progression = withBondJournal(met.progression, npcId, npc.name, dossier);
-    this.emitProgression(client, met.progression);
+    recordNpcEvent({
+      kind: 'talk_open',
+      npcId,
+      playerId,
+      sessionId: client.sessionId,
+      success: true,
+      provenance: 'observed',
+      meta: { ui: 'dialogue', nodeId: openNode },
+    });
   }
 
   private requireNpcPresent(client: Client, player: PlayerSchema, npcId: string) {
