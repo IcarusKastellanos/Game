@@ -3,25 +3,36 @@ import { renderSpellList, renderSpellEditor } from './editors/spell-editor.js';
 import { renderRecipeManager } from './editors/recipe-editor.js';
 import { renderItemList, renderItemEditor } from './editors/item-editor.js';
 import { renderNpcList, renderNpcEditor } from './editors/npc-editor.js';
+import { renderNpcInsights } from './editors/npc-insights.js';
+import { renderQuestEditor } from './editors/quest-editor.js';
 import { renderWardManager, renderEventManager } from './editors/ward-event-manager.js';
 import { renderMapBuilder } from './map-builder/index.js';
 import { renderHudBuilder } from './hud-builder/index.js';
 import { renderLevelEditor } from './editors/level-editor.js';
 import { renderLicenseEditor } from './editors/license-editor.js';
 import { renderModerator } from './editors/moderator.js';
+import { renderGrimoireEditor } from './editors/grimoire-editor.js';
 
-type Page = 'dashboard' | 'players' | 'moderator' | 'spells' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
+type Page = 'dashboard' | 'players' | 'moderator' | 'spells' | 'grimoire' | 'levels' | 'licenses' | 'recipes' | 'items' | 'npcs' | 'npc-insights' | 'quests' | 'maps' | 'hud' | 'wards' | 'audit' | 'events' | 'spirits';
 
-const NAV: { id: Page; label: string; perm?: string; group: string }[] = [
+const NAV: { id: Page; label: string; perm?: string | string[]; group: string }[] = [
   { id: 'dashboard', label: 'Dashboard', perm: 'dashboard.view', group: 'Overview' },
   { id: 'players', label: 'Player Manager', perm: 'player.view', group: 'People' },
   { id: 'moderator', label: 'Moderator', perm: 'player.moderate', group: 'People' },
   { id: 'spells', label: 'Spell Editor', perm: 'content.spell.view', group: 'Content' },
+  {
+    id: 'grimoire',
+    label: 'Grimoire',
+    perm: ['content.spell.view', 'content.item.view', 'content.npc.view', 'content.spirit.edit', 'content.familiar.edit', 'content.quest.edit'],
+    group: 'Content',
+  },
   { id: 'levels', label: 'Level Editor', perm: 'content.spell.view', group: 'Content' },
   { id: 'licenses', label: 'License Editor', perm: 'content.spell.view', group: 'Content' },
   { id: 'recipes', label: 'Recipe Manager', perm: 'content.item.view', group: 'Content' },
   { id: 'items', label: 'Item Editor', perm: 'content.item.view', group: 'Content' },
   { id: 'npcs', label: 'NPC Builder', perm: 'content.npc.view', group: 'World' },
+  { id: 'npc-insights', label: 'NPC Insights', perm: 'content.npc.view', group: 'World' },
+  { id: 'quests', label: 'Quest Editor', perm: 'content.quest.edit', group: 'World' },
   { id: 'maps', label: 'Map Builder', perm: 'content.map.view', group: 'World' },
   { id: 'hud', label: 'Player HUD', perm: 'content.hud.view', group: 'World' },
   { id: 'wards', label: 'Ward Manager', perm: 'ward.view', group: 'World' },
@@ -78,7 +89,11 @@ function renderLogin(root: HTMLElement): void {
 
 function renderShell(root: HTMLElement): void {
   const perms = new Set(session?.permissions ?? []);
-  const navItems = NAV.filter((n) => !n.perm || perms.has(n.perm));
+  const navItems = NAV.filter((n) => {
+    if (!n.perm) return true;
+    const needed = Array.isArray(n.perm) ? n.perm : [n.perm];
+    return needed.some((perm) => perms.has(perm));
+  });
   let lastGroup = '';
   const navHtml = navItems.map((n) => {
     const heading = n.group !== lastGroup ? `<div class="nav-label">${n.group}</div>` : '';
@@ -128,6 +143,8 @@ async function loadPage(): Promise<void> {
     case 'dashboard': return renderDashboard(el);
     case 'players': return renderPlayers(el);
     case 'moderator': return renderModerator(el);
+    case 'grimoire':
+      return renderGrimoireEditor(el);
     case 'spells':
       if (editSpellId === '__new__' || editSpellId) {
         return renderSpellEditor(el, editSpellId, () => { editSpellId = null; void loadPage(); });
@@ -147,6 +164,10 @@ async function loadPage(): Promise<void> {
     case 'npcs':
       if (editNpcId) return renderNpcEditor(el, editNpcId, () => { editNpcId = null; void loadPage(); });
       return renderNpcList(el, (id) => { editNpcId = id; void loadPage(); });
+    case 'npc-insights':
+      return renderNpcInsights(el);
+    case 'quests':
+      return renderQuestEditor(el);
     case 'maps':
       return renderMapBuilder(el, session?.permissions ?? []);
     case 'hud':

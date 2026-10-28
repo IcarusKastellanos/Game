@@ -8,6 +8,8 @@ import { AuraPanel } from '../ui/AuraPanel';
 import { CharacterSheet } from '../ui/CharacterSheet';
 import { FamiliarPanel } from '../ui/FamiliarPanel';
 import { DialoguePanel } from '../ui/DialoguePanel';
+import { NpcActionPanel } from '../ui/NpcActionPanel';
+import { NpcGiftPanel } from '../ui/NpcGiftPanel';
 import { HUD } from '../ui/HUD';
 import { hudWindows } from '../ui/hud/HUDManager';
 import type { HUDWindowId } from '../ui/hud/types';
@@ -30,6 +32,8 @@ export class UIScene extends Phaser.Scene {
   private characterSheet!: CharacterSheet;
   private familiarPanel!: FamiliarPanel;
   private dialoguePanel!: DialoguePanel;
+  private npcActionPanel!: NpcActionPanel;
+  private npcGiftPanel!: NpcGiftPanel;
   private hud!: HUD;
   private adminConsole!: AdminConsole;
   private adminPanel!: AdminPanel;
@@ -49,6 +53,8 @@ export class UIScene extends Phaser.Scene {
     this.characterSheet = new CharacterSheet(this);
     this.familiarPanel = new FamiliarPanel(this);
     this.dialoguePanel = new DialoguePanel();
+    this.npcActionPanel = new NpcActionPanel();
+    this.npcGiftPanel = new NpcGiftPanel();
     this.hud = new HUD(this);
     this.adminConsole = new AdminConsole(this);
     this.adminPanel = new AdminPanel(this);
@@ -116,7 +122,11 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-C', guard(() => this.openHudWindow('coven')));
     this.input.keyboard?.on('keydown-H', guard(() => this.openHudWindow('teleport')));
     this.input.keyboard?.on('keydown-M', guard(() => this.openHudWindow('map')));
-    this.input.keyboard?.on('keydown-P', guard(() => { this.closeAll(); friendsPanel.show(); }));
+    this.input.keyboard?.on('keydown-P', guard(() => {
+      friendsPanel.hide();
+      hudWindows.renderWindow('social');
+      hudWindows.get('social')?.show();
+    }));
     this.input.keyboard?.on('keydown-X', guard(() => this.togglePanel('aura')));
     this.input.keyboard?.on('keydown-Y', guard(() => this.toggleLedger()));
     window.addEventListener('game:open-character-sheet', () => this.toggleLedger());
@@ -175,8 +185,15 @@ export class UIScene extends Phaser.Scene {
     ui: string;
     shopId?: string;
     npcId?: string;
+    name?: string;
+    role?: string;
     dialogueTreeId?: string;
     nodeId?: string;
+    text?: string;
+    notice?: string;
+    choices?: import('@witchcraft/shared').PublishedDialogueChoice[];
+    options?: import('@witchcraft/shared').NpcInteractionOffer[];
+    encounter?: import('@witchcraft/shared').NpcEncounterView;
     stationType?: string;
     interactableId?: string;
     recipes?: unknown[];
@@ -198,8 +215,29 @@ export class UIScene extends Phaser.Scene {
       case 'dialogue':
         if (d.npcId && d.dialogueTreeId) {
           gameState.activeUI = 'dialogue';
-          this.dialoguePanel.show(d.npcId, d.dialogueTreeId, d.nodeId ?? 'start');
+          this.dialoguePanel.show(d.npcId, d.dialogueTreeId, d.nodeId ?? 'start', d.text ?? '', d.choices ?? [], d.notice ?? '');
         }
+        break;
+      case 'npc_actions':
+        if (d.npcId) {
+          gameState.activeUI = 'npc_actions';
+          this.npcActionPanel.show({
+            npcId: d.npcId,
+            name: d.name,
+            role: d.role,
+            options: d.options,
+            notice: d.notice,
+            encounter: d.encounter,
+          });
+        }
+        break;
+      case 'npc_gift':
+        if (d.npcId) {
+          gameState.activeUI = 'npc_gift';
+          this.npcGiftPanel.show(d as import('../ui/NpcGiftPanel').GiftWindowDetail);
+        }
+        break;
+      case 'none':
         break;
       case 'crafting':
         progressionPanels.showCrafting(
@@ -287,6 +325,8 @@ export class UIScene extends Phaser.Scene {
     this.characterSheet.hide();
     this.familiarPanel.hide();
     this.dialoguePanel.hide();
+    this.npcActionPanel.hide();
+    this.npcGiftPanel.hide();
     this.targetPanel.hide();
     friendsPanel.hide();
     progressionPanels.hideAll();

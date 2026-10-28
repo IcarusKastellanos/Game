@@ -9,10 +9,12 @@ import {
   countTaglocksForTarget,
   MAX_TAGLOCKS_PER_TARGET,
   inventorySlotCount,
+  findFirstEmptySlotIndex,
   INVENTORY_MAX_SLOTS,
   clampMagicalEnergy,
   clampPlayerStatValue,
   normalizePlayerStats,
+  DEFAULT_STATS,
   magicalEnergyCap,
   NULLIFICATION_POWDER_ITEM_ID,
   syncLevelDerivedStats,
@@ -66,8 +68,49 @@ import {
   revocationReputationPenalty,
   activeLicenseIds,
   getLicense,
+  backfillGrimoireIngredients,
+  defaultGrimoire,
+  GRIMOIRE_MANUSCRIPT_ITEM_ID,
+  malevolentGrimoireWard,
+  manuscriptMetadataFromPage,
+  readManuscriptMeta,
+  receiveSharedGrimoirePage,
+  recordGrimoireCast,
+  recordGrimoireIngredients,
+  shareSpellIntoGrimoire,
+  bondGreeting,
+  bondShopMultiplier,
+  npcAcceptsGifts,
+  withBondJournal,
+  describeGiftWindow,
+  resolveNpcGift,
+  resolveSocialAction,
+  runExclusiveSocialOp,
+  buildNpcEncounterView,
+  buildPeopleDossierPatch,
+  npcPresenceTile,
+  interactRangeFromEdgePx,
+  nextSeq,
+  diffNpcPresences,
+  type GiftItemFacts,
+  type NpcPublicPresence,
+  type PlayerProgression,
+  takeInventorySlot,
+  withGrimoire,
   type SurvivalActivity,
+  beginDialogueVisit,
+  resolveNodeText,
+  acquireConversationLock,
+  releaseConversationLock,
+  releaseConversationLocksForSession,
+  refreshConversationLock,
+  parseConversationPolicy,
+  behaviorFromSchedule,
+  canStartConversation,
+  type NpcConversationLock,
 } from '@witchcraft/shared';
+import { knowledgeStore } from '../systems/knowledge-store.js';
+import { recordNpcEvent } from '../systems/npc-event-log.js';
 import { EVERWEED_INIT_ME_COST, feedWardTarget, ritualHasEverweed } from '../systems/ward-feeding.js';
 import {
   createApartmentInvite,
@@ -105,11 +148,11 @@ import { setOnlinePlayerCount } from '../admin/services/dashboard.js';
 import { assertPlayerAuth } from '../services/player-auth.js';
 import { chatService, type ChatPayload } from '../services/chat-service.js';
 import { censorChatMessage } from '../systems/chat-filter.js';
+import { isManuscriptArchived, registerManuscriptExport } from '../systems/manuscript-registry.js';
 import type { PermissionSlug } from '@witchcraft/shared';
 import { registerGameRoom, unregisterGameRoom } from './game-room-registry.js';
 import { SlidingWindowRateLimiter } from '../utils/rate-limit.js';
 import {
-  sendWorldState,
   handleDialogueProgression,
   handleUseItemProgression,
   handleReadBookComplete,
@@ -122,19 +165,37 @@ import {
   handleInteractCleanser,
   checkInteractAvailable,
   tickStudyCircleEvents,
-  completeQuestRewards,
+  noteQuestSpell,
+  grantPendingQuestRewards,
+  settleQuestSignal,
+  applyPlayerSocialEvent,
+  applyPlayerDiscovery,
   syncRecognition,
   type HandlerCtx,
 } from './progression-handlers.js';
+import { mergeGrimoireWrite, petitionGrimoireSpirit, recallGrimoireSpirit } from './grimoire-handlers.js';
 import { tickWorldClock, getWorldHour } from '../systems/world-clock.js';
-import { getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
+import { activityNoticeFor, currentNpcWorld, npcPresence, npcWorldSignature } from '../systems/npc-schedule.js';
 import { questSystem } from '../systems/quest-system.js';
-import { craftStationTypeFromInteractable, isCraftingInteractable, type MagicTradition } from '@witchcraft/shared';
+import { questBlockReason, refreshQuestInstances } from '@witchcraft/shared';
+import {
+  craftStationTypeFromInteractable,
+  isCraftingInteractable,
+  TILE_SIZE,
+  isWithinInteractRange,
+  dialogueChoiceId,
+  nearestNpcInteractable,
+  type MagicTradition,
+  type MapInteractable,
+  type NpcEncounterView,
+} from '@witchcraft/shared';
 // eligibleSpecialtyTraditions — TEMPORARY: tradition specialty offers deactivated
 
 /** Max spell casts per player within the rolling window. */
 const SPELL_CAST_RATE_LIMIT = 12;
 const SPELL_CAST_RATE_WINDOW_MS = 60_000;
+const NPC_ACTION_RATE_LIMIT = 40;
+const NPC_ACTION_RATE_WINDOW_MS = 60_000;
 
 /**
  * Main multiplayer room — movement, scenes, spellcasting, persistence.
@@ -159,8 +220,19 @@ export class GameRoom extends Room<GameRoomState> {
     SPELL_CAST_RATE_LIMIT,
     SPELL_CAST_RATE_WINDOW_MS
   );
+  private npcActionLimiter = new SlidingWindowRateLimiter(
+    NPC_ACTION_RATE_LIMIT,
+    NPC_ACTION_RATE_WINDOW_MS
+  );
 
   private studyCircleNotifiedHour = -1;
+  private lastNpcWorldSig = '';
+  private lastNpcPresences: NpcPublicPresence[] = [];
+  private worldStateSeq = 0;
+  private worldFullEvery = 0;
+  private progressionSeq = new Map<string, number>();
+  private progressionSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private conversationLocks: NpcConversationLock[] = [];
 
   onCreate(options: { scene?: string; shard?: string }) {
     this.autoDispose = false;
@@ -171,7 +243,7 @@ export class GameRoom extends Room<GameRoomState> {
       'move', 'change_scene', 'interact', 'cast_spell', 'altar_update',
       'buy_item', 'use_item', 'care_familiar', 'choose_familiar', 'collect_taglock',
       'whisper',
-      'place_ward', 'inspect_aura', 'dialogue_choice', 'chat', 'admin_command',
+      'place_ward', 'inspect_aura', 'dialogue_choice', 'npc_talk', 'npc_action', 'npc_gift', 'npc_social', 'chat', 'admin_command',
       'visit_apartment', 'leave_apartment',
       'apartment_invite', 'apartment_invite_response',
       'friend_request', 'friend_respond', 'friend_remove', 'friends_refresh',
@@ -181,6 +253,7 @@ export class GameRoom extends Room<GameRoomState> {
       'choose_specialty', 'cast_pocket_spell',
       'craft_recipe', 'hexagram_enchant', 'experiment_ingredients', 'read_book_complete',
       'presence_ready',
+      'grimoire_write', 'grimoire_share', 'grimoire_petition', 'grimoire_recall', 'grimoire_export',
       'admin_action',
     ] as const;
 
@@ -201,13 +274,12 @@ export class GameRoom extends Room<GameRoomState> {
       if (hour !== this.studyCircleNotifiedHour) {
         this.studyCircleNotifiedHour = hour;
         void tickStudyCircleEvents([...this.clients]);
-        this.broadcast('world_state', {
-          hour,
-          hiddenNpcIds: getUnavailableNpcInteractableIds(),
-        });
+        this.noteQuestHour(hour);
       }
       this.maybeRestockShopsAtNoon(hour);
     }, 30000);
+
+    this.clock.setInterval(() => this.publishNpcWorld(), 1000);
 
     this.clock.setInterval(() => this.tickMeRegen(), 5000);
     this.clock.setInterval(() => this.tickSurvival(), 30000);
@@ -224,8 +296,94 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   onDispose(): void {
+    for (const [sessionId, timer] of this.progressionSaveTimers) {
+      clearTimeout(timer);
+      this.progressionSaveTimers.delete(sessionId);
+      const data = this.playerData.get(sessionId);
+      if (data?.dbPlayerId) void savePlayer(data);
+    }
     unregisterGameRoom(this);
     unregisterPresenceRoom(this);
+  }
+
+  /** Publish public NPC presence. Clients interpolate walks; this is not a per-frame stream. */
+  publishNpcWorld(force = false): void {
+    const payload = currentNpcWorld();
+    const signature = npcWorldSignature(payload);
+    if (!force && signature === this.lastNpcWorldSig) return;
+    this.lastNpcWorldSig = signature;
+    this.worldStateSeq = nextSeq(this.worldStateSeq);
+    this.worldFullEvery += 1;
+    const forceFull = force || this.worldFullEvery % 12 === 1 || !this.lastNpcPresences.length;
+    const diff = diffNpcPresences(this.lastNpcPresences, payload.npcPresences, {
+      forceFull,
+    });
+    this.lastNpcPresences = payload.npcPresences;
+    this.broadcast('world_state', {
+      hour: payload.hour,
+      weekday: payload.weekday,
+      hourLabel: payload.hourLabel,
+      hiddenNpcIds: payload.hiddenNpcIds,
+      mode: diff.mode,
+      changedNpcIds: diff.changedNpcIds,
+      removedNpcIds: diff.removedNpcIds,
+      npcPresences: diff.npcPresences,
+      seq: this.worldStateSeq,
+      at: Date.now(),
+    });
+  }
+
+  /** Sequenced progression sync — clients drop older seq to avoid stale overwrites. */
+  private emitProgression(client: Client, progression: PlayerProgression): void {
+    const next = nextSeq(this.progressionSeq.get(client.sessionId));
+    this.progressionSeq.set(client.sessionId, next);
+    client.send('progression_update', { progression, seq: next, at: Date.now() });
+    this.scheduleProgressionSave(client.sessionId);
+  }
+
+  /** NPC open_ui carries progression seq so stale panels cannot overwrite newer ones. */
+  private sendNpcOpenUi(client: Client, payload: Record<string, unknown>): void {
+    const seq = this.progressionSeq.get(client.sessionId);
+    client.send('open_ui', {
+      ...payload,
+      ...(seq != null ? { seq, at: Date.now() } : { at: Date.now() }),
+    });
+  }
+
+  private allowNpcAction(client: Client): boolean {
+    if (this.npcActionLimiter.tryConsume(client.sessionId)) return true;
+    this.warnPlayer(client, 'Slow down — they need a moment.');
+    return false;
+  }
+
+  /** Reconnect / map-ready fallback: push authoritative world + private progression. */
+  private sendAuthoritativeNpcSync(client: Client): void {
+    const payload = currentNpcWorld();
+    this.worldStateSeq = nextSeq(this.worldStateSeq);
+    this.lastNpcPresences = payload.npcPresences;
+    client.send('world_state', {
+      ...payload,
+      mode: 'full',
+      changedNpcIds: payload.npcPresences.map((row) => row.npcId),
+      removedNpcIds: [],
+      seq: this.worldStateSeq,
+      at: Date.now(),
+    });
+    const progression = this.playerData.get(client.sessionId)?.progression;
+    if (progression) this.emitProgression(client, progression);
+  }
+
+  /** Debounced durable write for NPC bonds, discoveries, and cooldowns. */
+  private scheduleProgressionSave(sessionId: string): void {
+    const prior = this.progressionSaveTimers.get(sessionId);
+    if (prior) clearTimeout(prior);
+    const timer = setTimeout(() => {
+      this.progressionSaveTimers.delete(sessionId);
+      const data = this.playerData.get(sessionId);
+      if (!data?.dbPlayerId) return;
+      void savePlayer(data);
+    }, 1500);
+    this.progressionSaveTimers.set(sessionId, timer);
   }
 
   async onJoin(client: Client, options: { displayName?: string; username?: string; authToken?: string }) {
@@ -283,6 +441,19 @@ export class GameRoom extends Room<GameRoomState> {
       getWorldHour(),
       localDayKey()
     );
+    persisted.progression = withGrimoire(persisted.progression, (grimoire) =>
+      backfillGrimoireIngredients(
+        grimoire,
+        persisted.inventory.filter((slot) => slot.itemId && slot.quantity > 0).map((slot) => slot.itemId)
+      )
+    );
+    persisted.progression = refreshQuestInstances(
+      questSystem.list(),
+      persisted.progression,
+      questSystem.snapshot(),
+      persisted.dbPlayerId,
+      Date.now()
+    );
     this.playerData.set(client.sessionId, persisted);
     this.activeWards.set(client.sessionId, persisted.wards);
     this.state.players.set(client.sessionId, player);
@@ -314,8 +485,10 @@ export class GameRoom extends Room<GameRoomState> {
       adminCommands: adminLink ? listCommands(adminLink.permissions) : [],
     });
 
-    sendWorldState(client);
-    this.withProgression(client, player, (ctx) => syncRecognition(ctx, { notify: false }));
+    this.withProgression(client, player, (ctx) => {
+      grantPendingQuestRewards(ctx);
+      syncRecognition(ctx, { notify: false });
+    });
     // TEMPORARY: tradition specialty offers deactivated until tradition packs ship.
     // if (!persisted.stats.specialty) {
     //   const eligible = eligibleSpecialtyTraditions(persisted.stats.affinities);
@@ -327,7 +500,8 @@ export class GameRoom extends Room<GameRoomState> {
     this.sendApartmentVisitState(client);
     this.refreshWardWeb(client.sessionId);
     this.sendPlayerSync(client, player);
-    client.send('progression_update', { progression: this.playerData.get(client.sessionId)?.progression });
+    // Sequenced world + progression so clients reset and ignore stale out-of-order updates.
+    this.sendAuthoritativeNpcSync(client);
     this.syncPlayerShopStock(client);
 
     this.recordMetPlayers(client.sessionId);
@@ -375,7 +549,18 @@ export class GameRoom extends Room<GameRoomState> {
     this.vanishedSessions.delete(client.sessionId);
     this.adminSessions.delete(client.sessionId);
     this.spellCastLimiter.reset(client.sessionId);
+    this.npcActionLimiter.reset(client.sessionId);
     this.survivalActivity.delete(client.sessionId);
+    this.progressionSeq.delete(client.sessionId);
+    this.conversationLocks = releaseConversationLocksForSession(
+      this.conversationLocks,
+      client.sessionId
+    );
+    const saveTimer = this.progressionSaveTimers.get(client.sessionId);
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      this.progressionSaveTimers.delete(client.sessionId);
+    }
     const eatTimer = this.eatingTimers.get(client.sessionId);
     if (eatTimer) {
       clearTimeout(eatTimer);
@@ -516,6 +701,7 @@ export class GameRoom extends Room<GameRoomState> {
       case 'presence_ready':
         this.sendPresenceSync(client);
         this.sendApartmentVisitState(client);
+        this.sendAuthoritativeNpcSync(client);
         this.broadcastPresence('join', client.sessionId);
         break;
       case 'move':
@@ -570,7 +756,7 @@ export class GameRoom extends Room<GameRoomState> {
         this.handleBuy(client, player, msg.shopId, msg.itemId, msg.quantity);
         break;
       case 'use_item':
-        this.handleUseItem(client, player, msg.itemId, msg.quantity ?? 1);
+        this.handleUseItem(client, player, msg.itemId, msg.quantity ?? 1, msg.slotIndex);
         break;
       case 'care_familiar':
         this.handleCareFamiliar(client, player, msg.action);
@@ -591,7 +777,39 @@ export class GameRoom extends Room<GameRoomState> {
         this.handlePlaceWard(client, player, msg.wardPointId, msg.spellId);
         break;
       case 'dialogue_choice':
-        this.handleDialogueChoice(client, player, msg.dialogueTreeId, msg.nodeId, msg.choiceIndex);
+        if (!this.allowNpcAction(client)) break;
+        this.handleDialogueChoice(client, player, msg.dialogueTreeId, msg.nodeId, msg.choiceId, msg.choiceIndex);
+        break;
+      case 'npc_talk':
+        if (!this.allowNpcAction(client)) break;
+        this.handleNpcTalk(client, player, msg.npcId);
+        break;
+      case 'npc_action':
+        if (!this.allowNpcAction(client)) break;
+        this.handleNpcAction(client, player, msg.npcId, msg.actionId);
+        break;
+      case 'npc_gift':
+        if (!this.allowNpcAction(client)) break;
+        this.handleNpcGift(client, player, msg.npcId, msg.slotIndex, msg.itemId, msg.operationId);
+        break;
+      case 'npc_social':
+        if (!this.allowNpcAction(client)) break;
+        this.handleNpcSocial(client, player, msg.npcId, msg.actionId, msg.operationId);
+        break;
+      case 'grimoire_write':
+        this.handleGrimoireWrite(client, msg);
+        break;
+      case 'grimoire_share':
+        this.handleGrimoireShare(client, player, msg);
+        break;
+      case 'grimoire_petition':
+        this.handleGrimoirePetition(client, msg.spiritId);
+        break;
+      case 'grimoire_recall':
+        this.handleGrimoireRecall(client, msg.spiritId);
+        break;
+      case 'grimoire_export':
+        this.handleGrimoireExport(client, player, msg.pageId);
         break;
       case 'chat':
         this.handleChat(client, player, msg);
@@ -687,8 +905,9 @@ export class GameRoom extends Room<GameRoomState> {
       player,
       data,
       sendPlayerSync: (c, p) => this.sendPlayerSync(c, p),
-      sendProgression: (c, prog) => c.send('progression_update', { progression: prog }),
+      sendProgression: (c, prog) => this.emitProgression(c, prog),
       refreshWardWeb: (sessionId) => this.refreshWardWeb(sessionId),
+      progressionFor: (sessionId) => this.playerData.get(sessionId)?.progression,
       resolvePlayer: (sessionId) => {
         const resolved = this.state.players.get(sessionId);
         if (!resolved) return null;
@@ -709,8 +928,9 @@ export class GameRoom extends Room<GameRoomState> {
       player,
       data,
       sendPlayerSync: (c, p) => this.sendPlayerSync(c, p),
-      sendProgression: (c, prog) => c.send('progression_update', { progression: prog }),
+      sendProgression: (c, prog) => this.emitProgression(c, prog),
       refreshWardWeb: (sessionId) => this.refreshWardWeb(sessionId),
+      progressionFor: (sessionId) => this.playerData.get(sessionId)?.progression,
       resolvePlayer: (sessionId) => {
         const resolved = this.state.players.get(sessionId);
         if (!resolved) return null;
@@ -955,6 +1175,11 @@ export class GameRoom extends Room<GameRoomState> {
       this.wakeFromRest(client.sessionId);
     }
 
+    if ((target.type === 'shop' || target.type === 'npc') && !this.playerWithinInteractable(player, target)) {
+      this.warnPlayer(client, 'Step closer before you speak.');
+      return;
+    }
+
     const availability = checkInteractAvailable(target.type, target.data as Record<string, unknown>, targetId);
     if (!availability.available) {
       client.send('notification', {
@@ -964,6 +1189,13 @@ export class GameRoom extends Room<GameRoomState> {
       });
       return;
     }
+
+    this.noteQuest(client, player, {
+      type: 'interact',
+      interactableId: targetId,
+      locationId: player.scene,
+      idempotencyKey: `interact:${player.dbPlayerId}:${targetId}`,
+    });
 
     const progression = this.playerData.get(client.sessionId)?.progression;
     const requiredLicense = target.data?.requiresLicense as string | undefined;
@@ -1005,44 +1237,31 @@ export class GameRoom extends Room<GameRoomState> {
             scene: targetScene,
             spawnId,
           });
+          this.noteQuest(client, player, {
+            type: 'discover',
+            locationId: targetScene,
+            idempotencyKey: `discover:${player.dbPlayerId}:${targetScene}`,
+          });
           this.broadcastPresence('scene', client.sessionId);
         }
         break;
       case 'altar':
         client.send('open_ui', { ui: 'altar' });
         break;
-      case 'shop':
+      case 'shop': {
+        const shopId = typeof target.data?.shopId === 'string' ? target.data.shopId : '';
+        const keeperId = shopId ? contentRegistry.shops.get(shopId)?.npcId : undefined;
+        if (keeperId && contentRegistry.npcs.has(keeperId)) {
+          this.openNpcActions(client, player, keeperId, shopId);
+          break;
+        }
         this.syncPlayerShopStock(client);
-        client.send('open_ui', { ui: 'shop', shopId: target.data?.shopId });
+        client.send('open_ui', { ui: 'shop', shopId });
         break;
+      }
       case 'npc': {
         const npcId = target.data?.npcId as string;
-        const npc = contentRegistry.npcs.get(npcId);
-        if (npc) {
-          const npcLevel = assignedUnlockLevel('npcIds', npcId);
-          if (npcLevel != null && !meetsAssignedUnlock('npcIds', npcId, player.stats.experience ?? 0)) {
-            client.send('notification', {
-              type: 'notification',
-              message: levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)),
-              level: 'warn',
-            });
-            break;
-          }
-          if (progression && !licenseUnlocksNpc(npcId, progression)) {
-            client.send('notification', {
-              type: 'notification',
-              message: 'This practitioner only speaks with Magical Council credential holders.',
-              level: 'warn',
-            });
-            break;
-          }
-          client.send('open_ui', {
-            ui: 'dialogue',
-            npcId,
-            dialogueTreeId: npc.dialogueTreeId,
-            nodeId: 'start',
-          });
-        }
+        if (npcId) this.openNpcActions(client, player, npcId);
         break;
       }
       case 'ward_point':
@@ -1148,6 +1367,11 @@ export class GameRoom extends Room<GameRoomState> {
       targetProtection = targetPlayer?.stats.protection;
     }
 
+    const targetGrimoireWard =
+      targetId && targetPlayer && !msg.targetSelf && spellDef
+        ? malevolentGrimoireWard(this.playerData.get(targetId)?.progression.grimoire, spellDef)
+        : 0;
+
     const meCost = msg.magicOnly
       ? (spellDef?.maintenanceCost ?? 5) * 2.5
       : (spellDef?.maintenanceCost ?? 5) +
@@ -1177,6 +1401,7 @@ export class GameRoom extends Room<GameRoomState> {
       timing: msg.timing,
       bindingPenalty,
       progression: this.playerData.get(client.sessionId)?.progression,
+      targetGrimoireWard,
     });
 
     const isShieldBreakerSpell =
@@ -1236,11 +1461,12 @@ export class GameRoom extends Room<GameRoomState> {
             }
           }
         }
+        progression = withGrimoire(progression, (grimoire) => recordGrimoireCast(grimoire, msg.spellId, true));
         const xp = grantExperience(stats, progression, 'spell_cast_success');
         stats = xp.stats;
         if (data) {
           data.progression = xp.progression;
-          client.send('progression_update', { progression: data.progression });
+          this.emitProgression(client, data.progression);
         }
         if (xp.granted > 0) {
           client.send('notification', {
@@ -1280,12 +1506,14 @@ export class GameRoom extends Room<GameRoomState> {
         stats = spi.stats;
       } else if (result.diagnostics?.code === 'focus_check') {
         const data = this.playerData.get(client.sessionId);
-        const progression = data?.progression ?? defaultProgression();
+        const progression = withGrimoire(data?.progression ?? defaultProgression(), (grimoire) =>
+          recordGrimoireCast(grimoire, msg.spellId, false)
+        );
         const xp = grantExperience(stats, progression, 'spell_cast_focus_fail');
         stats = xp.stats;
         if (data) {
           data.progression = xp.progression;
-          client.send('progression_update', { progression: data.progression });
+          this.emitProgression(client, data.progression);
         }
         if (player.scene === 'town') {
           const botch = applyReputationSource(stats, 'spiritual', 'botched_public_working');
@@ -1488,13 +1716,8 @@ export class GameRoom extends Room<GameRoomState> {
     if (result.success) {
       const data = this.playerData.get(client.sessionId);
       if (data) {
-        const before = data.progression.questProgress.quest_first_steps?.completedAt;
-        data.progression = questSystem.onSpellCast(data.progression, msg.spellId);
-        const after = data.progression.questProgress.quest_first_steps?.completedAt;
-        if (!before && after) {
-          this.withProgression(client, player, (ctx) => completeQuestRewards(ctx, 'quest_first_steps'));
-        }
-        client.send('progression_update', { progression: data.progression });
+        this.withProgression(client, player, (ctx) => noteQuestSpell(ctx, msg.spellId));
+        this.emitProgression(client, data.progression);
       }
       this.refreshWardWeb(client.sessionId);
     } else {
@@ -1606,7 +1829,7 @@ export class GameRoom extends Room<GameRoomState> {
         const xp = grantExperience(player.stats, dataForXp.progression, 'ward_place');
         player.stats = xp.stats;
         dataForXp.progression = xp.progression;
-        client.send('progression_update', { progression: dataForXp.progression });
+        this.emitProgression(client, dataForXp.progression);
         if (xp.granted > 0) {
           client.send('notification', {
             type: 'notification',
@@ -1670,21 +1893,55 @@ export class GameRoom extends Room<GameRoomState> {
     player: PlayerSchema,
     dialogueTreeId: string,
     nodeId: string,
-    choiceIndex: number
+    choiceId: string,
+    choiceIndex?: number
   ) {
+    const tree = dialogueSystem.getTree(dialogueTreeId) ?? contentRegistry.dialogues.get(dialogueTreeId);
+    const npcId = tree?.npcId;
+    if (!tree || !npcId) {
+      this.warnPlayer(client, 'That conversation is no longer available.');
+      return;
+    }
+    const present = this.requireNpcPresent(client, player, npcId);
+    if (!present) return;
+
+    const node = tree.nodes.find((entry) => entry.id === nodeId);
+    const resolvedId =
+      choiceId?.trim() ||
+      (node && choiceIndex != null && node.choices[choiceIndex]
+        ? dialogueChoiceId(node.id, node.choices[choiceIndex], choiceIndex)
+        : '');
     const progression = this.playerData.get(client.sessionId)?.progression;
-    const result = dialogueSystem.resolveChoice(dialogueTreeId, nodeId, choiceIndex, {
+    const playerId = this.playerData.get(client.sessionId)?.dbPlayerId ?? client.sessionId;
+    this.conversationLocks = refreshConversationLock(this.conversationLocks, npcId, playerId);
+    const result = dialogueSystem.resolve(dialogueTreeId, nodeId, resolvedId, {
       inventory: player.inventory,
       progression,
       stats: player.stats,
       coins: player.coins,
+      actionCtx: {
+        npcId,
+        playerId,
+        worldKnowledge: knowledgeStore.get(),
+        applyQuest: (questId, kind) => {
+          const current = this.playerData.get(client.sessionId)?.progression ?? progression ?? defaultProgression();
+          if (kind === 'start') {
+            return questSystem.startQuest(current, questId);
+          }
+          return current;
+        },
+      },
     });
-    if (!result) {
-      client.send('notification', {
-        type: 'notification',
-        message:
-          'That path is closed — recognition, a Magical Council credential, exam eligibility, or coins may be required.',
-        level: 'warn',
+    if (!result.ok) {
+      this.warnPlayer(client, result.reason);
+      const spoken = progression ?? defaultProgression();
+      client.send('dialogue_update', {
+        ended: false,
+        nodeId,
+        message: node ? resolveNodeText(node, spoken, npcId, dialogueTreeId) : '',
+        dialogueTreeId,
+        choices: dialogueSystem.publish(dialogueTreeId, nodeId, spoken, player.stats, player.coins),
+        notice: result.reason,
       });
       return;
     }
@@ -1692,6 +1949,9 @@ export class GameRoom extends Room<GameRoomState> {
     if (result.inventory) player.inventory = result.inventory;
     if (result.coinsDelta) {
       player.coins = Math.max(0, player.coins + result.coinsDelta);
+    }
+    if (result.stats) {
+      player.stats = result.stats;
     }
     if (result.statBoost) {
       const stats = { ...player.stats };
@@ -1708,15 +1968,18 @@ export class GameRoom extends Room<GameRoomState> {
       player.stats = stats;
     }
 
-    const tree = contentRegistry.dialogues.get(dialogueTreeId);
     this.withProgression(client, player, (ctx) => {
       if (result.progression) {
         ctx.data.progression = result.progression;
         ctx.sendProgression(ctx.client, ctx.data.progression);
       }
-      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, tree?.npcId);
+      handleDialogueProgression(ctx, dialogueTreeId, result.relationshipDelta, npcId, result.socialEvent, resolvedId);
       syncRecognition(ctx);
     });
+
+    if (result.worldKnowledge) {
+      knowledgeStore.set(result.worldKnowledge);
+    }
 
     if (result.notification) {
       client.send('notification', {
@@ -1725,28 +1988,859 @@ export class GameRoom extends Room<GameRoomState> {
         level: 'success',
       });
     }
+    for (const note of result.notifications ?? []) {
+      client.send('notification', { type: 'notification', message: note, level: 'info' });
+    }
 
-    if (result.coinsDelta) {
+    if (result.coinsDelta || result.stats) {
       this.sendPlayerSync(client, player);
     }
 
+    if (result.ended) {
+      this.conversationLocks = releaseConversationLock(this.conversationLocks, npcId, playerId);
+    }
+
+    const spoken = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
     client.send('dialogue_update', {
       ended: result.ended,
       nodeId: result.nextNodeId,
       message: result.message,
       dialogueTreeId,
+      choices: result.ended
+        ? []
+        : dialogueSystem.publish(dialogueTreeId, result.nextNodeId, spoken, player.stats, player.coins),
+    });
+  }
+
+  /** Speak with an NPC who is standing at a nearby counter or map post. */
+  private handleNpcTalk(client: Client, player: PlayerSchema, npcId: string): void {
+    this.handleNpcAction(client, player, npcId, 'talk');
+  }
+
+  private handleNpcAction(client: Client, player: PlayerSchema, npcId: string, actionId: string): void {
+    if (!npcId || !contentRegistry.npcs.has(npcId)) return;
+    this.wakeFromRest(client.sessionId);
+    const present = this.requireNpcPresent(client, player, npcId);
+    if (!present) return;
+    if (!this.npcMaySpeak(client, player, npcId)) return;
+
+    const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
+    const contextShopId = present.type === 'shop' && typeof present.data?.shopId === 'string' ? present.data.shopId : undefined;
+    const npc = contentRegistry.npcs.get(npcId)!;
+    const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
+    const encounter = this.buildEncounter(npc, dialogue, contextShopId ?? npc.shopId, progression, player);
+    const offer = encounter.options.find((entry) => entry.id === actionId);
+    if (!offer || offer.available === false) {
+      this.warnPlayer(client, offer?.requirement ?? 'That is not something they will do right now.');
+      return;
+    }
+
+    if (offer.id === 'goodbye') {
+      client.send('open_ui', { ui: 'none' });
+      return;
+    }
+    if (offer.id === 'trade') {
+      if (!offer.shopId) {
+        this.warnPlayer(client, 'There is no counter here.');
+        return;
+      }
+      this.syncPlayerShopStock(client);
+      client.send('open_ui', { ui: 'shop', shopId: offer.shopId });
+      return;
+    }
+    if (offer.id === 'gift' && npcAcceptsGifts(npcId)) {
+      this.openGiftWindow(client, player, npcId);
+      return;
+    }
+    if (offer.id.startsWith('social:')) {
+      this.warnPlayer(client, 'The gesture could not be recorded.');
+      return;
+    }
+    this.openNpcDialogue(client, player, npcId, offer.nodeId ?? 'start');
+  }
+
+  /** Record a quest signal for one player. The server decides whether it counts. */
+  private noteQuest(
+    client: Client,
+    player: PlayerSchema,
+    signal: Omit<Parameters<typeof settleQuestSignal>[1], 'now'>
+  ): void {
+    this.withProgression(client, player, (ctx) => {
+      settleQuestSignal(ctx, signal);
+    });
+  }
+
+  private noteQuestHour(hour: number): void {
+    const day = new Date().toISOString().slice(0, 10);
+    for (const client of this.clients) {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) continue;
+      this.noteQuest(client, player, {
+        type: 'schedule',
+        hour,
+        idempotencyKey: `schedule:${player.dbPlayerId}:${day}:${hour}`,
+      });
+    }
+  }
+
+  private mirroringQuests = false;
+
+  /** World and party quests share one store. Mirror it onto online players and pay contributors once. */
+  projectSharedQuestsOntoPlayers(): void {
+    if (this.mirroringQuests) return;
+    this.mirroringQuests = true;
+    try {
+      this.mirrorSharedQuestPlayers();
+    } finally {
+      this.mirroringQuests = false;
+    }
+  }
+
+  private mirrorSharedQuestPlayers(): void {
+    for (const [sessionId, data] of this.playerData) {
+      const player = this.state.players.get(sessionId);
+      const client = this.clients.find((entry) => entry.sessionId === sessionId);
+      const projected = refreshQuestInstances(
+        questSystem.list(),
+        data.progression,
+        questSystem.snapshot(),
+        data.dbPlayerId || sessionId,
+        Date.now()
+      );
+      if (projected === data.progression) continue;
+      data.progression = projected;
+      if (!client || !player) continue;
+      this.withProgression(client, player, (ctx) => grantPendingQuestRewards(ctx));
+      this.emitProgression(client, data.progression);
+    }
+  }
+
+  private giftFacts(slot: { itemId: string; metadata?: Record<string, unknown> }): GiftItemFacts {
+    const item = slot.itemId ? contentRegistry.ingredients.get(slot.itemId) : undefined;
+    const provenance = typeof slot.metadata?.provenance === 'string' ? slot.metadata.provenance : undefined;
+    if (!item) return { itemId: slot.itemId, name: slot.itemId || 'Something', provenance };
+    return {
+      itemId: item.id,
+      name: item.name,
+      category: item.category,
+      tags: item.correspondences,
+      rarity: item.rarity,
+      adminOnly: item.adminOnly === true,
+      provenance,
+    };
+  }
+
+  private openGiftWindow(client: Client, player: PlayerSchema, npcId: string, reaction?: string): void {
+    const npc = contentRegistry.npcs.get(npcId);
+    const data = this.playerData.get(client.sessionId);
+    const slots = player.inventory.map((slot, slotIndex) => ({
+      slotIndex,
+      quantity: slot.quantity,
+      facts: this.giftFacts(slot),
+    }));
+    const view = describeGiftWindow(data?.progression, npcId, slots, Date.now());
+    this.sendNpcOpenUi(client, {
+      ui: 'npc_gift',
+      npcId,
+      name: npc?.name ?? npcId,
+      reaction,
+      ...view,
+    });
+  }
+
+  private handleNpcGift(
+    client: Client,
+    player: PlayerSchema,
+    npcId: string,
+    slotIndex: number,
+    itemId: string,
+    operationId: string
+  ): void {
+    if (!npcId || !contentRegistry.npcs.has(npcId)) return;
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    if (!this.requireNpcPresent(client, player, npcId)) return;
+    const slot = player.inventory[slotIndex];
+    const facts = this.giftFacts(slot ?? { itemId });
+    const key = `${data.dbPlayerId || client.sessionId}:${npcId}:gift`;
+    const ran = runExclusiveSocialOp(key, () => {
+      const result = resolveNpcGift(data.progression, player.stats, player.inventory, {
+        npcId,
+        slotIndex,
+        itemId,
+        facts,
+        operationId,
+        now: Date.now(),
+      });
+      if (result.ok && !result.duplicate) {
+        player.inventory = result.inventory;
+        player.stats = result.stats;
+        data.stats = result.stats;
+        const giftNpc = contentRegistry.npcs.get(npcId);
+        const name = giftNpc?.name ?? npcId;
+        const dossier = giftNpc
+          ? buildPeopleDossierPatch({ npc: giftNpc, progression: result.progression })
+          : undefined;
+        data.progression = withBondJournal(result.progression, npcId, name, dossier);
+      } else if (!result.ok && result.progression !== data.progression) {
+        data.progression = result.progression;
+        data.stats = result.stats;
+        player.stats = result.stats;
+      }
+      return result;
+    });
+    if (ran.busy) {
+      this.warnPlayer(client, 'They are still considering the last gift.');
+      return;
+    }
+    const result = ran.value;
+    recordNpcEvent({
+      kind: 'gift',
+      npcId,
+      playerId: data.dbPlayerId ?? client.sessionId,
+      sessionId: client.sessionId,
+      success: result.ok,
+      reason: result.ok ? undefined : result.reason,
+      provenance: 'observed',
+      meta: {
+        duplicate: result.duplicate === true,
+        itemId,
+        ...(result.preferenceId ? { preferenceId: result.preferenceId } : {}),
+      },
+    });
+    if (result.reaction) {
+      client.send('notification', { type: 'notification', message: result.reaction, level: result.ok ? 'success' : 'info' });
+    } else if (result.reason) {
+      this.warnPlayer(client, result.reason);
+    }
+    if (result.ok && !result.duplicate) {
+      this.noteQuest(client, player, {
+        type: 'deliver',
+        npcId,
+        itemId,
+        quantity: 1,
+        idempotencyKey: operationId,
+      });
+      this.noteQuest(client, player, { type: 'bond', npcId });
+      if (result.preferenceId) {
+        this.withProgression(client, player, (ctx) =>
+          applyPlayerDiscovery(ctx, {
+            source: 'gift',
+            npcId,
+            giftPreferenceId: result.preferenceId,
+          })
+        );
+      }
+      this.sendPlayerSync(client, player);
+      this.emitProgression(client, data.progression);
+    }
+    this.openGiftWindow(client, player, npcId, result.reaction);
+  }
+
+  private handleNpcSocial(
+    client: Client,
+    player: PlayerSchema,
+    npcId: string,
+    actionId: string,
+    operationId: string
+  ): void {
+    if (!npcId || !contentRegistry.npcs.has(npcId)) return;
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    if (!this.requireNpcPresent(client, player, npcId)) return;
+    if (!operationId) {
+      this.warnPlayer(client, 'The gesture could not be recorded.');
+      return;
+    }
+    const progression = data.progression;
+    const npc = contentRegistry.npcs.get(npcId)!;
+    const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
+    const encounter = this.buildEncounter(npc, dialogue, npc.shopId, progression, player);
+    const socialId = actionId.startsWith('social:') ? actionId : `social:${actionId}`;
+    const socialOffer = encounter.options.find((offer) => offer.id === socialId);
+    if (!socialOffer || socialOffer.available === false) {
+      this.warnPlayer(client, socialOffer?.requirement ?? 'They are not open to that just now.');
+      return;
+    }
+    const key = `${data.dbPlayerId || client.sessionId}:${npcId}:social`;
+    const ran = runExclusiveSocialOp(key, () => {
+      const result = resolveSocialAction(data.progression, player.stats, {
+        npcId,
+        actionId: socialId,
+        operationId,
+        now: Date.now(),
+      });
+      if (result.ok && !result.duplicate) {
+        player.stats = result.stats;
+        data.stats = result.stats;
+        const socialNpc = contentRegistry.npcs.get(npcId);
+        const name = socialNpc?.name ?? npcId;
+        const dossier = socialNpc
+          ? buildPeopleDossierPatch({ npc: socialNpc, progression: result.progression })
+          : undefined;
+        data.progression = withBondJournal(result.progression, npcId, name, dossier);
+      }
+      return result;
+    });
+    if (ran.busy) {
+      this.warnPlayer(client, 'They are still answering.');
+      return;
+    }
+    const result = ran.value;
+    client.send('notification', {
+      type: 'notification',
+      message: result.reaction || result.reason || 'They let the moment pass.',
+      level: result.ok ? 'success' : 'info',
+    });
+    if (result.ok && !result.duplicate) {
+      this.emitProgression(client, data.progression);
+    }
+  }
+
+  private openNpcActions(client: Client, player: PlayerSchema, npcId: string, contextShopId?: string): void {
+    if (!this.npcMaySpeak(client, player, npcId)) return;
+    const npc = contentRegistry.npcs.get(npcId);
+    if (!npc) return;
+    const data = this.playerData.get(client.sessionId);
+    const progression = data?.progression ?? defaultProgression();
+    const dialogue = npc.dialogueTreeId ? dialogueSystem.getTree(npc.dialogueTreeId) : undefined;
+    const notice = activityNoticeFor(npcId);
+    this.withProgression(client, player, (ctx) =>
+      applyPlayerDiscovery(ctx, { source: 'meet', npcId })
+    );
+    const refreshed = this.playerData.get(client.sessionId)?.progression ?? progression;
+    const encounter = this.buildEncounter(npc, dialogue, contextShopId, refreshed, player, notice);
+    const dossier = buildPeopleDossierPatch({ npc, progression: refreshed });
+    if (data) {
+      data.progression = withBondJournal(refreshed, npcId, npc.name, dossier);
+      this.emitProgression(client, data.progression);
+    }
+    this.sendNpcOpenUi(client, {
+      ui: 'npc_actions',
+      npcId,
+      name: encounter.name,
+      role: encounter.role,
+      shopId: contextShopId ?? npc.shopId,
+      options: encounter.options,
+      encounter,
+      ...(encounter.notice ? { notice: encounter.notice } : {}),
+    });
+    recordNpcEvent({
+      kind: 'talk_open',
+      npcId,
+      playerId: data?.dbPlayerId ?? client.sessionId,
+      sessionId: client.sessionId,
+      success: true,
+      provenance: 'observed',
+      meta: { ui: 'npc_actions' },
+    });
+  }
+
+  private buildEncounter(
+    npc: NonNullable<ReturnType<typeof contentRegistry.npcs.get>>,
+    dialogue: ReturnType<typeof dialogueSystem.getTree>,
+    contextShopId: string | undefined,
+    progression: NonNullable<ReturnType<GameRoom['playerData']['get']>>['progression'],
+    player?: PlayerSchema,
+    notice?: string
+  ): NpcEncounterView {
+    const quests = questSystem.list().filter((quest) => {
+      if ((quest.offer ?? 'on_talk') === 'event') return false;
+      const involved = quest.npcId === npc.id || (quest.npcIds ?? []).includes(npc.id);
+      if (!involved) return false;
+      const current = progression.questProgress[quest.id];
+      if (current?.completedAt || current?.failedAt || current?.abandonedAt) return false;
+      if (current) return true;
+      const gate = player
+        ? { stats: player.stats, coins: player.coins, inventory: player.inventory }
+        : {};
+      return questBlockReason(quest, progression, gate) == null;
+    });
+    const giftSlots = player
+      ? player.inventory.map((slot, slotIndex) => ({
+          slotIndex,
+          quantity: slot.quantity,
+          facts: this.giftFacts(slot),
+        }))
+      : [];
+    return buildNpcEncounterView({
+      npc,
+      dialogue,
+      progression,
+      stats: player?.stats ?? { ...DEFAULT_STATS },
+      inventory: player?.inventory ?? [],
+      coins: player?.coins ?? 0,
+      contextShopId,
+      quests,
+      giftSlots,
+      ...(notice ? { notice } : {}),
+    });
+  }
+
+  private openNpcDialogue(client: Client, player: PlayerSchema, npcId: string, nodeId = 'start'): void {
+    const npc = contentRegistry.npcs.get(npcId);
+    if (!npc?.dialogueTreeId) return;
+    if (!this.npcMaySpeak(client, player, npcId)) return;
+
+    const met = this.playerData.get(client.sessionId);
+    if (!met) return;
+    const playerId = met.dbPlayerId ?? client.sessionId;
+    const policy = parseConversationPolicy(npc.conversationPolicy);
+    const presence = npcPresence(npcId);
+    const behavior = behaviorFromSchedule(
+      presence?.interaction,
+      presence?.moving ? 'pace' : undefined
+    );
+    const startGate = canStartConversation(
+      behavior,
+      policy,
+      this.conversationLocks,
+      npcId,
+      playerId
+    );
+    if (!startGate.ok) {
+      this.warnPlayer(client, startGate.reason);
+      recordNpcEvent({
+        kind: 'talk_blocked',
+        npcId,
+        playerId,
+        sessionId: client.sessionId,
+        success: false,
+        reason: startGate.reason,
+        provenance: 'observed',
+        meta: { behavior },
+      });
+      return;
+    }
+    const locked = acquireConversationLock({
+      locks: this.conversationLocks,
+      npcId,
+      playerId,
+      sessionId: client.sessionId,
+      policy,
+    });
+    this.conversationLocks = locked.locks;
+    if (!locked.acquired) {
+      this.warnPlayer(client, locked.reason ?? 'Someone else is speaking with them.');
+      recordNpcEvent({
+        kind: 'talk_blocked',
+        npcId,
+        playerId,
+        sessionId: client.sessionId,
+        success: false,
+        reason: locked.reason,
+        provenance: 'observed',
+      });
+      return;
+    }
+
+    met.progression = beginDialogueVisit(met.progression, npc.dialogueTreeId, npcId);
+    const progression = met.progression;
+    const tree = dialogueSystem.getTree(npc.dialogueTreeId);
+    let openNode = nodeId;
+    if (openNode === 'start' && presence?.dialogueNodeId && tree?.nodes.some((entry) => entry.id === presence.dialogueNodeId)) {
+      openNode = presence.dialogueNodeId;
+    }
+    const node = tree?.nodes.find((entry) => entry.id === openNode);
+    const remembered = openNode === 'start' ? bondGreeting(npcId, progression) : null;
+    const notice = presence?.interaction === 'busy' ? presence.notice : undefined;
+    const text =
+      remembered ||
+      (node ? resolveNodeText(node, progression, npcId, npc.dialogueTreeId) : '');
+    const dossier = buildPeopleDossierPatch({ npc, progression: met.progression });
+    met.progression = withBondJournal(met.progression, npcId, npc.name, dossier);
+    this.emitProgression(client, met.progression);
+    this.sendNpcOpenUi(client, {
+      ui: 'dialogue',
+      npcId,
+      dialogueTreeId: npc.dialogueTreeId,
+      nodeId: openNode,
+      text,
+      choices: dialogueSystem.publish(npc.dialogueTreeId, openNode, progression, player.stats, player.coins),
+      ...(notice ? { notice } : {}),
+    });
+    recordNpcEvent({
+      kind: 'talk_open',
+      npcId,
+      playerId,
+      sessionId: client.sessionId,
+      success: true,
+      provenance: 'observed',
+      meta: { ui: 'dialogue', nodeId: openNode },
+    });
+  }
+
+  private requireNpcPresent(client: Client, player: PlayerSchema, npcId: string) {
+    const stand = this.npcStand(player, npcId);
+    if (stand) {
+      const availability = checkInteractAvailable(stand.type, stand.data as Record<string, unknown>, stand.id);
+      if (!availability.available) {
+        this.warnPlayer(client, availability.message ?? 'Not available.');
+        return null;
+      }
+      const progression = this.playerData.get(client.sessionId)?.progression;
+      const requiredLicense = stand.data?.requiresLicense as string | undefined;
+      const placeId = typeof stand.data?.placeId === 'string' ? stand.data.placeId : undefined;
+      if (progression && requiredLicense && !holdsActiveLicense(progression, requiredLicense)) {
+        this.warnPlayer(client, licenseGateMessage(requiredLicense));
+        return null;
+      }
+      if (progression && placeId && !licenseUnlocksPlace(placeId, progression)) {
+        this.warnPlayer(client, 'This place admits only Magical Council credential holders.');
+        return null;
+      }
+      return stand;
+    }
+
+    const presence = npcPresence(npcId);
+    if (!presence || !presence.visible || presence.indoors || presence.held || presence.interaction === 'away') {
+      this.warnPlayer(client, 'They are not here right now.');
+      return null;
+    }
+    if (presence.scene !== player.scene) {
+      this.warnPlayer(client, 'They are not here right now.');
+      return null;
+    }
+    if (presence.moving) {
+      this.warnPlayer(client, 'Wait until they settle before you speak.');
+      return null;
+    }
+    const tile = npcPresenceTile(presence, Date.now());
+    if (!tile) {
+      this.warnPlayer(client, 'They are not here right now.');
+      return null;
+    }
+    const px = player.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = player.y * TILE_SIZE + TILE_SIZE / 2;
+    const tx = tile.x * TILE_SIZE + TILE_SIZE / 2;
+    const ty = tile.y * TILE_SIZE + TILE_SIZE / 2;
+    if (Math.hypot(px - tx, py - ty) > interactRangeFromEdgePx()) {
+      this.warnPlayer(client, 'Step closer before you speak.');
+      return null;
+    }
+    return {
+      id: presence.interactableId ?? `presence:${npcId}`,
+      type: 'npc',
+      x: tile.x,
+      y: tile.y,
+      data: { npcId },
+    } as MapInteractable;
+  }
+
+  private npcMaySpeak(client: Client, player: PlayerSchema, npcId: string): boolean {
+    const npc = contentRegistry.npcs.get(npcId);
+    if (!npc) return false;
+    const npcLevel = assignedUnlockLevel('npcIds', npcId);
+    if (npcLevel != null && !meetsAssignedUnlock('npcIds', npcId, player.stats.experience ?? 0)) {
+      this.warnPlayer(client, levelGateMessage(npc.name, npcLevel, playerLevel(player.stats.experience ?? 0)));
+      return false;
+    }
+    const progression = this.playerData.get(client.sessionId)?.progression ?? defaultProgression();
+    if (!licenseUnlocksNpc(npcId, progression)) {
+      this.warnPlayer(client, 'This practitioner only speaks with Magical Council credential holders.');
+      return false;
+    }
+    return true;
+  }
+
+  private npcStand(player: PlayerSchema, npcId: string) {
+    const mapDef = contentRegistry.getMapForScene(player.scene);
+    if (!mapDef) return null;
+    return nearestNpcInteractable(player.x, player.y, npcId, mapDef.interactables, (shopId) =>
+      contentRegistry.shops.get(shopId)?.npcId
+    );
+  }
+
+  private playerWithinInteractable(player: PlayerSchema, inter: MapInteractable): boolean {
+    const px = player.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = player.y * TILE_SIZE + TILE_SIZE / 2;
+    return isWithinInteractRange(px, py, inter);
+  }
+
+  private warnPlayer(client: Client, message: string): void {
+    client.send('notification', { type: 'notification', message, level: 'warn' });
+  }
+
+  noteGatheredItems(sessionId: string, entries: { itemId: string; count: number }[]): void {
+    if (!entries.length) return;
+    const data = this.playerData.get(sessionId);
+    if (!data) return;
+    const next = withGrimoire(data.progression, (grimoire) => recordGrimoireIngredients(grimoire, entries));
+    if (next === data.progression) return;
+    data.progression = next;
+    const progClient = this.clients.find((c) => c.sessionId === sessionId);
+    if (progClient) this.emitProgression(progClient, data.progression);
+  }
+
+  indexSharedSpell(
+    sessionId: string,
+    spellId: string,
+    sharedByName: string
+  ): 'added' | 'already' | 'full' | 'missing' {
+    const data = this.playerData.get(sessionId);
+    if (!data) return 'missing';
+    const result = shareSpellIntoGrimoire(data.progression.grimoire ?? defaultGrimoire(), spellId, sharedByName);
+    if (result.status !== 'added') return result.status;
+    data.progression = { ...data.progression, grimoire: result.grimoire };
+    const target = this.clients.find((c) => c.sessionId === sessionId);
+    const spellName = contentRegistry.spells.get(spellId)?.name ?? 'a working';
+    if (target) this.emitProgression(target, data.progression);
+    target?.send('notification', {
+      type: 'notification',
+      message: `${sharedByName} indexes ${spellName} in your grimoire. The page stays sealed until the working is yours to cast.`,
+      level: 'info',
+    });
+    return 'added';
+  }
+
+  private handleGrimoireWrite(client: Client, msg: Extract<ClientMessage, { type: 'grimoire_write' }>): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const result = mergeGrimoireWrite(data.progression, msg);
+    if (result.progression) {
+      data.progression = result.progression;
+      this.emitProgression(client, data.progression);
+    }
+    if (result.message && result.level) {
+      client.send('notification', { type: 'notification', message: result.message, level: result.level });
+    }
+  }
+
+  private handleGrimoireExport(client: Client, player: PlayerSchema, pageId: string): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const book = data.progression.grimoire ?? defaultGrimoire();
+    const page = book.authored.find((row) => row.id === pageId);
+    if (!page) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That Author page is not in your book.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (!page.body.trim()) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Write something on the page before exporting it.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (isManuscriptArchived(page.id)) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Staff archived that page. It cannot be exported again.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (findFirstEmptySlotIndex(normalizeInventoryLayout(player.inventory)) < 0) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Your bag is full. Make room for the manuscript.',
+        level: 'warn',
+      });
+      return;
+    }
+    const meta = manuscriptMetadataFromPage(page, player.displayName, player.dbPlayerId || undefined);
+    const recorded = readManuscriptMeta({ itemId: GRIMOIRE_MANUSCRIPT_ITEM_ID, quantity: 1, metadata: meta });
+    if (recorded) registerManuscriptExport(recorded, player.dbPlayerId || undefined);
+    player.inventory = inventorySystem.addItem(player.inventory, GRIMOIRE_MANUSCRIPT_ITEM_ID, 1, meta);
+    this.sendPlayerSync(client, player);
+    client.send('notification', {
+      type: 'notification',
+      message: `"${page.title}" is bound as a manuscript. Trade it, or right-click it to take a page into Shared.`,
+      level: 'success',
+    });
+  }
+
+  private handleUseManuscript(client: Client, player: PlayerSchema, slotIndex?: number): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const grid = normalizeInventoryLayout(player.inventory);
+    let index =
+      typeof slotIndex === 'number' && Number.isFinite(slotIndex)
+        ? Math.floor(slotIndex)
+        : grid.findIndex((slot) => slot.itemId === GRIMOIRE_MANUSCRIPT_ITEM_ID);
+    if (index < 0 || index >= grid.length || grid[index]?.itemId !== GRIMOIRE_MANUSCRIPT_ITEM_ID) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That manuscript is not in your bag.',
+        level: 'warn',
+      });
+      return;
+    }
+    const manuscript = readManuscriptMeta(grid[index]);
+    if (!manuscript) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'This manuscript has no writing left on it.',
+        level: 'warn',
+      });
+      return;
+    }
+    if (isManuscriptArchived(manuscript.manuscriptPageId)) {
+      const takenBanned = takeInventorySlot(grid, index);
+      player.inventory = takenBanned.inventory;
+      this.sendPlayerSync(client, player);
+      client.send('notification', {
+        type: 'notification',
+        message: 'Staff archived that manuscript. The copy dissolves.',
+        level: 'warn',
+      });
+      return;
+    }
+    const taken = takeInventorySlot(grid, index);
+    if (!taken.slot) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That manuscript is not in your bag.',
+        level: 'warn',
+      });
+      return;
+    }
+    const received = receiveSharedGrimoirePage(data.progression.grimoire ?? defaultGrimoire(), manuscript);
+    if (received.status === 'full') {
+      client.send('notification', {
+        type: 'notification',
+        message: 'Your Shared section is full. Clear a page before taking another.',
+        level: 'warn',
+      });
+      return;
+    }
+    if ((received.status !== 'added' && received.status !== 'again') || !received.page) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'This manuscript has no writing left on it.',
+        level: 'warn',
+      });
+      return;
+    }
+    player.inventory = taken.inventory;
+    data.progression = { ...data.progression, grimoire: received.grimoire };
+    this.sendPlayerSync(client, player);
+    this.emitProgression(client, data.progression);
+    client.send('notification', {
+      type: 'notification',
+      message:
+        received.status === 'again'
+          ? `"${received.page.title}" was already in Shared; the page is refreshed.`
+          : `"${received.page.title}" by ${received.page.authorName} is written into Shared.`,
+      level: 'success',
+    });
+  }
+
+  private handleGrimoirePetition(client: Client, spiritId: string): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const result = petitionGrimoireSpirit(data.progression, spiritId);
+    if (result.progression !== data.progression) {
+      data.progression = result.progression;
+      this.emitProgression(client, data.progression);
+    }
+    client.send('notification', { type: 'notification', message: result.message, level: result.level });
+  }
+
+  private handleGrimoireRecall(client: Client, spiritId: string): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const result = recallGrimoireSpirit(data.progression, spiritId);
+    if (result.progression !== data.progression) {
+      data.progression = result.progression;
+      this.emitProgression(client, data.progression);
+    }
+    client.send('notification', { type: 'notification', message: result.message, level: result.level });
+  }
+
+  private handleGrimoireShare(
+    client: Client,
+    player: PlayerSchema,
+    msg: Extract<ClientMessage, { type: 'grimoire_share' }>
+  ): void {
+    const data = this.playerData.get(client.sessionId);
+    if (!data) return;
+    const spell = contentRegistry.spells.get(msg.spellId);
+    const known = data.progression.grimoire?.spells.some((entry) => entry.spellId === msg.spellId);
+    if (!spell || !known) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'That working is not in your grimoire.',
+        level: 'warn',
+      });
+      return;
+    }
+
+    let targetSession = msg.targetSessionId ?? '';
+    if (!targetSession && msg.friendPlayerId) {
+      targetSession = findOnlineByDbPlayerId(msg.friendPlayerId)?.sessionId ?? '';
+    }
+    if (!targetSession || targetSession === client.sessionId) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'They are not here to receive the page.',
+        level: 'warn',
+      });
+      return;
+    }
+
+    const online = findOnlineBySessionId(targetSession);
+    if (!online) {
+      client.send('notification', {
+        type: 'notification',
+        message: 'They are not here to receive the page.',
+        level: 'warn',
+      });
+      return;
+    }
+
+    const isFriend = data.friends.some((friend) => friend.playerId === online.dbPlayerId);
+    if (!isFriend) {
+      const targetPlayer = online.room.state.players.get(targetSession);
+      const dx = targetPlayer ? Math.abs(targetPlayer.x - player.x) : 999;
+      const dy = targetPlayer ? Math.abs(targetPlayer.y - player.y) : 999;
+      const near =
+        online.room === this &&
+        !!targetPlayer &&
+        targetPlayer.scene === player.scene &&
+        dx <= 24 &&
+        dy <= 24;
+      if (!near) {
+        client.send('notification', {
+          type: 'notification',
+          message: 'Share a page with someone beside you, or with a friend who is online.',
+          level: 'warn',
+        });
+        return;
+      }
+    }
+
+    const status = online.room.indexSharedSpell(targetSession, spell.id, player.displayName);
+    const message =
+      status === 'added'
+        ? `${spell.name} is indexed in their grimoire.`
+        : status === 'already'
+          ? 'That page is already in their book.'
+          : status === 'full'
+            ? 'Their book has no room for another working.'
+            : 'They are not here to receive the page.';
+    client.send('notification', {
+      type: 'notification',
+      message,
+      level: status === 'added' ? 'success' : 'info',
     });
   }
 
   private handleBuy(client: Client, player: PlayerSchema, shopId: string, itemId: string, quantity: number) {
     const data = this.playerData.get(client.sessionId);
+    const shopNpcId = contentRegistry.shops.get(shopId)?.npcId;
     const result = shopSystem.buy(
       shopId,
       itemId,
       quantity,
       player.inventory,
       player.coins,
-      shopPriceMultiplier(player.stats),
+      shopPriceMultiplier(player.stats) * bondShopMultiplier(data?.progression, shopNpcId),
       player.stats,
       data?.progression
     );
@@ -1754,8 +2848,16 @@ export class GameRoom extends Room<GameRoomState> {
       player.inventory = result.inventory;
       player.coins -= result.cost;
       if (data && result.progression) {
-        data.progression = result.progression;
-        client.send('progression_update', { progression: data.progression });
+        data.progression = withGrimoire(result.progression, (grimoire) =>
+          recordGrimoireIngredients(grimoire, [{ itemId, count: quantity }])
+        );
+        this.emitProgression(client, data.progression);
+      }
+      if (data && shopNpcId) {
+        this.withProgression(client, player, (ctx) => {
+          applyPlayerSocialEvent(ctx, { eventId: 'shop_purchase', npcId: shopNpcId });
+          applyPlayerSocialEvent(ctx, { eventId: 'shop_noticed', npcId: shopNpcId });
+        });
       }
     }
     client.send('shop_result', {
@@ -1777,7 +2879,7 @@ export class GameRoom extends Room<GameRoomState> {
       if (!data) continue;
       if (data.progression.shopStockDay === dayKey) continue;
       data.progression = shopSystem.restockPlayer(data.progression, dayKey);
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
       client.send('shop_stock', {
         reason: 'noon_restock',
         shops: shopSystem.playerStockSnapshot(data.progression),
@@ -1800,7 +2902,13 @@ export class GameRoom extends Room<GameRoomState> {
     });
   }
 
-  private handleUseItem(client: Client, player: PlayerSchema, itemId: string, quantity: number) {
+  private handleUseItem(
+    client: Client,
+    player: PlayerSchema,
+    itemId: string,
+    quantity: number,
+    slotIndex?: number
+  ) {
     const itemDef = contentRegistry.ingredients.get(itemId);
     if (!itemDef) {
       client.send('notification', {
@@ -1817,6 +2925,11 @@ export class GameRoom extends Room<GameRoomState> {
         message: 'You cannot use that item.',
         level: 'error',
       });
+      return;
+    }
+
+    if (itemId === GRIMOIRE_MANUSCRIPT_ITEM_ID) {
+      this.handleUseManuscript(client, player, slotIndex);
       return;
     }
 
@@ -1940,7 +3053,7 @@ export class GameRoom extends Room<GameRoomState> {
       const xp = grantExperience(player.stats, data.progression, 'familiar_bond');
       player.stats = xp.stats;
       data.progression = xp.progression;
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
       if (xp.granted > 0) {
         client.send('notification', {
           type: 'notification',
@@ -3132,6 +4245,11 @@ export class GameRoom extends Room<GameRoomState> {
       playerA.coins = result.aCoins!;
       playerB.inventory = result.bInventory!;
       playerB.coins = result.bCoins!;
+
+      const gainedByA = session.bOffer.items.map((item) => ({ itemId: item.itemId, count: item.quantity }));
+      const gainedByB = session.aOffer.items.map((item) => ({ itemId: item.itemId, count: item.quantity }));
+      findOnlineBySessionId(session.aSessionId)?.room.noteGatheredItems(session.aSessionId, gainedByA);
+      findOnlineBySessionId(session.bSessionId)?.room.noteGatheredItems(session.bSessionId, gainedByB);
 
       const rooms = new Set([refA?.room, refB?.room, this].filter(Boolean));
       for (const room of rooms) {

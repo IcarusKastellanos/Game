@@ -1,7 +1,7 @@
 import { defaultProgression, formatContentLabel } from '@witchcraft/shared';
 import { gameState } from '../../data/game-state.js';
 import { isLicenseSpellHidden } from '../license-spell-visibility.js';
-import { GRIMOIRE_NOTE_PAGES, loadGrimoireNotes, saveGrimoireNotes } from './grimoire-notes.js';
+import { mountGrimoire } from './grimoire-view.js';
 import { network } from '../../net/NetworkManager.js';
 import { escapeHtml } from '../ledger-chrome.js';
 import { HUDWindowShell } from './HUDWindowShell.js';
@@ -10,15 +10,9 @@ import { navigationBar } from './NavigationBar.js';
 import type { HUDWindowId } from './types.js';
 import { themeManager } from './ThemeManager.js';
 
-const GRIMOIRE_SECTIONS = [
-  'Basics', 'Spells', 'Hexes', 'Rituals', 'Herbology', 'Potions', 'Spirits', 'Familiars',
-  'NPCs', 'Locations', 'Coven History', 'Bestiary', 'Temple Records', 'Correspondences',
-  'Dreams', 'Investigations', 'Notes',
-];
-
 export class HUDWindows {
   private shells = new Map<HUDWindowId, HUDWindowShell>();
-  private grimoireTab = 'Correspondences';
+  private grimoireTab = 'The Book';
 
   constructor() {
     this.create('grimoire', 'Grimoire', 'What you have learned, written in one place', 'Record');
@@ -31,7 +25,14 @@ export class HUDWindows {
     this.renderAll();
     window.addEventListener('game:player-sync', () => this.renderDynamic());
     window.addEventListener('game:progression-update', () => {
-      if (document.activeElement instanceof HTMLTextAreaElement && document.activeElement.id === 'grimoire-note') {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        active.closest('.hud-grimoire') &&
+        (active instanceof HTMLTextAreaElement ||
+          active instanceof HTMLInputElement ||
+          active.isContentEditable)
+      ) {
         return;
       }
       this.renderGrimoire();
@@ -98,83 +99,8 @@ export class HUDWindows {
   renderGrimoire(): void {
     const w = this.shells.get('grimoire');
     if (!w) return;
-    const prog = gameState.progression;
-    const discovered = prog?.discoveredCorrespondences ?? [];
-    const books = prog?.readBooks ?? [];
-    const recipes = prog?.discoveredRecipes ?? [];
-
-    if (!GRIMOIRE_SECTIONS.includes(this.grimoireTab)) this.grimoireTab = 'Correspondences';
-
-    w.setBodyHtml(`
-      <div class="hud-grimoire">
-        <nav class="hud-grimoire__tabs">
-          ${GRIMOIRE_SECTIONS.map((s) => `<button type="button" class="hud-grimoire__tab${s === this.grimoireTab ? ' is-active' : ''}" data-tab="${s}">${s}</button>`).join('')}
-        </nav>
-        <div class="hud-grimoire__page">
-          <div class="hud-grimoire__section" id="grimoire-section"></div>
-        </div>
-      </div>`);
-
-    const paint = (tab: string): void => {
+    mountGrimoire(w.body, this.grimoireTab, (tab) => {
       this.grimoireTab = tab;
-      w.body.querySelectorAll('.hud-grimoire__tab').forEach((b) => {
-        b.classList.toggle('is-active', (b as HTMLElement).dataset.tab === tab);
-      });
-      const section = w.body.querySelector('#grimoire-section');
-      if (!section) return;
-      if (tab === 'Notes') {
-        section.innerHTML = this.notesHtml();
-        this.bindNotes(section);
-        return;
-      }
-      if (tab === 'Correspondences') {
-        section.innerHTML = `
-            <h3>Correspondences</h3>
-            <p>You have written down ${discovered.length} ingredients, read ${books.length} books, and learned ${recipes.length} recipes.</p>
-            <ul class="hud-grimoire__list">${discovered.slice(0, 24).map((id) => `<li>${escapeHtml(formatContentLabel(id))}</li>`).join('') || '<li class="hud-muted">Discover more by reading, crafting, and experimenting.</li>'}</ul>
-            <p class="hud-muted">Press <kbd>J</kbd> for the correspondence journal.</p>`;
-        return;
-      }
-      section.innerHTML = `<h3>${escapeHtml(tab)}</h3><p>These pages are still being copied. What you have already learned stays listed under Correspondences.</p>`;
-    };
-
-    w.body.querySelectorAll('.hud-grimoire__tab').forEach((btn) => {
-      btn.addEventListener('click', () => paint((btn as HTMLElement).dataset.tab ?? 'Correspondences'));
-    });
-    paint(this.grimoireTab);
-  }
-
-  private notesHtml(): string {
-    const notes = loadGrimoireNotes();
-    const marks = Array.from({ length: GRIMOIRE_NOTE_PAGES }, (_, i) => {
-      const label = ['I', 'II', 'III', 'IV', 'V'][i];
-      return `<button type="button" class="hud-grimoire__mark${i === notes.active ? ' is-active' : ''}" data-note="${i}">${label}</button>`;
-    }).join('');
-    return `
-      <h3>Notes</h3>
-      <p class="hud-muted">Five bookmarks. The page saves itself as you write.</p>
-      <div class="hud-grimoire__marks">${marks}</div>
-      <textarea id="grimoire-note" class="hud-grimoire__note" spellcheck="false">${escapeHtml(notes.pages[notes.active] ?? '')}</textarea>`;
-  }
-
-  private bindNotes(section: Element): void {
-    const field = section.querySelector('#grimoire-note') as HTMLTextAreaElement | null;
-    if (!field) return;
-    const marks = () => loadGrimoireNotes();
-    field.addEventListener('input', () => {
-      const notes = marks();
-      notes.pages[notes.active] = field.value;
-      saveGrimoireNotes(notes);
-    });
-    section.querySelectorAll('.hud-grimoire__mark').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const notes = marks();
-        notes.pages[notes.active] = field.value;
-        notes.active = Number((btn as HTMLElement).dataset.note) || 0;
-        saveGrimoireNotes(notes);
-        section.innerHTML = this.notesHtml();
-        this.bindNotes(section);
-      });
     });
   }
 
@@ -210,7 +136,7 @@ export class HUDWindows {
       <div class="hud-social">
         <p>The circle is who you write to. The street is who is close enough to greet.</p>
         <div class="hud-social__actions">
-          <button type="button" class="hud-btn" id="social-open-friends">Open the circle <kbd>P</kbd></button>
+          <button type="button" class="hud-btn" id="social-open-friends">Open friends</button>
           <button type="button" class="hud-btn" id="social-open-chat">Open chat</button>
         </div>
         <h3>Nearby practitioners</h3>
@@ -307,11 +233,11 @@ export class HUDWindows {
         <h3>Keys</h3>
         <ul class="hud-list hud-list--keys">
           <li><kbd>B</kbd> Bag · <kbd>G</kbd> Grimoire · <kbd>K</kbd> Spells</li>
-          <li><kbd>N</kbd> Social · <kbd>C</kbd> Coven · <kbd>T</kbd> Wayfinding</li>
+          <li><kbd>N</kbd> or <kbd>P</kbd> Social Circle · <kbd>C</kbd> Coven · <kbd>T</kbd> Wayfinding</li>
           <li><kbd>M</kbd> Map · <kbd>I</kbd> Inventory · <kbd>J</kbd> Journal</li>
-          <li><kbd>Y</kbd> Ledger · <kbd>X</kbd> Aura · <kbd>F</kbd> Familiar · <kbd>P</kbd> Friends</li>
+          <li><kbd>Y</kbd> Ledger · <kbd>X</kbd> Aura · <kbd>F</kbd> Familiar</li>
         </ul>
-        ${gameState.isAdmin ? '<p class="hud-muted">Admin: F1 console · admin panel port 5174</p>' : ''}
+        ${gameState.isAdmin ? '<p class="hud-muted">Admin: /apanel opens the panel · ` opens the console · admin site on port 5174</p>' : ''}
       </div>`);
 
     w.body.querySelector('#set-nav-collapsed')?.addEventListener('change', (e) => {

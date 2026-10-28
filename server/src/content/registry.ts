@@ -8,6 +8,7 @@ import type {
   ContentMapDefinition,
   ContentNpc,
   ContentShop,
+  NpcPlace,
   ContentSpell,
   ContentTile,
   ContentQuest,
@@ -15,13 +16,22 @@ import type {
   ContentHexagramRecipe,
   MagicTradition,
 } from '@witchcraft/shared';
-import { setProgressionContent, getMaxPlayerLevel, findUnknownLevelUnlocks } from '@witchcraft/shared';
+import {
+  setProgressionContent,
+  setSocialContent,
+  setKnowledgeContent,
+  setLessonContent,
+  getMaxPlayerLevel,
+  findUnknownLevelUnlocks,
+} from '@witchcraft/shared';
+import { knowledgeStore } from '../systems/knowledge-store.js';
 import { dialogueSystem, type DialogueTree } from '../systems/dialogue-system.js';
 import { craftingSystem } from '../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
 import { questSystem } from '../systems/quest-system.js';
 import { shopSystem } from '../systems/shop-system.js';
 import { applyCanonicalWorldMapsToRegistry, resolveMapForScene } from './canonical-maps.js';
+import { loadGrimoireEntries } from './grimoire-entries.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTENT_DIR = resolve(__dirname, '../../../content');
@@ -50,6 +60,7 @@ export class ContentRegistry {
   familiars = new Map<string, ContentFamiliarTemplate>();
   shops = new Map<string, ContentShop>();
   npcs = new Map<string, ContentNpc>();
+  npcPlaces = new Map<string, NpcPlace>();
   tiles = new Map<string, ContentTile>();
   decorations = new Map<string, ContentDecoration>();
   maps = new Map<string, ContentMapDefinition>();
@@ -62,6 +73,7 @@ export class ContentRegistry {
     this.familiars.clear();
     this.shops.clear();
     this.npcs.clear();
+    this.npcPlaces.clear();
     this.tiles.clear();
     this.decorations.clear();
     this.maps.clear();
@@ -84,6 +96,10 @@ export class ContentRegistry {
     for (const npc of loadJson<ContentNpc>('npcs.json')) {
       this.npcs.set(npc.id, npc);
     }
+    for (const place of loadJson<NpcPlace>('npc-places.json')) {
+      if (!place?.id || !place.sceneId) continue;
+      this.npcPlaces.set(place.id, place);
+    }
     for (const tile of loadJson<ContentTile>('tiles.json')) {
       this.tiles.set(tile.id, tile);
     }
@@ -102,7 +118,13 @@ export class ContentRegistry {
     craftingSystem.loadFromJson(loadJson<ContentRecipe>('recipes.json'));
     hexagramEnchantSystem.loadFromJson(loadJson<ContentHexagramRecipe>('hexagram-recipes.json'));
     questSystem.loadFromJson(loadJson<ContentQuest>('quests.json'));
+    questSystem.loadStore();
     dialogueSystem.loadFromJson([...this.dialogues.values()]);
+
+    setSocialContent(loadJsonFile('social.json'));
+    setKnowledgeContent(loadJsonFile('knowledge.json'));
+    setLessonContent(loadJsonFile('lessons.json'));
+    knowledgeStore.load();
 
     setProgressionContent({
       statsJson: loadJsonFile('progression/stats.json'),
@@ -120,6 +142,7 @@ export class ContentRegistry {
 
     this.validateLevelGates();
     this.validateLevelUnlockCatalog();
+    loadGrimoireEntries();
 
     console.log(
       `[ContentRegistry] Loaded ${this.spells.size} spells, ${this.ingredients.size} ingredients, ${this.maps.size} maps, ${this.dialogues.size} dialogues, ${craftingSystem.recipes.size} recipes, ${hexagramEnchantSystem.recipes.size} hexagram recipes, ${questSystem.quests.size} quests`

@@ -1,29 +1,38 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { getLicensesDocument, getRecognitionDocument } from '@witchcraft/shared';
+import {
+  getLicensesDocument,
+  getRecognitionDocument,
+  toClientDialogues,
+  toClientNpcs,
+} from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { getPublicIngredients, getIconManifest, mergeIngredientIconsFromDb, verifyIconHashes } from '../content/ingredient-icons.js';
-import { mergeNpcSpritesFromDb } from '../content/npc-sprites.js';
+import { mergeNpcSpritesFromDb, verifyNpcSpriteHashes } from '../content/npc-sprites.js';
 import { prisma } from '../services/db.js';
+import { getGrimoireEntries, grimoireEntryNames } from '../content/grimoire-entries.js';
 
 export const contentRouter = Router();
 
-/** Public content API for client bootstrap */
+/** Public content API for client bootstrap — NPCs are stripped of server-only fields. */
 contentRouter.get('/all', (_req: Request, res: Response) => {
   res.json({
     ingredients: getPublicIngredients(),
     spells: [...contentRegistry.spells.values()],
     familiars: [...contentRegistry.familiars.values()],
     shops: [...contentRegistry.shops.values()],
-    npcs: [...contentRegistry.npcs.values()],
+    npcs: toClientNpcs(contentRegistry.npcs.values()),
     tiles: [...contentRegistry.tiles.values()],
     decorations: [...contentRegistry.decorations.values()],
     maps: [...contentRegistry.maps.values()],
-    dialogues: [...contentRegistry.dialogues.values()],
+    /** Client dialogue trees strip spoilers; live choices come from the server. */
+    dialogues: toClientDialogues(contentRegistry.dialogues.values()),
     recognitionTiers: getRecognitionDocument(),
     licenses: getLicensesDocument(),
     spirits: [...contentRegistry.spirits.values()],
+    grimoireEntries: getGrimoireEntries(),
+    grimoireEntryNames: grimoireEntryNames(),
   });
 });
 
@@ -36,6 +45,12 @@ contentRouter.get('/icons/manifest', (_req: Request, res: Response) => {
 contentRouter.post('/icons/verify', (req: Request, res: Response) => {
   const clientHashes = (req.body?.items ?? {}) as Record<string, string>;
   res.json(verifyIconHashes(clientHashes));
+});
+
+/** One-shot per login: NPC sprite hash verify (mirrors ingredient icons). */
+contentRouter.post('/npc-sprites/verify', (req: Request, res: Response) => {
+  const clientHashes = (req.body?.items ?? {}) as Record<string, string>;
+  res.json(verifyNpcSpriteHashes(clientHashes));
 });
 
 contentRouter.get('/maps/:sceneId', (req: Request, res: Response) => {
@@ -82,6 +97,8 @@ adminRouter.post('/reload', async (_req: Request, res: Response) => {
   await contentRegistry.mergePublishedMaps();
   const { ensureCanonicalMapProjects } = await import('../content/canonical-maps.js');
   await ensureCanonicalMapProjects();
+  const { broadcastNpcWorldState } = await import('../rooms/game-room-registry.js');
+  broadcastNpcWorldState();
   res.json({ ok: true, message: 'Content registry reloaded from JSON; icons merged from DB.' });
 });
 
@@ -143,4 +160,4 @@ adminRouter.delete('/spells/:id', async (req: Request, res: Response) => {
   }
 });
 
-// TODO: admin CRUD for ingredients, npcs, shops, tiles, decorations, maps
+// Admin CRUD for ingredients / NPCs / shops / tiles / decorations / maps lives under admin/routes/content.ts.

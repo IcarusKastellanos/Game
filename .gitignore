@@ -12,3 +12,6 @@ coverage/
 backups/
 _recover_*
 *.dump
+content/content-revisions.json
+data/shared-quests.json
+data/shared-knowledge.json

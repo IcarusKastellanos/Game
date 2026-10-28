@@ -8,14 +8,18 @@ export type ClientMessage =
   | { type: 'cast_spell'; spellId: string; targetPlayerId?: string; taglockType?: string; taglockTypes?: string[]; taglocks?: TaglockSelection[]; altarState: AltarState; pentacleSlots?: { itemId: string; quantity: number }[]; augmentSlots?: { itemId: string; quantity: number }[]; hexIntents?: string[]; magicOnly?: boolean; targetSelf?: boolean; timing?: string }
   | { type: 'altar_update'; altar: AltarState }
   | { type: 'buy_item'; shopId: string; itemId: string; quantity: number }
-  | { type: 'use_item'; itemId: string; quantity: number }
+  | { type: 'use_item'; itemId: string; quantity?: number; slotIndex?: number }
   | { type: 'care_familiar'; action: 'feed' | 'bond' | 'heal' | 'protect' }
   | { type: 'choose_familiar'; templateId: string; trueName: string; publicName: string }
   | { type: 'collect_taglock'; targetPlayerId: string }
   | { type: 'whisper'; targetPlayerId: string; message: string }
   | { type: 'place_ward'; wardPointId: string; spellId: string }
   | { type: 'inspect_aura'; targetPlayerId: string }
-  | { type: 'dialogue_choice'; dialogueTreeId: string; nodeId: string; choiceIndex: number }
+  | { type: 'dialogue_choice'; dialogueTreeId: string; nodeId: string; choiceId: string; choiceIndex?: number }
+  | { type: 'npc_talk'; npcId: string }
+  | { type: 'npc_action'; npcId: string; actionId: string }
+  | { type: 'npc_gift'; npcId: string; slotIndex: number; itemId: string; operationId: string }
+  | { type: 'npc_social'; npcId: string; actionId: string; operationId: string }
   | { type: 'admin_command'; command: string }
   | { type: 'admin_action'; action: string; targetSessionId?: string; args?: string[] }
   | { type: 'chat'; message: string; channel?: 'global' | 'local' | 'whisper'; targetPlayerId?: string; targetDisplayName?: string }
@@ -29,7 +33,12 @@ export type ClientMessage =
   | { type: 'friends_refresh' }
   | { type: 'feed_ward'; targetKind: 'apartment' | 'aura_ward' | 'protection'; targetId: string }
   | { type: 'trade_request'; targetSessionId: string; friendDbPlayerId?: string }
-  | { type: 'trade_offer'; tradeId: string; coins: number; items: { itemId: string; quantity: number }[] }
+  | {
+      type: 'trade_offer';
+      tradeId: string;
+      coins: number;
+      items: { itemId: string; quantity: number; slotIndex?: number }[];
+    }
   | { type: 'trade_accept'; tradeId: string; accepted: boolean }
   | { type: 'trade_cancel'; tradeId: string }
   | { type: 'inventory_reorder'; slots: InventorySlot[] }
@@ -40,7 +49,25 @@ export type ClientMessage =
   | { type: 'hexagram_enchant'; recipeId: string; sockets: Partial<Record<string, string>>; augmentations: string[]; declaration: string }
   | { type: 'experiment_ingredients'; itemIds: string[] }
   | { type: 'read_book_complete'; bookId: string }
-  | { type: 'presence_ready' };
+  | { type: 'presence_ready' }
+  | {
+      type: 'grimoire_write';
+      custom?: { title?: string; dedication?: string; ink?: string; showLockedShared?: boolean };
+      notes?: string[];
+      notesActive?: number;
+      spellNote?: { spellId: string; note: string };
+      npcNote?: { npcId: string; note: string };
+      spiritNote?: { spiritId: string; note: string };
+      authoredPage?: { id?: string; title?: string; body?: string };
+      authoredDeleteId?: string;
+      authoredActive?: string;
+      sharedDeleteId?: string;
+      sharedActive?: string;
+    }
+  | { type: 'grimoire_share'; spellId: string; targetSessionId?: string; friendPlayerId?: string }
+  | { type: 'grimoire_petition'; spiritId: string }
+  | { type: 'grimoire_recall'; spiritId: string }
+  | { type: 'grimoire_export'; pageId: string };
 
 /** Server → Client message types */
 export type ServerMessage =

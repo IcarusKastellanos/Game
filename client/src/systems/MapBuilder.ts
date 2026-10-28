@@ -36,9 +36,10 @@ function ensureCollisionTexture(scene: Phaser.Scene): void {
 function isBlockingCollision(mode: string | undefined): boolean {
   return BLOCKING_COLLISION_MODES.has(mode ?? 'full');
 }
-/** Procedurally generate 16-bit placeholder tile textures */
+/** Procedurally generate placeholder tile textures at TILE_SIZE. */
 export function generatePlaceholderTextures(scene: Phaser.Scene): void {
   const g = scene.make.graphics({ x: 0, y: 0 });
+  const s = TILE_SIZE / 16;
 
   const colors: Record<string, number> = {
     tile_floor_wood: 0x8b6914,
@@ -70,15 +71,15 @@ export function generatePlaceholderTextures(scene: Phaser.Scene): void {
     } else if (key.startsWith('obj_')) {
       g.clear();
       g.fillStyle(color, 1);
-      g.fillRect(4, 6, TILE_SIZE - 8, TILE_SIZE - 8);
+      g.fillRect(4 * s, 6 * s, TILE_SIZE - 8 * s, TILE_SIZE - 8 * s);
       g.lineStyle(1, 0xffffff, 0.5);
-      g.strokeRect(4, 6, TILE_SIZE - 8, TILE_SIZE - 8);
+      g.strokeRect(4 * s, 6 * s, TILE_SIZE - 8 * s, TILE_SIZE - 8 * s);
     } else if (key === 'player' || key === 'player_other') {
       g.fillStyle(color, 1);
-      g.fillRect(4, 0, 8, 4);
-      g.fillRect(2, 4, 12, 8);
-      g.fillRect(4, 12, 3, 4);
-      g.fillRect(9, 12, 3, 4);
+      g.fillRect(4 * s, 0, 8 * s, 4 * s);
+      g.fillRect(2 * s, 4 * s, 12 * s, 8 * s);
+      g.fillRect(4 * s, 12 * s, 3 * s, 4 * s);
+      g.fillRect(9 * s, 12 * s, 3 * s, 4 * s);
     } else {
       g.fillStyle(color, 0.5);
       g.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
@@ -143,10 +144,22 @@ function addInteractableSprite(
           : inter.type === 'cleanser'
             ? 'obj_cleanser'
           : inter.type === 'npc'
-            ? `npc_${npcId}`
+            ? scene.textures.exists(`${npcId}_walk`)
+              ? `${npcId}_walk`
+              : npcId
             : 'obj_shelf';
 
   const obj = scene.add.sprite(x, y, spriteKey).setData('interactable', inter);
+  if (inter.type === 'npc') {
+    obj.setOrigin(0.5, 0.85);
+    const idleKey = `${npcId}_idle_down`;
+    const walkDown = `${npcId}_walk_down`;
+    if (scene.anims.exists(idleKey)) obj.play(idleKey, true);
+    else if (scene.anims.exists(walkDown)) {
+      obj.anims.stop();
+      obj.setFrame(0);
+    }
+  }
   interactables.add(obj);
 
   if (inter.type === 'altar' || inter.type === 'shop' || inter.type === 'door' || inter.type === 'cleanser' || inter.type === 'bed') {

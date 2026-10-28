@@ -1,5 +1,16 @@
 import Phaser from 'phaser';
-import { TILE_SIZE, distanceToInteractableFootprintPx, interactRangeFromEdgePx } from '@witchcraft/shared';
+import {
+  TILE_SIZE,
+  distanceToInteractableFootprintPx,
+  interactRangeFromEdgePx,
+  npcIdleAnimKey,
+  npcPresenceTile,
+  npcWalkAnimKey,
+  npcWalkSheetKey,
+  placedObjectDepth,
+  RENDER_LEVEL_PLAYER,
+  type NpcWalkDirection,
+} from '@witchcraft/shared';
 import type { ContentMapDefinition } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
@@ -10,19 +21,7 @@ import { configureFeetHitbox, configurePlayerPhysics } from '../systems/WorldMov
 import { worldTilesToPixels } from '../utils/world-coords';
 import { ambientAudio } from '../audio/AmbientAudio';
 import { TeleportEffect } from '../graphics/TeleportEffect';
-import '../ui/speech-bubble.css';
-
-type WorldSpeechBubble = {
-  root: HTMLDivElement;
-  plate: HTMLDivElement;
-  tail: HTMLDivElement;
-  tailStroke: HTMLDivElement;
-  tailFill: HTMLDivElement;
-  until: number;
-  metricsKey: string;
-  outerHalf: number;
-  innerHalf: number;
-};
+import { npcFacingFromPresence } from '../graphics/SpriteGenerator';
 
 /** Base scene for apartment and town — shared movement/multiplayer logic */
 export abstract class BaseWorldScene extends Phaser.Scene {
@@ -30,8 +29,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   protected controller!: PlayerController;
   protected remotePlayers = new Map<string, Phaser.GameObjects.Sprite>();
   protected remoteNameLabels = new Map<string, Phaser.GameObjects.Text>();
-  private speechLayer?: HTMLDivElement;
-  private speechBubbles = new Map<string, WorldSpeechBubble>();
+  private speechBubbles = new Map<string, { root: Phaser.GameObjects.Container; until: number }>();
   protected interactables!: Phaser.GameObjects.Group;
   protected furnitureLayer!: Phaser.GameObjects.Group;
   protected floorLayer!: Phaser.GameObjects.Group;
@@ -42,6 +40,10 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   protected sceneId: 'apartment' | 'town' = 'apartment';
   private setupGeneration = 0;
   private activeTeleport?: TeleportEffect;
+  /** Last schedule-hidden interactable list painted into this scene. */
+  private hiddenNpcKey = '';
+  /** Sprites for NPCs who are on this scene but not standing on their posted interactable. */
+  private npcWalkers = new Map<string, Phaser.GameObjects.Sprite>();
 
   /** (Re)register physics colliders between the player and current blocker groups. */
   private registerBlockerColliders(): void {
@@ -60,6 +62,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
 
   protected async setupWorld(): Promise<void> {
     const setupId = ++this.setupGeneration;
+    this.clearNpcWalkers();
     gameState.isTransitioning = true;
     gameState.currentScene = this.sceneId;
 
@@ -129,11 +132,9 @@ export abstract class BaseWorldScene extends Phaser.Scene {
         window.removeEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
         window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
         window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+        window.removeEventListener('game:world-state', this.onWorldState as EventListener);
         window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
-        this.events.off('render', this.onSpeechRender);
-        this.clearSpeechBubbles();
       });
-      this.events.on('render', this.onSpeechRender);
       window.addEventListener('game:admin-tp', this.onAdminTp as EventListener);
       window.addEventListener('game:admin-heal', this.onAdminHeal as EventListener);
       window.addEventListener('game:connection-restored', this.onConnectionRestored as EventListener);
@@ -142,6 +143,8 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       window.addEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
       window.addEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
       window.addEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+      window.addEventListener('game:world-state', this.onWorldState as EventListener);
+      this.hiddenNpcKey = gameState.hiddenNpcIds.join('\0');
       window.addEventListener('game:chat', this.onLocalSpeech as EventListener);
 
       // Register sync handler only after player sprite exists
@@ -212,6 +215,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     if (!this.player?.active || !this.controller || gameState.isTransitioning) return;
     this.controller.update(this.player, this.blockers, () => this.tryInteract());
     applyWorldDepthSort(this.player, this.furnitureLayer, this.remotePlayers, this.remoteNameLabels);
+    this.syncNpcWalkers();
     network.tickWorldSync(delta);
     this.syncRemotePlayers();
     this.tickSpeechBubbles();
@@ -230,9 +234,11 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     window.removeEventListener('game:nearby-players', this.onApartmentPresence as EventListener);
     window.removeEventListener('game:same-scene-teleport', this.onSameSceneTeleport as EventListener);
     window.removeEventListener('game:maps-updated', this.onMapsUpdated as EventListener);
+    window.removeEventListener('game:world-state', this.onWorldState as EventListener);
     window.removeEventListener('game:chat', this.onLocalSpeech as EventListener);
-    this.events.off('render', this.onSpeechRender);
-    this.clearSpeechBubbles();
+    this.speechBubbles.forEach((bubble) => bubble.root.destroy());
+    this.speechBubbles.clear();
+    this.clearNpcWalkers();
     network.onPlayersChange = undefined;
     this.remotePlayers.forEach((s) => s.destroy());
     this.remotePlayers.clear();
@@ -261,6 +267,31 @@ export abstract class BaseWorldScene extends Phaser.Scene {
         closest = sprite;
       }
     });
+
+    let walkerNpcId: string | null = null;
+    let walkerDist = maxReach + 1;
+    const now = Date.now();
+    for (const [npcId, sprite] of this.npcWalkers) {
+      if (!sprite.active || !sprite.visible) continue;
+      const presence = gameState.npcPresences.find((entry) => entry.npcId === npcId);
+      if (!presence?.visible || presence.indoors || presence.held || presence.interaction === 'away') continue;
+      if (presence.moving) continue;
+      const tile = npcPresenceTile(presence, now);
+      if (!tile) continue;
+      const tx = tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const ty = tile.y * TILE_SIZE + TILE_SIZE / 2;
+      const dist = Math.hypot(this.player.x - tx, this.player.y - ty);
+      if (dist > maxReach) continue;
+      if (dist < walkerDist) {
+        walkerDist = dist;
+        walkerNpcId = npcId;
+      }
+    }
+
+    if (walkerNpcId && walkerDist <= closestDist) {
+      network.send('npc_talk', { npcId: walkerNpcId });
+      return;
+    }
 
     if (!closest) return;
 
@@ -363,8 +394,114 @@ export abstract class BaseWorldScene extends Phaser.Scene {
 
   private onMapsUpdated = (): void => {
     if (!this.player?.active || gameState.currentScene !== this.sceneId) return;
+    this.hiddenNpcKey = gameState.hiddenNpcIds.join('\0');
     this.rebuildWorldMap();
+    this.syncNpcWalkers();
   };
+
+  private onWorldState = (): void => {
+    if (!this.player?.active || gameState.currentScene !== this.sceneId) return;
+    const next = gameState.hiddenNpcIds.join('\0');
+    if (next !== this.hiddenNpcKey) {
+      this.hiddenNpcKey = next;
+      this.rebuildWorldMap();
+    }
+    this.syncNpcWalkers();
+  };
+
+  private clearNpcWalkers(): void {
+    this.npcWalkers.forEach((sprite) => sprite.destroy());
+    this.npcWalkers.clear();
+  }
+
+  /** Draw NPCs the server placed on this scene away from their posted sprite. */
+  private syncNpcWalkers(): void {
+    if (!this.sys?.isActive()) return;
+    const now = Date.now();
+    const posted = new Set<string>();
+    const mapDef = gameState.getMap(this.sceneId);
+    for (const inter of mapDef?.interactables ?? []) {
+      if (inter.type !== 'npc') continue;
+      const npcId = typeof inter.data?.npcId === 'string' ? inter.data.npcId : '';
+      if (!npcId || gameState.hiddenNpcIds.includes(inter.id)) continue;
+      posted.add(npcId);
+    }
+    const wanted = new Set<string>();
+    for (const presence of gameState.npcPresences) {
+      // Only paint bodies the server marked visible for this scene — never invent from content alone.
+      if (!presence.visible || presence.indoors || presence.held || presence.scene !== this.sceneId) continue;
+      if (presence.interaction === 'away') continue;
+      if (posted.has(presence.npcId)) continue;
+      const tile = npcPresenceTile(presence, now);
+      if (!tile) continue;
+      const key = npcWalkSheetKey(presence.npcId);
+      if (!this.textures.exists(key)) continue;
+      wanted.add(presence.npcId);
+      const x = tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const y = tile.y * TILE_SIZE + TILE_SIZE / 2;
+      let sprite = this.npcWalkers.get(presence.npcId);
+      if (!sprite?.active) {
+        sprite = this.add.sprite(x, y, key).setOrigin(0.5, 0.85);
+        this.npcWalkers.set(presence.npcId, sprite);
+      } else if (sprite.texture.key !== key) {
+        sprite.setTexture(key);
+      }
+      sprite.setPosition(x, y);
+      sprite.setVisible(true);
+      sprite.setDepth(placedObjectDepth(RENDER_LEVEL_PLAYER, y));
+      this.playNpcPresenceAnim(sprite, presence.npcId, presence);
+      applyNpcPresenceChrome(sprite, presence.interaction);
+    }
+    for (const [npcId, sprite] of this.npcWalkers) {
+      if (wanted.has(npcId)) continue;
+      sprite.destroy();
+      this.npcWalkers.delete(npcId);
+    }
+    this.applyPostedNpcChrome();
+  }
+
+  private playNpcPresenceAnim(
+    sprite: Phaser.GameObjects.Sprite,
+    npcId: string,
+    presence: { facing?: string; moving?: boolean; from?: { x: number; y: number }; to?: { x: number; y: number } }
+  ): void {
+    const facing = npcFacingFromPresence(presence) as NpcWalkDirection;
+    const walk = npcWalkAnimKey(npcId, facing);
+    const idle = npcIdleAnimKey(npcId, facing);
+    if (presence.moving && this.anims.exists(walk)) {
+      if (sprite.anims.currentAnim?.key !== walk) sprite.play(walk, true);
+      return;
+    }
+    if (this.anims.exists(idle)) {
+      if (sprite.anims.currentAnim?.key !== idle) sprite.play(idle, true);
+      return;
+    }
+    if (this.anims.exists(walk)) {
+      sprite.anims.stop();
+      const dirs = ['down', 'down-right', 'right', 'up-right', 'up', 'up-left', 'left', 'down-left'];
+      const row = Math.max(0, dirs.indexOf(facing));
+      sprite.setFrame(row * 4);
+    }
+  }
+
+  /** Tint posted NPC sprites from authoritative presence (busy / open). */
+  private applyPostedNpcChrome(): void {
+    if (!this.interactables) return;
+    const byNpc = new Map(gameState.npcPresences.map((presence) => [presence.npcId, presence]));
+    this.interactables.getChildren().forEach((obj) => {
+      const sprite = obj as Phaser.GameObjects.Sprite;
+      const inter = sprite.getData('interactable') as ContentMapDefinition['interactables'][number] | undefined;
+      if (!inter || inter.type !== 'npc') return;
+      const npcId = typeof inter.data?.npcId === 'string' ? inter.data.npcId : '';
+      const presence = npcId ? byNpc.get(npcId) : undefined;
+      if (npcId && presence) this.playNpcPresenceAnim(sprite, npcId, presence);
+      else if (npcId) {
+        const idle = npcIdleAnimKey(npcId, 'down');
+        if (this.anims.exists(idle) && sprite.anims.currentAnim?.key !== idle) sprite.play(idle, true);
+      }
+      applyNpcPresenceChrome(sprite, presence?.interaction);
+    });
+  }
 
   protected rebuildWorldMap(): void {
     const mapDef = gameState.getMap(this.sceneId);
@@ -455,7 +592,8 @@ export abstract class BaseWorldScene extends Phaser.Scene {
     this.remotePlayers.delete(sessionId);
     this.remoteNameLabels.get(sessionId)?.destroy();
     this.remoteNameLabels.delete(sessionId);
-    this.removeSpeechBubble(sessionId);
+    this.speechBubbles.get(sessionId)?.root.destroy();
+    this.speechBubbles.delete(sessionId);
   }
 
   private onLocalSpeech = (ev: Event): void => {
@@ -487,186 +625,62 @@ export abstract class BaseWorldScene extends Phaser.Scene {
   }
 
   private showSpeechBubble(sessionId: string, message: string): void {
-    this.removeSpeechBubble(sessionId);
+    this.speechBubbles.get(sessionId)?.root.destroy();
     const spoken = message.length > 140 ? `${message.slice(0, 137)}…` : message;
-    const root = document.createElement('div');
-    root.className = 'world-speech-bubble';
-    root.style.visibility = 'hidden';
-    const plate = document.createElement('div');
-    plate.className = 'world-speech-bubble__plate';
-    plate.textContent = spoken;
-    const tail = document.createElement('div');
-    tail.className = 'world-speech-bubble__tail';
-    const tailStroke = document.createElement('div');
-    const tailFill = document.createElement('div');
-    tail.append(tailStroke, tailFill);
-    root.append(plate, tail);
-    this.ensureSpeechLayer().append(root);
+    const label = this.add
+      .text(0, 0, spoken, {
+        fontFamily: 'Georgia, "Palatino Linotype", serif',
+        fontSize: '7px',
+        color: '#3b2412',
+        align: 'center',
+        wordWrap: { width: 92 },
+      })
+      .setOrigin(0.5, 0.5);
+    const width = Math.max(56, label.width + 18);
+    const height = label.height + 14;
+    const plate = this.add.graphics();
+    plate.fillStyle(0xf8edd4, 0.96);
+    plate.lineStyle(2, 0xc4a15a, 1);
+    plate.fillRoundedRect(-width / 2, -height - 8, width, height, 8);
+    plate.strokeRoundedRect(-width / 2, -height - 8, width, height, 8);
+    plate.fillStyle(0xf8edd4, 0.96);
+    plate.fillTriangle(-6, -8, 6, -8, 0, 2);
+    label.setPosition(0, -height / 2 - 8);
+    const root = this.add.container(0, 0, [plate, label]);
+    root.setDepth(8000);
+    const point = this.speakerPoint(sessionId);
+    if (point) root.setPosition(point.x, point.y);
     this.speechBubbles.set(sessionId, {
       root,
-      plate,
-      tail,
-      tailStroke,
-      tailFill,
       until: this.time.now + Math.min(9000, 2800 + spoken.length * 45),
-      metricsKey: '',
-      outerHalf: 0,
-      innerHalf: 0,
     });
-    this.positionSpeechBubbles();
   }
 
   private tickSpeechBubbles(): void {
     const now = this.time.now;
     for (const [sessionId, bubble] of this.speechBubbles) {
-      if (now >= bubble.until) this.removeSpeechBubble(sessionId);
+      if (now >= bubble.until) {
+        bubble.root.destroy();
+        this.speechBubbles.delete(sessionId);
+        continue;
+      }
+      const point = this.speakerPoint(sessionId);
+      if (!point) continue;
+      bubble.root.setPosition(point.x, point.y);
     }
   }
+}
 
-  /** Camera follow runs in preRender, so place bubbles on the render event, not in update. */
-  private onSpeechRender = (): void => {
-    this.positionSpeechBubbles();
-  };
-
-  private ensureSpeechLayer(): HTMLDivElement {
-    if (this.speechLayer?.isConnected) return this.speechLayer;
-    const layer = document.createElement('div');
-    layer.className = 'world-speech-layer';
-    layer.setAttribute('aria-hidden', 'true');
-    document.body.append(layer);
-    this.speechLayer = layer;
-    return layer;
+/** Soft busy tint from server presence — never invents hidden NPCs. */
+function applyNpcPresenceChrome(
+  sprite: Phaser.GameObjects.Sprite,
+  interaction: string | undefined
+): void {
+  if (interaction === 'busy') {
+    sprite.setTint(0xc4b08a);
+    sprite.setAlpha(0.92);
+    return;
   }
-
-  private clearSpeechBubbles(): void {
-    for (const bubble of this.speechBubbles.values()) bubble.root.remove();
-    this.speechBubbles.clear();
-    this.speechLayer?.remove();
-    this.speechLayer = undefined;
-  }
-
-  private removeSpeechBubble(sessionId: string): void {
-    const bubble = this.speechBubbles.get(sessionId);
-    if (!bubble) return;
-    bubble.root.remove();
-    this.speechBubbles.delete(sessionId);
-    if (this.speechBubbles.size === 0) {
-      this.speechLayer?.remove();
-      this.speechLayer = undefined;
-    }
-  }
-
-  /**
-   * CSS pixels per game pixel. The FIT scale is often fractional (the 512×384
-   * buffer stretched to the window). Text is sized in whole CSS pixels instead
-   * of being drawn at 7px and nearest-neighbor scaled with the pixel-art canvas.
-   */
-  private speechCanvasScale(): { cssPerGameX: number; cssPerGameY: number; rect: DOMRect } | null {
-    const canvas = this.game?.canvas;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const gameW = this.scale.gameSize.width;
-    const gameH = this.scale.gameSize.height;
-    if (rect.width < 1 || rect.height < 1 || gameW < 1 || gameH < 1) return null;
-    return {
-      cssPerGameX: rect.width / gameW,
-      cssPerGameY: rect.height / gameH,
-      rect,
-    };
-  }
-
-  private positionSpeechBubbles(): void {
-    if (this.speechBubbles.size === 0) return;
-    const scale = this.speechCanvasScale();
-    if (!scale) return;
-    const layer = this.ensureSpeechLayer();
-    const originX = Math.round(scale.rect.left);
-    const originY = Math.round(scale.rect.top);
-    layer.style.left = `${originX}px`;
-    layer.style.top = `${originY}px`;
-    layer.style.width = `${Math.max(0, Math.round(scale.rect.width))}px`;
-    layer.style.height = `${Math.max(0, Math.round(scale.rect.height))}px`;
-    for (const [sessionId, bubble] of this.speechBubbles) {
-      this.layoutSpeechBubble(bubble, scale.cssPerGameY);
-      this.placeSpeechBubble(bubble, sessionId, scale, originX, originY);
-    }
-  }
-
-  private layoutSpeechBubble(bubble: WorldSpeechBubble, cssPerGame: number): void {
-    const fontPx = Math.max(14, Math.round(7 * cssPerGame));
-    const borderPx = Math.max(1, Math.round(2 * cssPerGame));
-    const padX = Math.round(9 * cssPerGame);
-    const padY = Math.round(7 * cssPerGame);
-    const radiusPx = Math.max(4, Math.round(8 * cssPerGame));
-    const contentMax = Math.round(92 * cssPerGame);
-    const minWidth = Math.round(56 * cssPerGame);
-    const outerHalf = Math.max(4, Math.round(6 * cssPerGame));
-    const outerH = Math.max(6, Math.round(10 * cssPerGame));
-    const innerHalf = Math.max(2, outerHalf - borderPx);
-    const innerH = Math.max(3, outerH - borderPx);
-    const key = [fontPx, borderPx, padX, padY, radiusPx, contentMax, minWidth, outerHalf, outerH, innerHalf, innerH].join(':');
-    if (bubble.metricsKey === key) return;
-    bubble.metricsKey = key;
-    bubble.outerHalf = outerHalf;
-    bubble.innerHalf = innerHalf;
-
-    const plate = bubble.plate;
-    plate.style.fontSize = `${fontPx}px`;
-    plate.style.padding = `${padY}px ${padX}px`;
-    plate.style.borderWidth = `${borderPx}px`;
-    plate.style.borderRadius = `${radiusPx}px`;
-    plate.style.maxWidth = `${contentMax + padX * 2 + borderPx * 2}px`;
-    plate.style.minWidth = `${minWidth}px`;
-
-    bubble.tail.style.height = `${outerH}px`;
-    bubble.tail.style.marginTop = `${-borderPx}px`;
-    this.styleSpeechTail(bubble.tailStroke, outerHalf, outerH, '#c4a15a');
-    this.styleSpeechTail(bubble.tailFill, innerHalf, innerH, '#f8edd4');
-    this.centerSpeechTail(bubble);
-  }
-
-  private styleSpeechTail(el: HTMLDivElement, half: number, height: number, color: string): void {
-    el.style.position = 'absolute';
-    el.style.top = '0';
-    el.style.width = '0';
-    el.style.height = '0';
-    el.style.margin = '0';
-    el.style.padding = '0';
-    el.style.borderStyle = 'solid';
-    el.style.borderBottomWidth = '0';
-    el.style.borderLeft = `${half}px solid transparent`;
-    el.style.borderRight = `${half}px solid transparent`;
-    el.style.borderTop = `${height}px solid ${color}`;
-    el.style.filter = 'none';
-    el.style.transform = 'none';
-  }
-
-  private centerSpeechTail(bubble: WorldSpeechBubble): void {
-    const width = bubble.root.offsetWidth;
-    bubble.tailStroke.style.left = `${Math.round((width - bubble.outerHalf * 2) / 2)}px`;
-    bubble.tailFill.style.left = `${Math.round((width - bubble.innerHalf * 2) / 2)}px`;
-  }
-
-  private placeSpeechBubble(
-    bubble: WorldSpeechBubble,
-    sessionId: string,
-    scale: { cssPerGameX: number; cssPerGameY: number; rect: DOMRect },
-    originX: number,
-    originY: number,
-  ): void {
-    const point = this.speakerPoint(sessionId);
-    const cam = this.cameras.main;
-    const root = bubble.root;
-    if (!point || !cam.worldView.contains(point.x, point.y)) {
-      root.style.visibility = 'hidden';
-      return;
-    }
-    const gameX = cam.x + (point.x - cam.worldView.x) * cam.zoomX;
-    const gameY = cam.y + (point.y - cam.worldView.y) * cam.zoomY;
-    const localX = scale.rect.left + gameX * scale.cssPerGameX - originX;
-    const localY = scale.rect.top + gameY * scale.cssPerGameY - originY;
-    root.style.visibility = 'visible';
-    root.style.left = `${Math.round(localX - root.offsetWidth / 2)}px`;
-    root.style.top = `${Math.round(localY - root.offsetHeight)}px`;
-  }
+  sprite.clearTint();
+  sprite.setAlpha(1);
 }

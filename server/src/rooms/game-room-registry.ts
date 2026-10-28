@@ -1,5 +1,6 @@
 import type { GameRoom } from './GameRoom.js';
 import type { ContentMapDefinition } from '@witchcraft/shared';
+import { invalidateNpcWorldCache } from '../systems/npc-schedule.js';
 
 const rooms = new Set<GameRoom>();
 
@@ -26,6 +27,22 @@ export function shatterWardInLiveRooms(wardId: string, adminName: string): boole
     if (room.adminShatterWard(wardId, adminName)) return true;
   }
   return false;
+}
+
+/** Copy shared quest progress onto every online player and pay contributors once. */
+export function broadcastSharedQuestMirror(): void {
+  for (const room of rooms) room.projectSharedQuestsOntoPlayers();
+}
+
+/** Push the authoritative NPC world after a content reload. */
+export function broadcastNpcWorldState(): number {
+  invalidateNpcWorldCache();
+  let clients = 0;
+  for (const room of rooms) {
+    room.publishNpcWorld(true);
+    clients += room.clients.length;
+  }
+  return clients;
 }
 
 export function broadcastLiveMapsToAllClients(payload: {

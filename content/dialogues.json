@@ -20,6 +20,40 @@
           {
             "label": "Just browsing.",
             "next": "end"
+          },
+          {
+            "label": "What do you still keep back?",
+            "next": "private_lore",
+            "requiresBond": {
+              "stage": "familiar",
+              "noGrudge": "broke_promise"
+            },
+            "id": "private_lore"
+          },
+          {
+            "id": "ask_rumors",
+            "label": "Heard any rumors?",
+            "next": "rumors"
+          }
+        ],
+        "textVariants": [
+          {
+            "when": {
+              "memory": "broke_promise"
+            },
+            "text": "The Veiled Moon is open. Keep your word if you mean to trade here."
+          },
+          {
+            "when": {
+              "memory": "quest_complete"
+            },
+            "text": "Welcome back. The working you finished for me still holds."
+          },
+          {
+            "when": {
+              "absenceDaysMin": 7
+            },
+            "text": "It has been a while. Looking for candles, herbs, or something sharper?"
           }
         ]
       },
@@ -45,6 +79,55 @@
           },
           {
             "label": "Good to know.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "private_lore",
+        "text": "There is a path behind the old coven stones. I tell that to someone I have come to know, and who has kept their word.",
+        "choices": [
+          {
+            "label": "I'll keep it.",
+            "next": "end"
+          }
+        ]
+      },
+      {
+        "id": "rumors",
+        "text": "Rumors travel the counter. Ask carefully.",
+        "choices": [
+          {
+            "id": "ask_coven",
+            "label": "About the old coven stones\u2026",
+            "next": "end",
+            "requiresBond": {
+              "stage": "familiar",
+              "noGrudge": "broke_promise"
+            },
+            "actions": [
+              {
+                "type": "unlock_knowledge",
+                "knowledgeId": "rumor_coven_stones"
+              }
+            ]
+          },
+          {
+            "id": "ask_market",
+            "label": "Anything about the market ward?",
+            "next": "end",
+            "requiresBond": {
+              "stage": "acquaintance"
+            },
+            "actions": [
+              {
+                "type": "unlock_knowledge",
+                "knowledgeId": "rumor_market_ward"
+              }
+            ]
+          },
+          {
+            "label": "Another time.",
             "next": "end"
           }
         ]
@@ -114,6 +197,31 @@
         "text": "Bay for divination, rosemary for protection, sage for cleansing. Write them down \u2014 memory fails under stress.",
         "choices": [
           {
+            "id": "take_catalog",
+            "label": "Teach me catalog discipline (10 coins)",
+            "next": "end",
+            "actions": [
+              {
+                "type": "unlock_lesson",
+                "lessonId": "lesson_agatha_catalog"
+              }
+            ]
+          },
+          {
+            "id": "ask_tea_hint",
+            "label": "Any quiet recipe notes?",
+            "next": "end",
+            "requiresBond": {
+              "stage": "familiar"
+            },
+            "actions": [
+              {
+                "type": "unlock_knowledge",
+                "knowledgeId": "recipe_hint_herbal"
+              }
+            ]
+          },
+          {
             "label": "Noted.",
             "next": "end",
             "relationshipDelta": 1
@@ -178,6 +286,17 @@
             "requiresLicense": "warder_license"
           },
           {
+            "id": "ask_train",
+            "label": "Can you teach me?",
+            "next": "train",
+            "requiresBond": {
+              "stage": "familiar"
+            },
+            "requiresTraditionAffinity": {
+              "traditional_european": 5
+            }
+          },
+          {
             "label": "Still finding my path.",
             "next": "end"
           }
@@ -221,6 +340,57 @@
             "statBoost": {
               "warding": 1
             }
+          }
+        ]
+      },
+      {
+        "id": "train",
+        "text": "Lessons take coin and regard. Choose carefully.",
+        "choices": [
+          {
+            "id": "take_ward_basics",
+            "label": "Learn Threshold Warding (15 coins)",
+            "next": "end",
+            "actions": [
+              {
+                "type": "unlock_lesson",
+                "lessonId": "lesson_rowan_ward_basics"
+              }
+            ]
+          },
+          {
+            "id": "take_healing_marks",
+            "label": "Learn Healing Charm Marks (25 coins)",
+            "next": "end",
+            "requiresTraditionAffinity": {
+              "traditional_european": 15
+            },
+            "requiresSpiritualReputation": 5,
+            "actions": [
+              {
+                "type": "unlock_lesson",
+                "lessonId": "lesson_rowan_healing_charm"
+              }
+            ]
+          },
+          {
+            "id": "ask_circle_oath",
+            "label": "Tell me of the circle oath.",
+            "next": "end",
+            "requiresBond": {
+              "stage": "familiar"
+            },
+            "requiresQuestComplete": "quest_first_steps",
+            "actions": [
+              {
+                "type": "unlock_knowledge",
+                "knowledgeId": "lore_circle_oath"
+              }
+            ]
+          },
+          {
+            "label": "Not today.",
+            "next": "end"
           }
         ]
       }

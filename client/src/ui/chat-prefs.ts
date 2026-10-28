@@ -7,7 +7,7 @@ export interface ChatPreferences {
   width: number;
   /** Message log height in CSS pixels. */
   logHeight: number;
-  /** When true, the box is folded into the speech-bubble icon. */
+  /** When true, the box is folded into the chat icon. */
   collapsed?: boolean;
 }
 

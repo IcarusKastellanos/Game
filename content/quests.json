@@ -1,20 +1,32 @@
 [
   {
     "id": "quest_first_steps",
+    "version": 1,
     "name": "First Steps on the Path",
     "description": "Learn the basics of folk magic from Mara and complete your first working.",
+    "scope": "personal",
+    "offer": "on_talk",
     "npcId": "npc_mara",
     "startStage": "intro",
     "nodes": [
       {
         "id": "intro",
         "text": "Mara suggests you gather rosemary and perform a simple healing charm at your altar.",
-        "objective": "Cast healing_charm at your apartment altar."
+        "objective": "Cast healing_charm at your apartment altar.",
+        "next": "complete"
       },
       {
         "id": "complete",
         "text": "Mara acknowledges your first successful working.",
         "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "working",
+        "type": "cast_spell",
+        "spellId": "healing_charm",
+        "text": "Cast healing_charm at your apartment altar."
       }
     ],
     "rewards": {
@@ -29,6 +41,296 @@
       },
       "reputation": 5
     },
+    "minLevel": 1
+  },
+  {
+    "id": "quest_mara_keepsake",
+    "version": 1,
+    "name": "The Sprig She Kept",
+    "description": "Mara asks someone she trusts to bring back a sprig of rosemary from her old counter tin.",
+    "scope": "personal",
+    "offer": "on_talk",
+    "npcId": "npc_mara",
+    "minStage": "familiar",
+    "prerequisites": {
+      "questsCompleted": ["quest_first_steps"],
+      "bond": { "stage": "familiar", "noGrudge": "broke_promise" }
+    },
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "Mara lowers her voice and asks you to bring rosemary back to her counter.",
+        "objective": "Bring rosemary to Mara.",
+        "next": "complete"
+      },
+      {
+        "id": "complete",
+        "text": "Mara tucks the rosemary away where she can reach it.",
+        "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "bring",
+        "type": "deliver",
+        "npcId": "npc_mara",
+        "itemId": "rosemary",
+        "quantity": 1,
+        "text": "Bring rosemary to Mara."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "kept",
+        "choiceId": "mara_keep_secret",
+        "setFlags": ["mara_secret_kept"],
+        "followUpQuestIds": ["quest_mara_confidence"]
+      },
+      {
+        "id": "told",
+        "choiceId": "mara_tell_circle",
+        "setFlags": ["mara_secret_told"],
+        "waiveObjectives": ["bring"],
+        "rewards": { "reputation": 1 }
+      }
+    ],
+    "rewards": {
+      "items": [{ "itemId": "frankincense", "quantity": 1 }],
+      "reputation": 3
+    },
+    "minLevel": 1
+  },
+  {
+    "id": "quest_mara_confidence",
+    "version": 1,
+    "name": "A Quieter Lesson",
+    "description": "Mara continues the story she trusted you to keep.",
+    "scope": "personal",
+    "offer": "follow_up",
+    "npcId": "npc_mara",
+    "prerequisites": {
+      "questsCompleted": ["quest_mara_keepsake"],
+      "storyFlags": ["mara_secret_kept"]
+    },
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "Mara tells you the rest, now that the secret stayed with you.",
+        "objective": "Speak with Mara again.",
+        "next": "complete"
+      },
+      {
+        "id": "complete",
+        "text": "The lesson sits with you.",
+        "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "listen",
+        "type": "talk",
+        "npcId": "npc_mara",
+        "text": "Speak with Mara again."
+      }
+    ],
+    "rewards": { "reputation": 2 },
+    "minLevel": 1
+  },
+  {
+    "id": "quest_mara_amends",
+    "version": 1,
+    "name": "The Word You Broke",
+    "description": "Mara will not hand you a favor while a broken promise is still between you. Speak with her and begin again.",
+    "scope": "personal",
+    "offer": "on_talk",
+    "npcId": "npc_mara",
+    "prerequisites": {
+      "bond": { "grudge": "broke_promise" }
+    },
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "Mara reminds you of the promise that went unmet.",
+        "objective": "Speak with Mara about the broken promise.",
+        "next": "complete"
+      },
+      {
+        "id": "complete",
+        "text": "The conversation is only a beginning, and she has heard you.",
+        "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "speak",
+        "type": "talk",
+        "npcId": "npc_mara",
+        "text": "Speak with Mara about the broken promise."
+      }
+    ],
+    "rewards": { "reputation": 1 },
+    "minLevel": 1
+  },
+  {
+    "id": "quest_mara_favor",
+    "version": 1,
+    "name": "A Favor from the Counter",
+    "description": "Once Mara is fond of you, she may ask a small optional favor.",
+    "scope": "personal",
+    "offer": "on_talk",
+    "npcId": "npc_mara",
+    "minStage": "friendly",
+    "prerequisites": {
+      "questsCompleted": ["quest_first_steps"],
+      "bond": { "affinityMin": 10, "noGrudge": "broke_promise" }
+    },
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "Mara asks you to bring frankincense when you next pass the counter.",
+        "objective": "Bring frankincense to Mara.",
+        "next": "complete"
+      },
+      {
+        "id": "complete",
+        "text": "Mara accepts the resin and the errand is done.",
+        "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "resin",
+        "type": "deliver",
+        "npcId": "npc_mara",
+        "itemId": "frankincense",
+        "quantity": 1,
+        "text": "Bring frankincense to Mara."
+      }
+    ],
+    "optionalObjectives": [
+      {
+        "id": "town",
+        "type": "discover",
+        "locationId": "town",
+        "optional": true,
+        "text": "Walk the town while you are out."
+      }
+    ],
+    "rewards": { "reputation": 2 },
+    "minLevel": 1
+  },
+  {
+    "id": "quest_rowan_lesson",
+    "version": 1,
+    "name": "The Circle's Next Lesson",
+    "description": "Rowan offers a harder lesson after you have proven you can finish a working and have become familiar at the circle.",
+    "scope": "personal",
+    "offer": "on_talk",
+    "npcId": "npc_circle_leader",
+    "minStage": "familiar",
+    "prerequisites": {
+      "questsCompleted": ["quest_first_steps"],
+      "bond": { "stage": "familiar" }
+    },
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "Rowan sets a healing charm as the price of the next lesson.",
+        "objective": "Cast healing_charm for Rowan.",
+        "next": "complete"
+      },
+      {
+        "id": "complete",
+        "text": "Rowan nods. The lesson can go further.",
+        "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "proof",
+        "type": "cast_spell",
+        "spellId": "healing_charm",
+        "text": "Cast healing_charm for Rowan."
+      }
+    ],
+    "rewards": {
+      "stats": { "ritualSkill": 1 },
+      "spiritualReputation": 2
+    },
+    "minLevel": 1
+  },
+  {
+    "id": "quest_hearth_vigil",
+    "version": 1,
+    "name": "Hearth Vigil",
+    "description": "The town keeps one shared vigil. Two contributions light it for everyone.",
+    "scope": "world",
+    "offer": "event",
+    "world": { "reward": "each_contributor" },
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "The vigil needs two hands before the lamps stay lit.",
+        "objective": "Take part in the hearth vigil.",
+        "next": "complete"
+      },
+      {
+        "id": "complete",
+        "text": "The lamps stay lit.",
+        "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "lamps",
+        "type": "public_event",
+        "eventId": "lantern_vigil",
+        "count": 2,
+        "text": "Take part in the hearth vigil."
+      }
+    ],
+    "rewards": { "reputation": 2 },
+    "minLevel": 1
+  },
+  {
+    "id": "quest_paired_watch",
+    "version": 1,
+    "name": "Paired Watch",
+    "description": "Two people in the same party keep watch together. One person's work does not finish it for the pair.",
+    "scope": "party",
+    "offer": "event",
+    "party": { "contribution": "all", "requiredContributors": 2, "reward": "each" },
+    "startStage": "intro",
+    "nodes": [
+      {
+        "id": "intro",
+        "text": "The watch is kept in pairs.",
+        "objective": "Join the paired watch.",
+        "next": "complete"
+      },
+      {
+        "id": "complete",
+        "text": "Both of you held the watch.",
+        "complete": true
+      }
+    ],
+    "objectives": [
+      {
+        "id": "watch",
+        "type": "interact",
+        "interactableId": "paired_watch",
+        "count": 1,
+        "text": "Join the paired watch."
+      }
+    ],
+    "failure": { "eventId": "watch_abandoned" },
+    "rewards": { "reputation": 1 },
     "minLevel": 1
   }
 ]

@@ -1,8 +1,8 @@
-/** 16×16 pixel icon editor for admin item manager */
-import { isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
+/** 32×32 pixel icon editor for admin item manager */
+import { ICON_PIXEL_SIZE, isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
 import { mountPixelColorTools } from './pixel-color-tools.js';
 
-const ICON_SIZE = 16;
+const ICON_SIZE = ICON_PIXEL_SIZE;
 const PALETTE = [
   '#000000', '#1a1025', '#3d3654', '#9a8fb0',
   '#c9a227', '#7b5ea7', '#4a8a55', '#3a7d44',

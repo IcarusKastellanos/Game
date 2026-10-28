@@ -1,22 +1,26 @@
 /** Item icon rendering — local asset cache + shared pixel art */
 
-import { getIngredientIconHash, isTransparentPixel, MAP_TRANSPARENT_PIXEL, resolveItemIconPixels } from '@witchcraft/shared';
+import {
+  ICON_PIXEL_SIZE,
+  getIngredientIconHash,
+  isTransparentPixel,
+  MAP_TRANSPARENT_PIXEL,
+  resolveItemIconPixels,
+} from '@witchcraft/shared';
 import {
   cacheIconLocally,
   getCachedIconDataUrl,
 } from '../assets/ItemIconAssetStore';
 
-const ICON_SIZE = 32;
-const PIXEL_ART_SIZE = 16;
+const ICON_SIZE = ICON_PIXEL_SIZE;
 
 function renderCustomPixels(ctx: CanvasRenderingContext2D, pixels: string[]): void {
-  const scale = ICON_SIZE / PIXEL_ART_SIZE;
-  for (let y = 0; y < PIXEL_ART_SIZE; y++) {
-    for (let x = 0; x < PIXEL_ART_SIZE; x++) {
-      const color = pixels[y * PIXEL_ART_SIZE + x] ?? MAP_TRANSPARENT_PIXEL;
+  for (let y = 0; y < ICON_SIZE; y++) {
+    for (let x = 0; x < ICON_SIZE; x++) {
+      const color = pixels[y * ICON_SIZE + x] ?? MAP_TRANSPARENT_PIXEL;
       if (isTransparentPixel(color)) continue;
       ctx.fillStyle = color;
-      ctx.fillRect(x * scale, y * scale, scale, scale);
+      ctx.fillRect(x, y, 1, 1);
     }
   }
 }

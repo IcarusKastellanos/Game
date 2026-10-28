@@ -182,9 +182,9 @@ async function createMapDialog(onOpen: (id: string) => void): Promise<void> {
         <select id="cm-type">${MAP_TYPE_OPTIONS.map((o) => `<option value="${o.value}">${o.label}</option>`).join('')}</select>
       </label>
       <div class="form-grid">
-        <label class="form-field"><span class="form-label">Width</span><input id="cm-w" type="number" value="32" min="4" /></label>
+        <label class="form-field"><span class="form-label">Width</span><input id="cm-w" type="number" value="16" min="4" /></label>
         <label class="form-field"><span class="form-label">Height</span><input id="cm-h" type="number" value="24" min="4" /></label>
-        <label class="form-field"><span class="form-label">Tile size</span><input id="cm-ts" type="number" value="16" min="8" /></label>
+        <label class="form-field"><span class="form-label">Tile size</span><input id="cm-ts" type="number" value="32" min="8" /></label>
       </div>
       <div class="flex mt">
         <button class="btn" id="cm-create">Create</button>

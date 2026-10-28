@@ -1,0 +1,114 @@
+[
+  {
+    "id": "metaphysical_shop",
+    "sceneId": "town",
+    "x": 6,
+    "y": 10,
+    "interactableId": "shop_metaphysical",
+    "indoors": false,
+    "label": "Metaphysical shop"
+  },
+  {
+    "id": "grocery",
+    "sceneId": "town",
+    "x": 22,
+    "y": 10,
+    "interactableId": "shop_grocery",
+    "indoors": false,
+    "label": "Grocery"
+  },
+  {
+    "id": "pharmacy",
+    "sceneId": "town",
+    "x": 28,
+    "y": 14,
+    "interactableId": "shop_pharmacy",
+    "indoors": false,
+    "label": "Pharmacy"
+  },
+  {
+    "id": "library",
+    "sceneId": "town",
+    "x": 10,
+    "y": 18,
+    "interactableId": "npc_library",
+    "indoors": false,
+    "label": "Library"
+  },
+  {
+    "id": "cafe",
+    "sceneId": "town",
+    "x": 20,
+    "y": 18,
+    "interactableId": "npc_cafe",
+    "indoors": false,
+    "label": "Café"
+  },
+  {
+    "id": "study_circle",
+    "sceneId": "town",
+    "x": 4,
+    "y": 20,
+    "interactableId": "npc_circle",
+    "indoors": false,
+    "label": "Study circle"
+  },
+  {
+    "id": "council",
+    "sceneId": "town",
+    "x": 6,
+    "y": 20,
+    "interactableId": "npc_council",
+    "indoors": false,
+    "label": "Council desk"
+  },
+  {
+    "id": "healer_office",
+    "sceneId": "town",
+    "x": 8,
+    "y": 22,
+    "interactableId": "place_healer_office",
+    "indoors": false,
+    "label": "Healer's office"
+  },
+  {
+    "id": "seal_yard",
+    "sceneId": "town",
+    "x": 10,
+    "y": 22,
+    "interactableId": "place_seal_yard",
+    "indoors": false,
+    "label": "Seal yard"
+  },
+  {
+    "id": "psychic_tent",
+    "sceneId": "town",
+    "x": 12,
+    "y": 22,
+    "interactableId": "place_psychic_tent",
+    "indoors": false,
+    "label": "Psychic tent"
+  },
+  {
+    "id": "park",
+    "sceneId": "town",
+    "x": 3,
+    "y": 20,
+    "indoors": false,
+    "label": "Park"
+  },
+  {
+    "id": "market",
+    "sceneId": "town",
+    "x": 16,
+    "y": 12,
+    "indoors": false,
+    "label": "Market square"
+  },
+  {
+    "id": "apartment_building",
+    "sceneId": "town",
+    "indoors": true,
+    "label": "Apartment building"
+  }
+]

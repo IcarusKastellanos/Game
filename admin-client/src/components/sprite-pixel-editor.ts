@@ -1,9 +1,10 @@
 /** Variable-size pixel sprite editor for map builder assets. */
 
-import { isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
+import { TILE_SIZE, isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
+import { nearestNeighborResizePixels } from './image-import.js';
 import { mountPixelColorTools } from './pixel-color-tools.js';
 
-const TILE_PX = 16;
+const TILE_PX = TILE_SIZE;
 const DEFAULT_BG = MAP_TRANSPARENT_PIXEL;
 
 const PALETTE = [
@@ -185,31 +186,22 @@ export function mountSpritePixelEditor(
 }
 
 function normalizePixels(input: string[] | undefined, widthPx: number, heightPx: number): string[] {
-  const out = Array(widthPx * heightPx).fill(MAP_TRANSPARENT_PIXEL);
-  if (!input?.length) return out;
+  if (!input?.length) return Array(widthPx * heightPx).fill(MAP_TRANSPARENT_PIXEL);
+  if (input.length === widthPx * heightPx) return [...input];
 
   let oldW: number;
   let oldH: number;
-  if (input.length === widthPx * heightPx) {
-    oldW = widthPx;
-    oldH = heightPx;
+  const side = Math.round(Math.sqrt(input.length));
+  if (side * side === input.length) {
+    oldW = side;
+    oldH = side;
   } else {
-    const side = Math.round(Math.sqrt(input.length));
-    if (side * side === input.length) {
-      oldW = side;
-      oldH = side;
-    } else {
-      oldW = widthPx;
-      oldH = Math.max(1, Math.ceil(input.length / oldW));
-    }
+    oldW = widthPx;
+    oldH = Math.max(1, Math.ceil(input.length / oldW));
   }
 
-  for (let y = 0; y < Math.min(heightPx, oldH); y++) {
-    for (let x = 0; x < Math.min(widthPx, oldW); x++) {
-      out[y * widthPx + x] = input[y * oldW + x] ?? MAP_TRANSPARENT_PIXEL;
-    }
-  }
-  return out;
+  // Scale mismatched buffers to fill the editor (avoids a 16×16 stamp in the corner of 32×32).
+  return nearestNeighborResizePixels(input, oldW, oldH, widthPx, heightPx);
 }
 
 function remapPixels(

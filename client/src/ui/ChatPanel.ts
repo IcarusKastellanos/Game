@@ -54,7 +54,7 @@ export class ChatPanel {
     tabs.innerHTML = `
       <button type="button" id="chat-tab-local" class="chat-tab active">Local</button>
       <button type="button" id="chat-tab-global" class="chat-tab">Global</button>
-      <button type="button" id="chat-collapse" class="chat-collapse" title="Collapse chat" aria-label="Collapse chat">▾</button>`;
+      <button type="button" id="chat-collapse" class="chat-collapse" title="Close chat" aria-label="Close chat">▾</button>`;
 
     this.logEl = document.createElement('div');
     this.logEl.className = 'chat-panel-log';
@@ -115,11 +115,7 @@ export class ChatPanel {
 
     tabs.querySelector('#chat-tab-local')!.addEventListener('click', () => this.setChannel('local'));
     tabs.querySelector('#chat-tab-global')!.addEventListener('click', () => this.setChannel('global'));
-    tabs.querySelector('#chat-collapse')!.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.toggleExpanded(false);
-    });
+    tabs.querySelector('#chat-collapse')!.addEventListener('click', () => this.toggleExpanded());
 
     resizeE.addEventListener('pointerdown', (e) => this.beginResize(e, 'width'));
     resizeN.addEventListener('pointerdown', (e) => this.beginResize(e, 'height'));
@@ -205,7 +201,6 @@ export class ChatPanel {
     this.expanded = show ?? !this.expanded;
     this.root.classList.toggle('chat-panel-root--collapsed', !this.expanded);
     this.iconBtn.setAttribute('aria-pressed', this.expanded ? 'false' : 'true');
-    this.iconBtn.hidden = this.expanded;
     if (this.expanded) {
       this.unread = 0;
       this.updateUnread();
@@ -253,6 +248,12 @@ export class ChatPanel {
   private submit(): void {
     const text = this.inputEl.value.trim();
     if (!text) return;
+
+    if (text.toLowerCase() === '/apanel') {
+      this.inputEl.value = '';
+      window.dispatchEvent(new CustomEvent('game:toggle-admin-panel'));
+      return;
+    }
 
     if (isPlayerSilenced(this.localAura())) {
       this.inputEl.value = '';

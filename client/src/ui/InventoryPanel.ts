@@ -5,7 +5,9 @@ import {
   formatContentLabel,
   isEmptyInventorySlot,
   normalizeInventoryLayout,
+  GRIMOIRE_MANUSCRIPT_ITEM_ID,
   NULLIFICATION_POWDER_ITEM_ID,
+  readManuscriptMeta,
 } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
 import { network } from '../net/NetworkManager';
@@ -108,9 +110,18 @@ export class InventoryPanel {
         const ing = this.ingredient(slot.itemId);
         const url = getItemIconUrl(slot.itemId, ing?.category, ing?.name, ing?.iconPixels);
         const target = getTaglockTargetName(slot);
-        const tagLabel = target ? `<span class="inventory-tag" title="${target}">${target.slice(0, 8)}</span>` : '';
+        const manuscript = readManuscriptMeta(slot);
+        const manuscriptLabel = manuscript ? manuscript.manuscriptTitle : '';
+        const tagLabel = target
+          ? `<span class="inventory-tag" title="${target}">${target.slice(0, 8)}</span>`
+          : manuscriptLabel
+            ? `<span class="inventory-tag" title="${manuscriptLabel}">${manuscriptLabel.slice(0, 8)}</span>`
+            : '';
         const qty = slot.quantity > 1 ? `<span class="inventory-qty">${slot.quantity}</span>` : '';
-        return `<div class="inventory-slot filled" data-index="${index}" draggable="true" title="${ing?.name ?? formatContentLabel(slot.itemId)}${target ? ` — ${target}` : ''}">
+        const title = manuscript
+          ? `${manuscript.manuscriptTitle} — by ${manuscript.manuscriptAuthor}`
+          : `${ing?.name ?? formatContentLabel(slot.itemId)}${target ? ` — ${target}` : ''}`;
+        return `<div class="inventory-slot filled" data-index="${index}" draggable="true" title="${title}">
           ${tagLabel}
           <img src="${url}" alt="${slot.itemId}" />
           ${qty}
@@ -179,6 +190,20 @@ export class InventoryPanel {
         return;
       }
       network.send('use_item', { itemId: NULLIFICATION_POWDER_ITEM_ID, quantity: 1 });
+      return;
+    }
+
+    if (slot.itemId === GRIMOIRE_MANUSCRIPT_ITEM_ID) {
+      const manuscript = readManuscriptMeta(slot);
+      const label = manuscript?.manuscriptTitle ?? 'this manuscript';
+      if (
+        !confirm(
+          `Take "${label}" into your grimoire Shared section?\n\nThe manuscript item will be consumed.`
+        )
+      ) {
+        return;
+      }
+      network.send('use_item', { itemId: GRIMOIRE_MANUSCRIPT_ITEM_ID, quantity: 1, slotIndex: index });
       return;
     }
 

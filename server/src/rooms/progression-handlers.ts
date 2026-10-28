@@ -2,7 +2,6 @@ import type { Client } from '@colyseus/core';
 import type { ClientMessage, MagicTradition, PlayerProgression, PlayerStats, HexagramEnchantPayload, AuraState } from '@witchcraft/shared';
 import {
   BOOK_CONTENT,
-  applyNpcRelationshipDelta,
   discoverCorrespondences,
   // eligibleSpecialtyTraditions — TEMPORARY: tradition specialty offers deactivated
   clampPlayerStatValue,
@@ -19,6 +18,18 @@ import {
   grantExperience,
   evaluateRecognition,
   grantLicenses,
+  malevolentGrimoireWard,
+  recordGrimoireCast,
+  recordGrimoireIngredients,
+  recordGrimoireStudied,
+  withGrimoire,
+  applySocialEvent,
+  claimSharedReward,
+  questRewards,
+  withBondJournal,
+  applyDiscoveryEvent,
+  type DiscoverySource,
+  type QuestSignal,
   type ReputationTrack,
 } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
@@ -26,8 +37,10 @@ import { craftingSystem } from '../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../systems/hexagram-enchant-system.js';
 import { applyPocketSpellToRecipient, resolveAndReleasePocketSpell } from '../systems/pocket-spell-system.js';
 import { questSystem } from '../systems/quest-system.js';
-import { isInteractableNpcAvailable, getUnavailableNpcInteractableIds } from '../systems/npc-schedule.js';
-import { getWorldHour, formatWorldHour } from '../systems/world-clock.js';
+import { knowledgeStore } from '../systems/knowledge-store.js';
+import { broadcastSharedQuestMirror } from './game-room-registry.js';
+import { currentNpcWorld, isInteractableNpcAvailable } from '../systems/npc-schedule.js';
+import { getWorldHour } from '../systems/world-clock.js';
 import { logSpellCast } from '../services/player-service.js';
 import { auraSystem } from '../systems/inventory-ward-aura.js';
 import type { PlayerSchema } from '../schemas/game-state.js';
@@ -41,6 +54,7 @@ export type HandlerCtx = {
   sendPlayerSync: (client: Client, player: PlayerSchema) => void;
   sendProgression: (client: Client, progression: PlayerProgression) => void;
   resolvePlayer?: (sessionId: string) => { player: PlayerSchema; client?: Client } | null;
+  progressionFor?: (sessionId: string) => PlayerProgression | undefined;
   refreshWardWeb?: (sessionId: string) => void;
 };
 
@@ -122,26 +136,157 @@ function checkSpecialtyOffer(_client: Client, _stats: PlayerStats): void {
   */
 }
 
-export function sendWorldState(client: Client): void {
+/** Send public NPC world presence without inventing a sequence (GameRoom owns seq). */
+export function sendWorldState(client: Client, seq?: number): void {
+  const payload = currentNpcWorld();
   client.send('world_state', {
-    hour: getWorldHour(),
-    hourLabel: formatWorldHour(getWorldHour()),
-    hiddenNpcIds: getUnavailableNpcInteractableIds(),
+    ...payload,
+    ...(seq != null ? { seq, at: Date.now() } : { at: Date.now() }),
   });
+}
+
+/** Apply one content social event. Familiarity is mirrored; public reputation moves only when the event says so. */
+export function applyPlayerSocialEvent(
+  ctx: HandlerCtx,
+  input: { eventId: string; npcId?: string; scale?: number; idempotencyKey?: string }
+): boolean {
+  const result = applySocialEvent(ctx.data.progression, ctx.player.stats, input);
+  if (!result.applied) return false;
+  ctx.data.progression = result.progression;
+  ctx.player.stats = result.stats;
+  ctx.data.stats = result.stats;
+  if (input.npcId) {
+    const name = contentRegistry.npcs.get(input.npcId)?.name ?? input.npcId;
+    ctx.data.progression = withBondJournal(ctx.data.progression, input.npcId, name);
+    settleQuestSignal(ctx, { type: 'bond', npcId: input.npcId });
+    if (input.eventId) {
+      settleQuestSignal(ctx, { type: 'fail', eventId: input.eventId, npcId: input.npcId });
+    }
+  }
+  ctx.sendProgression(ctx.client, ctx.data.progression);
+  const lines = [...new Set([result.feedback, result.notable].filter((line): line is string => !!line))];
+  if (lines.length) {
+    ctx.client.send('notification', {
+      type: 'notification',
+      message: lines.join(' '),
+      level: 'info',
+    });
+  }
+  return true;
+}
+
+let questSettleDepth = 0;
+
+function questPlayerId(ctx: HandlerCtx): string {
+  return ctx.data.dbPlayerId || ctx.client.sessionId;
+}
+
+/** Apply one authoritative quest signal and pay any quests it newly completes. */
+export function settleQuestSignal(
+  ctx: HandlerCtx,
+  signal: Omit<QuestSignal, 'playerId' | 'now'> & { now?: number }
+): string[] {
+  if (questSettleDepth > 6) return [];
+  questSettleDepth += 1;
+  try {
+    const now = signal.now ?? Date.now();
+    const result = questSystem.apply(
+      ctx.data.progression,
+      { ...signal, playerId: questPlayerId(ctx), now },
+      {
+        stats: ctx.player.stats,
+        coins: ctx.player.coins,
+        inventory: ctx.player.inventory,
+        now,
+      }
+    );
+    ctx.data.progression = result.progression;
+    for (const _started of result.started) grantXp(ctx, 'quest_stage');
+    for (const questId of result.completed) {
+      completeQuestRewards(ctx, questId, signal.partyId);
+      applyPlayerDiscovery(ctx, {
+        source: 'quest',
+        questId,
+        npcId: signal.npcId,
+      });
+    }
+    if (signal.type === 'interact' || signal.type === 'discover') {
+      applyPlayerDiscovery(ctx, {
+        source: signal.type === 'discover' ? 'observe' : 'interact',
+        interactableId: signal.interactableId,
+        locationId: signal.locationId,
+        npcId: signal.npcId,
+      });
+    }
+    const shared = result.completed.some((id) => (questSystem.quests.get(id)?.scope ?? 'personal') !== 'personal');
+    if (shared || signal.partyId) broadcastSharedQuestMirror();
+    return result.completed;
+  } finally {
+    questSettleDepth -= 1;
+  }
+}
+
+/** Server-only discovery pipeline. Client cannot invent discoveries. */
+export function applyPlayerDiscovery(
+  ctx: HandlerCtx,
+  event: {
+    source: DiscoverySource;
+    npcId?: string;
+    questId?: string;
+    objectiveId?: string;
+    interactableId?: string;
+    locationId?: string;
+    lessonId?: string;
+    giftPreferenceId?: string;
+    eventId?: string;
+    activityId?: string;
+    knowledgeId?: string;
+  }
+): void {
+  const result = applyDiscoveryEvent({
+    ...event,
+    progression: ctx.data.progression,
+    stats: ctx.player.stats,
+    worldStore: knowledgeStore.get(),
+    playerId: questPlayerId(ctx),
+    now: Date.now(),
+  });
+  ctx.data.progression = result.progression;
+  if (result.worldStore) knowledgeStore.set(result.worldStore);
+  for (const message of result.notifications) {
+    ctx.client.send('notification', { type: 'notification', message, level: 'info' });
+  }
+  if (result.revealed.some((row) => !row.alreadyKnown)) {
+    ctx.sendProgression(ctx.client, ctx.data.progression);
+  }
+}
+
+export function noteQuestSpell(ctx: HandlerCtx, spellId: string): void {
+  settleQuestSignal(ctx, { type: 'cast_spell', spellId });
+}
+
+/** Pay versioned completions that were saved before the reward flag was written. */
+export function grantPendingQuestRewards(ctx: HandlerCtx): void {
+  for (const quest of questSystem.list()) {
+    const progress = ctx.data.progression.questProgress[quest.id];
+    if (!progress?.completedAt || progress.failedAt || progress.abandonedAt || progress.rewardsGrantedAt) continue;
+    completeQuestRewards(ctx, quest.id);
+  }
 }
 
 export function handleDialogueProgression(
   ctx: HandlerCtx,
   dialogueTreeId: string,
   relationshipDelta?: number,
-  npcId?: string
+  npcId?: string,
+  socialEvent?: string,
+  choiceId?: string
 ): void {
   const { data, player } = ctx;
   const tree = dialogueSystemGetNpcId(dialogueTreeId);
   const resolvedNpcId = npcId ?? tree;
 
   if (relationshipDelta && resolvedNpcId) {
-    data.progression = applyNpcRelationshipDelta(data.progression, resolvedNpcId, relationshipDelta);
     const track = reputationTrackForNpc(resolvedNpcId);
     // Positive relationship deltas use help_npc / study weights; negative use harm.
     const sourceId = relationshipDelta >= 0 ? 'help_npc' : 'harm_npc';
@@ -154,13 +299,45 @@ export function handleDialogueProgression(
       applied.source != null
         ? applied.stats
         : applyReputation(player.stats, relationshipDelta, track);
+    data.stats = player.stats;
   }
 
-  if (resolvedNpcId === 'npc_mara' && !data.progression.questProgress.quest_first_steps) {
-    const before = data.progression.questProgress.quest_first_steps;
-    data.progression = questSystem.startQuest(data.progression, 'quest_first_steps', player.stats);
-    if (!before && data.progression.questProgress.quest_first_steps) {
-      grantXp(ctx, 'quest_stage');
+  if (resolvedNpcId) {
+    if (socialEvent) {
+      applyPlayerSocialEvent(ctx, { eventId: socialEvent, npcId: resolvedNpcId });
+    }
+    if (relationshipDelta) {
+      applyPlayerSocialEvent(ctx, {
+        eventId: relationshipDelta > 0 ? 'dialogue_regard' : 'dialogue_slight',
+        npcId: resolvedNpcId,
+        scale: Math.abs(relationshipDelta),
+      });
+    }
+    const npc = contentRegistry.npcs.get(resolvedNpcId);
+    data.progression = withBondJournal(data.progression, resolvedNpcId, npc?.name ?? resolvedNpcId);
+  }
+
+  if (resolvedNpcId) {
+    const offered = questSystem.offerOnTalk(data.progression, resolvedNpcId, {
+      stats: player.stats,
+      coins: player.coins,
+      inventory: player.inventory,
+      now: Date.now(),
+    });
+    data.progression = offered.progression;
+    for (const _started of offered.started) grantXp(ctx, 'quest_stage');
+    if (choiceId) {
+      settleQuestSignal(ctx, {
+        type: 'dialogue',
+        npcId: resolvedNpcId,
+        choiceId,
+        idempotencyKey: `dialogue:${resolvedNpcId}:${choiceId}`,
+      });
+      settleQuestSignal(ctx, {
+        type: 'talk',
+        npcId: resolvedNpcId,
+        idempotencyKey: `talk:${resolvedNpcId}:${choiceId}`,
+      });
     }
   }
 
@@ -305,6 +482,12 @@ export function handleCraftRecipe(ctx: HandlerCtx, recipeId: string): void {
   }
   player.inventory = result.inventory!;
   data.progression = result.progression!;
+  const recipe = craftingSystem.recipes.get(recipeId);
+  data.progression = withGrimoire(data.progression, (grimoire) => {
+    const studied = recipe?.spellId ? recordGrimoireStudied(grimoire, recipe.spellId) : grimoire;
+    const made = result.outputItemId ? [{ itemId: result.outputItemId, count: recipe?.output?.quantity ?? 1 }] : [];
+    return recordGrimoireIngredients(studied, made);
+  });
   if (result.stats) player.stats = result.stats;
   grantXp(ctx, 'craft_success');
   ctx.sendProgression(client, data.progression);
@@ -346,7 +529,8 @@ export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetP
     }
   }
 
-  const beforeQuest = data.progression.questProgress.quest_first_steps?.completedAt;
+  const targetBook = targetIsSelf ? undefined : ctx.progressionFor?.(recipientSessionId)?.grimoire;
+  const grimoireWard = !targetIsSelf && spell ? malevolentGrimoireWard(targetBook, spell) : 0;
   const outcome = resolveAndReleasePocketSpell(
     pocket,
     data.progression,
@@ -354,7 +538,8 @@ export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetP
     resolved.player.stats,
     resolved.player.aura as AuraState,
     targetIsSelf,
-    player.aura as AuraState
+    player.aura as AuraState,
+    grimoireWard
   );
 
   if (!('cast' in outcome)) {
@@ -364,6 +549,9 @@ export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetP
 
   const { cast, resolution, appliedToTarget } = outcome;
   data.progression = cast.progression!;
+  if (cast.spellId) {
+    data.progression = withGrimoire(data.progression, (grimoire) => recordGrimoireCast(grimoire, cast.spellId!, true));
+  }
   player.stats = cast.stats!;
 
   if (appliedToTarget) {
@@ -386,11 +574,7 @@ export function handleCastPocketSpell(ctx: HandlerCtx, pocketId: string, targetP
     Math.round(resolution.effectivePotency),
     recipientSessionId
   );
-  if (appliedToTarget) {
-    data.progression = questSystem.onSpellCast(data.progression, cast.spellId!);
-  }
-  const afterQuest = data.progression.questProgress.quest_first_steps?.completedAt;
-  if (!beforeQuest && afterQuest) completeQuestRewards(ctx, 'quest_first_steps');
+  if (appliedToTarget && cast.spellId) noteQuestSpell(ctx, cast.spellId);
 
   ctx.sendProgression(client, data.progression);
   ctx.sendPlayerSync(client, player);
@@ -563,6 +747,10 @@ export function handleHexagramEnchant(
   }
   player.inventory = result.inventory!;
   data.progression = result.progression!;
+  const prepared = hexagramEnchantSystem.recipes.get(payload.recipeId);
+  if (prepared?.spellId) {
+    data.progression = withGrimoire(data.progression, (grimoire) => recordGrimoireStudied(grimoire, prepared.spellId!));
+  }
   if (result.stats) player.stats = result.stats;
   const recipe = hexagramEnchantSystem.recipes.get(payload.recipeId);
   grantXp(ctx, recipe?.effect === 'pocket_spell' ? 'pocket_spell_prepare' : 'hexagram_enchant');
@@ -635,20 +823,42 @@ export async function tickStudyCircleEvents(clients: Client[]): Promise<void> {
   }
 }
 
-export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
+export function completeQuestRewards(ctx: HandlerCtx, questId: string, partyId?: string): void {
   const quest = questSystem.quests.get(questId);
-  if (!quest?.rewards) return;
+  if (!quest) return;
   const { player, data } = ctx;
-  if (quest.rewards.items) {
+  const progress = data.progression.questProgress[questId];
+  if (!progress?.completedAt || progress.failedAt || progress.abandonedAt || progress.rewardsGrantedAt) return;
+  const scope = quest.scope ?? 'personal';
+  if (scope !== 'personal') {
+    const claim = claimSharedReward(questSystem.snapshot(), quest, questPlayerId(ctx), partyId);
+    if (!claim.grant) return;
+    questSystem.replaceStore(claim.store);
+  }
+  const rewards = questRewards(quest, progress);
+  data.progression = {
+    ...data.progression,
+    questProgress: {
+      ...data.progression.questProgress,
+      [questId]: { ...progress, rewardsGrantedAt: Date.now() },
+    },
+  };
+  if (rewards?.items) {
     let inv = player.inventory;
-    for (const item of quest.rewards.items) {
+    for (const item of rewards.items) {
       inv = addItemToInventory(inv, item.itemId, item.quantity);
     }
     player.inventory = inv;
+    data.progression = withGrimoire(data.progression, (grimoire) =>
+      recordGrimoireIngredients(
+        grimoire,
+        rewards.items?.map((item) => ({ itemId: item.itemId, count: item.quantity })) ?? []
+      )
+    );
   }
-  if (quest.rewards.stats) {
+  if (rewards?.stats) {
     let stats = player.stats;
-    for (const [k, v] of Object.entries(quest.rewards.stats)) {
+    for (const [k, v] of Object.entries(rewards.stats)) {
       const key = k as keyof PlayerStats;
       if (typeof stats[key] === 'number') {
         stats = { ...stats, [key]: clampPlayerStatValue(key, (stats[key] as number) + v, stats.experience) };
@@ -656,7 +866,7 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
     }
     player.stats = stats;
   }
-  const publicRepReward = quest.rewards.publicReputation ?? quest.rewards.reputation;
+  const publicRepReward = rewards?.publicReputation ?? rewards?.reputation;
   if (publicRepReward) {
     const source =
       publicRepReward >= 0
@@ -670,13 +880,13 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
       source.source != null ? source.stats : applyReputation(player.stats, publicRepReward, 'public');
   }
 
-  let spiritualRepReward = quest.rewards.spiritualReputation;
+  let spiritualRepReward = rewards?.spiritualReputation;
   if (
     spiritualRepReward == null &&
-    quest.rewards.reputation &&
+    rewards?.reputation &&
     (questId.includes('circle') || questId.includes('rowan') || questId.includes('study'))
   ) {
-    spiritualRepReward = Math.ceil(quest.rewards.reputation * 0.6);
+    spiritualRepReward = Math.ceil(rewards.reputation * 0.6);
   }
   if (spiritualRepReward) {
     const source = applyReputationSource(player.stats, 'spiritual', 'quest_spiritual_success', {
@@ -687,10 +897,29 @@ export function completeQuestRewards(ctx: HandlerCtx, questId: string): void {
         ? source.stats
         : applyReputation(player.stats, spiritualRepReward, 'spiritual');
   }
-  if (quest.rewards.licenses?.length) {
-    data.progression = grantLicenses(data.progression, quest.rewards.licenses);
+  if (rewards?.licenses?.length) {
+    data.progression = grantLicenses(data.progression, rewards.licenses);
+    for (const licenseId of rewards.licenses) {
+      settleQuestSignal(ctx, { type: 'license', licenseId, idempotencyKey: `license:${questId}:${licenseId}` });
+    }
   }
-  grantXp(ctx, 'quest_complete');
+  if (quest.npcId) {
+    applyPlayerSocialEvent(ctx, {
+      eventId: 'quest_complete',
+      npcId: quest.npcId,
+      idempotencyKey: questId,
+    });
+    const faction = contentRegistry.npcs.get(quest.npcId)?.faction;
+    if (faction) {
+      applyPlayerSocialEvent(ctx, {
+        eventId: `faction_${faction}`,
+        npcId: quest.npcId,
+        idempotencyKey: questId,
+      });
+    }
+  }
+  data.stats = player.stats;
+  if (rewards) grantXp(ctx, 'quest_complete');
   syncRecognition(ctx);
   ctx.sendProgression(ctx.client, data.progression);
   ctx.sendPlayerSync(ctx.client, player);

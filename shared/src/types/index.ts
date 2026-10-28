@@ -385,7 +385,7 @@ export interface ContentIngredient {
   rarity: 'common' | 'uncommon' | 'rare' | 'exotic';
   basePotency: number;
   traditions: MagicTradition[];
-  /** Optional 16×16 #rrggbb pixels (256 entries) for custom icon art */
+  /** Optional 32×32 #rrggbb pixels (1024 entries) for custom icon art */
   iconPixels?: string[];
   /** Restricted to admin give / use until released publicly */
   adminOnly?: boolean;
@@ -451,20 +451,92 @@ export interface ContentShop {
   minLevel?: number;
 }
 
+export type NpcScheduleInteraction = 'open' | 'busy' | 'away';
+
+export type NpcScheduleMovement = 'still' | 'pace';
+
+/** One window in a daily routine. Legacy rows may set only `hour` and `locationId`. */
+export interface NpcScheduleEntry {
+  hour: number;
+  locationId: string;
+  /** Exclusive end. Omitted rows run until the next entry and may wrap past midnight. */
+  endHour?: number;
+  activity?: string;
+  /** 0 Sunday through 6 Saturday. Omitted means every weekday. */
+  days?: number[];
+  /** Named seasons never match while the world has no season. */
+  season?: string;
+  interaction?: NpcScheduleInteraction;
+  movement?: NpcScheduleMovement;
+  dialogueNodeId?: string;
+  label?: string;
+}
+
+/** Special-event precedence. An active override replaces the daily routine. */
+export interface NpcScheduleOverride {
+  id: string;
+  active: boolean;
+  locationId: string;
+  activity?: string;
+  interaction?: NpcScheduleInteraction;
+  dialogueNodeId?: string;
+  priority?: number;
+}
+
+export interface NpcPlace {
+  id: string;
+  sceneId: string;
+  x?: number;
+  y?: number;
+  interactableId?: string;
+  indoors?: boolean;
+  label?: string;
+}
+
 export interface ContentNpc {
   id: string;
   name: string;
   role: string;
   locationId: MapLocationId;
-  schedule: { hour: number; locationId: MapLocationId }[];
+  schedule: NpcScheduleEntry[];
+  scheduleOverride?: NpcScheduleOverride;
   relationshipLevel: number;
   magicalKnowledge: number;
   dialogueTreeId: string;
   shopId?: string;
   faction?: string;
   secrets?: string[];
-  /** Custom 16×16 overworld sprite pixels (admin-painted or imported) */
+  /** Actions offered at this NPC. Omitted lists are derived from dialogue, shop, and quests. */
+  capabilities?: NpcCapability[];
+  /** Custom 32×32 portrait pixels (People / encounter UI). Overworld uses walk/idle sheets. */
   spritePixels?: string[];
+  /** Procedural overworld look; omitted uses shipped defaults in NpcVisualProfile table. */
+  visual?: import('../npc/visual.js').NpcVisualProfile;
+  /** Optional authored 32×48 walk/idle sheets (hybrid override). */
+  spriteSheet?: import('../npc/visual.js').NpcAuthoredSpriteSheet;
+  /** Trait scores 0–100. Colors reactions; never bypasses permissions or quest gates. */
+  personality?: import('../npc/personality.js').PersonalityProfile;
+  /** How concurrent players may talk to this NPC. */
+  conversationPolicy?: import('../npc/behavior.js').ConversationPolicy;
+  biography?: string;
+}
+
+export type NpcActionId =
+  | 'talk'
+  | 'trade'
+  | 'quests'
+  | 'gift'
+  | 'favor'
+  | 'train'
+  | 'rumors'
+  | 'goodbye';
+
+export interface NpcCapability {
+  action: NpcActionId;
+  label?: string;
+  /** Dialogue node this action opens. */
+  nodeId?: string;
+  shopId?: string;
 }
 
 export interface ContentFamiliarTemplate {

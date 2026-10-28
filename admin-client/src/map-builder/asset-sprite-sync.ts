@@ -19,7 +19,7 @@ export async function syncCustomSpritesFromAssets(): Promise<void> {
   for (const row of furniture as { spriteRef?: string; width?: number; height?: number; properties?: unknown }[]) {
     const px = getSpritePixels(row.properties);
     if (px && row.spriteRef) {
-      registerCustomSprite(row.spriteRef, px, (row.width ?? 1) * 16, (row.height ?? 1) * 16);
+      registerCustomSprite(row.spriteRef, px, (row.width ?? 1) * 32, (row.height ?? 1) * 32);
     }
   }
 

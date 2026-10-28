@@ -1,15 +1,15 @@
 import type { ContentIngredient } from '@witchcraft/shared';
 import {
+  ICON_PIXEL_COUNT,
   computeIconManifestRevision,
   getIngredientIconHash,
   resolveItemIconPixels,
 } from '@witchcraft/shared';
 import { prisma } from '../services/db.js';
-import { isLegacyProceduralIcon } from './legacy-icon-hashes.js';
 import { contentRegistry } from './registry.js';
 
 export function hydrateIngredientIcon(item: ContentIngredient): ContentIngredient {
-  if (item.iconPixels?.length === 256) return item;
+  if (item.iconPixels?.length === ICON_PIXEL_COUNT) return item;
   return item;
 }
 
@@ -31,7 +31,7 @@ export async function mergeIngredientIconsFromDb(): Promise<number> {
       const existing = contentRegistry.ingredients.get(row.id);
       if (!existing) continue;
       const data = (row.data ?? {}) as { iconPixels?: string[] | null };
-      if (data.iconPixels?.length === 256 && !isLegacyProceduralIcon(data.iconPixels)) {
+      if (data.iconPixels?.length === ICON_PIXEL_COUNT) {
         contentRegistry.ingredients.set(row.id, { ...existing, iconPixels: data.iconPixels });
         merged++;
       }

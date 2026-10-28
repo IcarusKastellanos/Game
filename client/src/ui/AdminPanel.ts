@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { network } from '../net/NetworkManager';
 import { gameState } from '../data/game-state';
-import { bindDomInput, shouldBlockGameHotkeys } from './input-focus';
+import { bindDomInput } from './input-focus';
 
 type AdminPlayer = {
   sessionId: string;
@@ -14,7 +14,7 @@ type AdminPlayer = {
   vanished: boolean;
 };
 
-/** Full-screen in-game admin GUI — [ key opens panel, ` for text console */
+/** Full-screen in-game admin GUI — /apanel in chat opens it, ` for the text console */
 export class AdminPanel {
   private root!: HTMLElement;
   private playerListEl!: HTMLElement;
@@ -29,11 +29,7 @@ export class AdminPanel {
     this.build();
     this.hide();
 
-    scene.input.keyboard?.on('keydown-OPEN_BRACKET', () => {
-      if (shouldBlockGameHotkeys()) return;
-      this.toggle();
-    });
-
+    window.addEventListener('game:toggle-admin-panel', () => this.toggle());
     window.addEventListener('game:player-loaded', this.onLoaded as EventListener);
     network.room?.onMessage('admin_result', (data: AdminCommandResult) => {
       this.onResult(data);
@@ -66,7 +62,7 @@ export class AdminPanel {
       <div class="admin-panel-inner">
         <header class="admin-header">
           <h2>🌙 Admin Panel</h2>
-          <span class="admin-hint">[ close · \` console</span>
+          <span class="admin-hint">/apanel closes · \` console</span>
           <button type="button" id="admin-close" class="admin-btn secondary">Close</button>
         </header>
         <div class="admin-body">

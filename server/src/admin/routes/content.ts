@@ -5,7 +5,7 @@ import { adminAuthMiddleware, requirePerm, auditContext, type AdminRequest } fro
 import { writeAuditLog } from '../audit.js';
 import { param } from '../util.js';
 import type { ContentIngredient, ContentNpc } from '@witchcraft/shared';
-import { hashIconPixels } from '@witchcraft/shared';
+import { ICON_PIXEL_COUNT, hashIconPixels } from '@witchcraft/shared';
 import { craftingSystem } from '../../systems/crafting-system.js';
 import { hexagramEnchantSystem } from '../../systems/hexagram-enchant-system.js';
 import { questSystem } from '../../systems/quest-system.js';
@@ -15,19 +15,72 @@ import { saveLevelDocument } from '../../content/level-sync.js';
 import { rehydrateContentOverlays } from '../../content/rehydrate.js';
 import { licenseEditorCatalog, loadLicensesDocumentFromDisk, saveLicensesDocument } from '../../content/license-sync.js';
 import type { ContentRecipe, ContentHexagramRecipe } from '@witchcraft/shared';
-import { LEVEL_STAT_FLOOR_KEYS, getLevelDocument, getLicensesDocument } from '@witchcraft/shared';
-import { hydrateNpcSprite, npcToDb } from '../../content/npc-sprites.js';
+import {
+  DEFAULT_STATS,
+  GRIMOIRE_ENTRY_KINDS,
+  LEVEL_STAT_FLOOR_KEYS,
+  defaultProgression,
+  compareNpcConfigurations,
+  diagnoseNpcRuntime,
+  getLevelDocument,
+  getLicensesDocument,
+  isGrimoireEntryKind,
+  type GrimoireEntryKind,
+  type PermissionSlug,
+} from '@witchcraft/shared';
+import { currentNpcWorld, npcPresence } from '../../systems/npc-schedule.js';
+import { aggregateNpcEvents, listNpcEvents, recordNpcEvent } from '../../systems/npc-event-log.js';
+import { getAdminPermissions } from '../rbac.js';
+import { grimoireCatalog, grimoireRecordExists, setGrimoireEntry } from '../../content/grimoire-entries.js';
+import { hydrateNpcSprite } from '../../content/npc-sprites.js';
+import {
+  dialogueRevision,
+  npcRevision,
+  saveDialogueDefinition,
+  saveNpcDefinition,
+} from '../../content/npc-content-persist.js';
+import {
+  knowledgeRevision,
+  lessonsRevision,
+  saveKnowledgeDocument,
+  saveLessonDocument,
+  saveSocialDocument,
+  socialRevision,
+} from '../../content/npc-depth-persist.js';
+import { questRevision, saveQuestDefinition } from '../../content/quest-content-persist.js';
+import { broadcastSharedQuestMirror } from '../../rooms/game-room-registry.js';
+import { ContentSaveError } from '../../content/versioned-content.js';
+import {
+  getKnowledgeDocument,
+  getLessonDocument,
+  getSocialDocument,
+} from '@witchcraft/shared';
+
+function revisionField(body: unknown): number {
+  if (!body || typeof body !== 'object') return Number.NaN;
+  const revision = (body as { revision?: unknown }).revision;
+  return typeof revision === 'number' ? revision : Number.NaN;
+}
+
+function respondContentSaveError(res: import('express').Response, error: unknown): void {
+  if (error instanceof ContentSaveError) {
+    res.status(error.status).json({ error: error.message, revision: error.revision });
+    return;
+  }
+  const message = error instanceof Error ? error.message : 'Save failed.';
+  res.status(500).json({ error: message });
+}
 
 function hydrateItemIcon(item: ContentIngredient & { data?: { iconPixels?: string[] | null } }): ContentIngredient {
-  if (item.iconPixels?.length === 256) return item;
+  if (item.iconPixels?.length === ICON_PIXEL_COUNT) return item;
   const fromData = item.data?.iconPixels;
-  if (fromData?.length === 256) return { ...item, iconPixels: fromData };
+  if (fromData?.length === ICON_PIXEL_COUNT) return { ...item, iconPixels: fromData };
   return item;
 }
 
 function ingredientToDb(item: ContentIngredient) {
   const { iconPixels, ...core } = item;
-  const iconHash = iconPixels?.length === 256 ? hashIconPixels(iconPixels) : null;
+  const iconHash = iconPixels?.length === ICON_PIXEL_COUNT ? hashIconPixels(iconPixels) : null;
   return {
     id: core.id,
     name: core.name,
@@ -324,47 +377,242 @@ contentRouter.delete('/items/:id', requirePerm('content.item.edit'), async (req:
 
 // --- NPCs ---
 contentRouter.get('/npcs', requirePerm('content.npc.view'), (_req, res) => {
-  res.json([...contentRegistry.npcs.values()].map((n) => hydrateNpcSprite(n as ContentNpc & { data?: { spritePixels?: string[] | null } })));
+  res.json(
+    [...contentRegistry.npcs.values()].map((n) => ({
+      ...hydrateNpcSprite(n as ContentNpc & { data?: { spritePixels?: string[] | null } }),
+      revision: npcRevision(n.id),
+    }))
+  );
 });
 
 contentRouter.put('/npcs/:id', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
-  const npc = { ...req.body, id: param(req, 'id') } as ContentNpc;
-  contentRegistry.npcs.set(npc.id, npc);
-  const dbRow = npcToDb(npc);
-  await prisma.contentNpc.upsert({
-    where: { id: npc.id },
-    create: dbRow as never,
-    update: dbRow as never,
+  const id = param(req, 'id');
+  try {
+    const { npc, revision, diagnostics } = await saveNpcDefinition(req.body, id, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.npc.update',
+      objectType: 'npc',
+      objectId: id,
+      newValue: npc,
+    });
+    res.json({ ...hydrateNpcSprite(npc), revision, ...(diagnostics ? { diagnostics } : {}) });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
+});
+
+/** Designer dry-run: schedule, availability reasons, optional encounter. Does not mutate gameplay. */
+contentRouter.post('/npcs/:id/diagnose', requirePerm('content.npc.view'), async (req, res) => {
+  const id = param(req, 'id');
+  const npc = contentRegistry.npcs.get(id);
+  if (!npc) return res.status(404).json({ error: 'NPC not found' });
+  const world = currentNpcWorld(Date.now(), { fresh: true });
+  const hour = typeof req.body?.hour === 'number' ? req.body.hour : world.hour;
+  const presence = npcPresence(id);
+  const dialogue = contentRegistry.dialogues.get(npc.dialogueTreeId);
+  const nodeIds = new Set((dialogue?.nodes ?? []).map((node) => node.id));
+  const diagnosis = diagnoseNpcRuntime({
+    npc,
+    placeIds: [...contentRegistry.npcPlaces.keys()],
+    shopIds: new Set(contentRegistry.shops.keys()),
+    dialogueTreeIds: new Set(contentRegistry.dialogues.keys()),
+    dialogueNodeIds: nodeIds,
+    presence,
+    hour,
+    distanceOk: true,
+    encounterCtx: {
+      progression: defaultProgression(),
+      stats: { ...DEFAULT_STATS },
+      inventory: [],
+      coins: 0,
+      dialogue,
+      quests: questSystem.list(),
+    },
+  });
+  recordNpcEvent({
+    kind: 'diagnose',
+    npcId: id,
+    success: true,
+    provenance: 'admin',
+    meta: { available: diagnosis.availability.available },
   });
   await writeAuditLog(auditContext(req), {
-    action: 'content.npc.update',
+    action: 'content.npc.diagnose',
     objectType: 'npc',
-    objectId: npc.id,
-    newValue: npc,
+    objectId: id,
   });
-  res.json(npc);
+  res.json(diagnosis);
+});
+
+/** Recent NPC simulation events for designers (no affinity / private prefs). */
+contentRouter.get('/npc-events', requirePerm('content.npc.view'), (req, res) => {
+  const npcId = typeof req.query.npcId === 'string' ? req.query.npcId : undefined;
+  const kind = typeof req.query.kind === 'string' ? (req.query.kind as never) : undefined;
+  const limit = typeof req.query.limit === 'string' ? Number(req.query.limit) : 100;
+  const sinceMs = typeof req.query.sinceMs === 'string' ? Number(req.query.sinceMs) : undefined;
+  res.json({ events: listNpcEvents({ npcId, kind, limit, sinceMs }) });
+});
+
+/** Aggregate NPC sim metrics for designer insights (read-only). */
+contentRouter.get('/npc-events/summary', requirePerm('content.npc.view'), (req, res) => {
+  const npcId = typeof req.query.npcId === 'string' ? req.query.npcId : undefined;
+  const sinceMs = typeof req.query.sinceMs === 'string' ? Number(req.query.sinceMs) : undefined;
+  const provenance =
+    req.query.provenance === 'observed' || req.query.provenance === 'synthetic' || req.query.provenance === 'admin'
+      ? req.query.provenance
+      : undefined;
+  res.json({
+    summary: aggregateNpcEvents({ npcId, sinceMs, provenance }),
+    generatedAt: Date.now(),
+  });
+});
+
+/**
+ * Offline configuration compare. Candidate is not saved; does not mutate live state.
+ * Body: { candidate: ContentNpc, hour?: number }
+ */
+contentRouter.post('/npcs/:id/compare', requirePerm('content.npc.view'), async (req, res) => {
+  const id = param(req, 'id');
+  const current = contentRegistry.npcs.get(id);
+  if (!current) return res.status(404).json({ error: 'NPC not found' });
+  const candidate = req.body?.candidate;
+  if (!candidate || typeof candidate !== 'object') {
+    return res.status(400).json({ error: 'candidate NPC object required' });
+  }
+  const world = currentNpcWorld(Date.now(), { fresh: true });
+  const hour = typeof req.body?.hour === 'number' ? req.body.hour : world.hour;
+  const result = compareNpcConfigurations({
+    current,
+    candidate: { ...candidate, id: candidate.id || id },
+    placeIds: [...contentRegistry.npcPlaces.keys()],
+    shopIds: new Set(contentRegistry.shops.keys()),
+    dialogueTreeIds: new Set(contentRegistry.dialogues.keys()),
+    hour,
+    presence: npcPresence(id),
+  });
+  recordNpcEvent({
+    kind: 'diagnose',
+    npcId: id,
+    success: true,
+    provenance: 'synthetic',
+    meta: { compare: true, deltas: result.deltas.length },
+  });
+  await writeAuditLog(auditContext(req), {
+    action: 'content.npc.compare',
+    objectType: 'npc',
+    objectId: id,
+  });
+  res.json(result);
 });
 
 contentRouter.get('/dialogues', requirePerm('content.npc.view'), (_req, res) => {
-  res.json([...contentRegistry.dialogues.values()]);
+  res.json([...contentRegistry.dialogues.values()].map((dialogue) => ({ ...dialogue, revision: dialogueRevision(dialogue.id) })));
 });
 
 contentRouter.get('/dialogues/:id', requirePerm('content.npc.view'), (req, res) => {
   const dlg = contentRegistry.dialogues.get(param(req, 'id'));
   if (!dlg) return res.status(404).json({ error: 'Not found' });
-  res.json(dlg);
+  res.json({ ...dlg, revision: dialogueRevision(dlg.id) });
+});
+
+contentRouter.get('/quests', requirePerm('content.quest.edit'), (_req, res) => {
+  res.json(questSystem.list().map((quest) => ({ ...quest, revision: questRevision(quest.id) })));
+});
+
+contentRouter.get('/quests/:id', requirePerm('content.quest.edit'), (req, res) => {
+  const quest = questSystem.quests.get(param(req, 'id'));
+  if (!quest) return res.status(404).json({ error: 'Not found' });
+  res.json({ ...quest, revision: questRevision(quest.id) });
+});
+
+contentRouter.put('/quests/:id', requirePerm('content.quest.edit'), async (req: AdminRequest, res) => {
+  const id = param(req, 'id');
+  try {
+    const { quest, revision } = saveQuestDefinition(req.body, id, revisionField(req.body));
+    broadcastSharedQuestMirror();
+    await writeAuditLog(auditContext(req), {
+      action: 'content.quest.update',
+      objectType: 'quest',
+      objectId: id,
+      newValue: quest,
+    });
+    res.json({ ...quest, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
 });
 
 contentRouter.put('/dialogues/:id', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
-  const dlg = { ...req.body, id: param(req, 'id') };
-  contentRegistry.dialogues.set(dlg.id, dlg);
-  await writeAuditLog(auditContext(req), {
-    action: 'content.dialogue.update',
-    objectType: 'dialogue',
-    objectId: dlg.id,
-    newValue: dlg,
-  });
-  res.json(dlg);
+  const id = param(req, 'id');
+  try {
+    const { dialogue, revision } = await saveDialogueDefinition(req.body, id, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.dialogue.update',
+      objectType: 'dialogue',
+      objectId: id,
+      newValue: dialogue,
+    });
+    res.json({ ...dialogue, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
+});
+
+contentRouter.get('/social', requirePerm('content.npc.view'), (_req, res) => {
+  res.json({ ...(getSocialDocument() ?? {}), revision: socialRevision() });
+});
+
+contentRouter.put('/social', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
+  try {
+    const { document, revision } = await saveSocialDocument(req.body, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.social.update',
+      objectType: 'social',
+      objectId: 'document',
+      newValue: document,
+    });
+    res.json({ ...document, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
+});
+
+contentRouter.get('/knowledge', requirePerm('content.npc.view'), (_req, res) => {
+  res.json({ ...(getKnowledgeDocument() ?? { entries: [] }), revision: knowledgeRevision() });
+});
+
+contentRouter.put('/knowledge', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
+  try {
+    const { document, revision } = await saveKnowledgeDocument(req.body, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.knowledge.update',
+      objectType: 'knowledge',
+      objectId: 'document',
+      newValue: document,
+    });
+    res.json({ ...document, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
+});
+
+contentRouter.get('/lessons', requirePerm('content.npc.view'), (_req, res) => {
+  res.json({ ...(getLessonDocument() ?? { lessons: [] }), revision: lessonsRevision() });
+});
+
+contentRouter.put('/lessons', requirePerm('content.npc.edit'), async (req: AdminRequest, res) => {
+  try {
+    const { document, revision } = await saveLessonDocument(req.body, revisionField(req.body));
+    await writeAuditLog(auditContext(req), {
+      action: 'content.lessons.update',
+      objectType: 'lessons',
+      objectId: 'document',
+      newValue: document,
+    });
+    res.json({ ...document, revision });
+  } catch (error) {
+    respondContentSaveError(res, error);
+  }
 });
 
 // --- Maps ---
@@ -561,12 +809,112 @@ contentRouter.put('/licenses', requirePerm('content.spell.edit'), async (req: Ad
   res.json({ document, catalog: licenseEditorCatalog() });
 });
 
+const GRIMOIRE_KIND_ACCESS: Record<
+  GrimoireEntryKind,
+  { label: string; view: PermissionSlug; edit: PermissionSlug; playerNote: string }
+> = {
+  spells: {
+    label: 'Spells',
+    view: 'content.spell.view',
+    edit: 'content.spell.edit',
+    playerNote: 'Players read this on the spell’s page once that working is in their grimoire.',
+  },
+  items: {
+    label: 'Items',
+    view: 'content.item.view',
+    edit: 'content.item.edit',
+    playerNote: 'Players read this on the ingredient’s page once they have gathered it.',
+  },
+  spirits: {
+    label: 'Spirit types',
+    view: 'content.spirit.edit',
+    edit: 'content.spirit.edit',
+    playerNote: 'Players read this once that kind of spirit is written in their book.',
+  },
+  npcs: {
+    label: 'NPCs',
+    view: 'content.npc.view',
+    edit: 'content.npc.edit',
+    playerNote: 'Players read this on the People page once they have met this person.',
+  },
+  familiars: {
+    label: 'Familiars',
+    view: 'content.familiar.edit',
+    edit: 'content.familiar.edit',
+    playerNote: 'Players read this on The Book when this familiar is theirs and the page has text.',
+  },
+  recipes: {
+    label: 'Recipes',
+    view: 'content.item.view',
+    edit: 'content.item.edit',
+    playerNote: 'Players read this on The Book when they know the recipe and the page has text.',
+  },
+  books: {
+    label: 'Books',
+    view: 'content.spell.view',
+    edit: 'content.spell.edit',
+    playerNote: 'Players read this on The Book after they have read the volume and the page has text.',
+  },
+  quests: {
+    label: 'Quests',
+    view: 'content.quest.edit',
+    edit: 'content.quest.edit',
+    playerNote: 'Players read this on The Book once the quest is on their record and the page has text.',
+  },
+};
+
+contentRouter.get('/grimoire-entries', async (req: AdminRequest, res) => {
+  if (!req.admin) return res.status(401).json({ error: 'Authentication required' });
+  const perms = await getAdminPermissions(req.admin.userId);
+  req.admin.permissions = perms;
+  const kinds = GRIMOIRE_ENTRY_KINDS.filter((kind) => perms.includes(GRIMOIRE_KIND_ACCESS[kind].view)).map(
+    (kind) => {
+      const access = GRIMOIRE_KIND_ACCESS[kind];
+      return {
+        kind,
+        label: access.label,
+        playerNote: access.playerNote,
+        canEdit: perms.includes(access.edit),
+        records: grimoireCatalog(kind),
+      };
+    }
+  );
+  if (!kinds.length) return res.status(403).json({ error: 'Missing permission to view grimoire pages' });
+  res.json({ kinds });
+});
+
+contentRouter.put('/grimoire-entries/:kind/:id', async (req: AdminRequest, res) => {
+  if (!req.admin) return res.status(401).json({ error: 'Authentication required' });
+  const kind = param(req, 'kind');
+  const id = param(req, 'id');
+  if (!isGrimoireEntryKind(kind)) return res.status(400).json({ error: 'Unknown grimoire section' });
+  const access = GRIMOIRE_KIND_ACCESS[kind];
+  const perms = await getAdminPermissions(req.admin.userId);
+  if (!perms.includes(access.edit)) return res.status(403).json({ error: `Missing permission: ${access.edit}` });
+  if (!grimoireRecordExists(kind, id)) return res.status(404).json({ error: 'That record is not in this section' });
+  const grimoireEntry = setGrimoireEntry(kind, id, req.body?.grimoireEntry ?? '');
+  if (grimoireEntry === null) return res.status(400).json({ error: 'Could not save that page' });
+  await writeAuditLog(auditContext(req), {
+    action: 'content.grimoire.update',
+    objectType: 'grimoire',
+    objectId: `${kind}:${id}`,
+    newValue: { grimoireEntry },
+  });
+  res.json({ kind, id, grimoireEntry });
+});
+
 // --- Reload ---
+contentRouter.get('/npc-places', requirePerm('content.npc.view'), (_req, res) => {
+  res.json([...contentRegistry.npcPlaces.values()]);
+});
+
 contentRouter.post('/reload', requirePerm('system.reload'), async (req: AdminRequest, res) => {
   contentRegistry.load();
   const merged = await rehydrateContentOverlays();
   const { ensureCanonicalMapProjects } = await import('../../content/canonical-maps.js');
   await ensureCanonicalMapProjects();
+  const { broadcastNpcWorldState } = await import('../../rooms/game-room-registry.js');
+  broadcastNpcWorldState();
   await writeAuditLog(auditContext(req), {
     action: 'system.content.reload',
     objectType: 'system',

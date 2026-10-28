@@ -1,4 +1,4 @@
-import type { LicensesDocument, PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
+import type { GrimoireEntryMap, LicensesDocument, NpcPublicPresence, PlayerProgression, RecognitionDocument } from '@witchcraft/shared';
 import {
   ContentMapDefinition,
   ContentSpell,
@@ -14,6 +14,7 @@ import {
   setRecognitionContent,
 } from '@witchcraft/shared';
 import { verifyItemIconsOncePerLogin } from '../assets/ItemIconAssetStore';
+import { verifyNpcSpritesOncePerLogin } from '../assets/NpcSpriteAssetStore';
 
 export interface DialogueNode {
   id: string;
@@ -47,12 +48,26 @@ export interface ClientContentBundle {
   ingredients: { id: string; name: string; category: string; iconPixels?: string[] }[];
   familiars?: { id: string; species: string; description: string; defaultPublicName: string }[];
   shops: { id: string; name: string; npcId?: string; inventory: { itemId: string; price: number; stock: number; minLevel?: number }[] }[];
-  npcs: { id: string; name: string; role?: string; dialogueTreeId: string }[];
+  npcs: {
+    id: string;
+    name: string;
+    role?: string;
+    biography?: string;
+    dialogueTreeId: string;
+    spritePixels?: string[];
+    spriteHash?: string;
+    visual?: import('@witchcraft/shared').NpcVisualProfile;
+    spriteSheet?: import('@witchcraft/shared').NpcAuthoredSpriteSheet;
+    shopId?: string;
+    locationId?: string;
+  }[];
   decorations: { id: string; name: string; category: string }[];
   dialogues?: DialogueTree[];
   recognitionTiers?: RecognitionDocument;
   licenses?: LicensesDocument;
-  spirits?: { id: string; name: string; requiresLicense?: string }[];
+  spirits?: { id: string; name: string; description?: string; domains?: string[]; requiresLicense?: string }[];
+  grimoireEntries?: GrimoireEntryMap;
+  grimoireEntryNames?: Partial<GrimoireEntryMap>;
 }
 
 export interface LocalPlayerState {
@@ -77,7 +92,7 @@ class GameState {
   username = '';
   displayName = '';
   currentScene: 'apartment' | 'town' = 'apartment';
-  activeUI: 'none' | 'altar' | 'hexagram' | 'inventory' | 'shop' | 'aura' | 'familiar' | 'dialogue' | 'ledger' = 'none';
+  activeUI: 'none' | 'altar' | 'hexagram' | 'inventory' | 'shop' | 'aura' | 'familiar' | 'dialogue' | 'npc_actions' | 'npc_gift' | 'ledger' = 'none';
   activeShopId: string | null = null;
   lastSpellResult: string | null = null;
   nearbyPlayers: NearbyPlayer[] = [];
@@ -111,7 +126,13 @@ class GameState {
   tradePartnerName = '';
   pendingApartmentInvite: { inviteId: string; hostName: string } | null = null;
   progression: PlayerProgression | null = null;
+  /** Last applied progression sync sequence (drop older updates). */
+  progressionSeq = 0;
   hiddenNpcIds: string[] = [];
+  /** Server-published NPC presence. The client only interpolates it. */
+  npcPresences: NpcPublicPresence[] = [];
+  /** Last applied world_state sequence. */
+  worldStateSeq = 0;
   worldHour = 12;
 
   async loadSession(): Promise<void> {
@@ -145,6 +166,9 @@ class GameState {
     }
     if (this.content?.ingredients) {
       await verifyItemIconsOncePerLogin(this.content.ingredients);
+    }
+    if (this.content?.npcs) {
+      await verifyNpcSpritesOncePerLogin(this.content.npcs);
     }
   }
 

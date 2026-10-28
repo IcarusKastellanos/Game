@@ -190,7 +190,7 @@ export class TeleportEffect {
   }
 
   private geometry(): { fx: number; fy: number; height: number } {
-    const h = this.player.displayHeight || 24;
+    const h = this.player.displayHeight || 48;
     // Origin is feet-anchored (0.5, 0.85); the base sits just below sprite y.
     return { fx: this.player.x, fy: this.player.y + h * 0.1, height: h };
   }

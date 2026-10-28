@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
+import { NPC_SHEET_FRAME_H, NPC_SHEET_FRAME_W } from '@witchcraft/shared';
 
-const FEET_RADIUS = 5;
+const FEET_RADIUS = 10;
 
 /** Smaller circular hitbox at the feet — reduces snagging on tile corners. */
 export function configureFeetHitbox(
   sprite: Phaser.Physics.Arcade.Sprite,
-  frameW = 16,
-  frameH = 24,
+  frameW = NPC_SHEET_FRAME_W,
+  frameH = NPC_SHEET_FRAME_H,
   feetAnchorY = 0.85
 ): void {
   const body = sprite.body as Phaser.Physics.Arcade.Body;

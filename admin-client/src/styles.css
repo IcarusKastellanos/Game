@@ -81,6 +81,28 @@ body {
 .mod-grid h3 { font-size: 0.95rem; margin-bottom: 0.4rem; color: var(--text); }
 .mod-grid ul { margin-left: 1.1rem; color: var(--muted); line-height: 1.45; }
 .mod-grid li { margin: 0.35rem 0; }
+.check-row { display: flex; align-items: center; gap: 8px; color: var(--muted); margin: 8px 0 12px; font-size: 0.9rem; }
+.manuscript-admin { display: grid; grid-template-columns: 280px 1fr; gap: 16px; margin-top: 8px; }
+.manuscript-admin__list ul { list-style: none; max-height: 56vh; overflow: auto; }
+.manuscript-admin__list li + li { margin-top: 4px; }
+.ms-pick {
+  width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px;
+  background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 6px;
+  padding: 8px 10px; cursor: pointer; font: inherit;
+}
+.ms-pick strong { font-size: 0.95rem; }
+.ms-pick span { color: var(--muted); font-size: 0.8rem; }
+.ms-pick i { color: var(--accent); font-style: normal; font-size: 0.75rem; letter-spacing: 0.04em; }
+.ms-pick.is-active { border-color: var(--accent); background: rgba(228, 194, 122, 0.08); }
+.manuscript-admin__sheet label { display: block; margin-top: 10px; color: var(--muted); font-size: 0.85rem; }
+.manuscript-admin__sheet input,
+.manuscript-admin__sheet textarea {
+  width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--panel2); color: var(--text); font: inherit;
+}
+.manuscript-admin__sheet textarea { font-family: Georgia, 'Palatino Linotype', serif; line-height: 1.45; }
+.warn-text { color: #e8a0a8; margin: 8px 0; }
+@media (max-width: 900px) { .manuscript-admin { grid-template-columns: 1fr; } }
 .muted { color: var(--muted); }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
 .stat { background: var(--panel2); border-radius: 8px; padding: 1rem; }
@@ -536,6 +558,32 @@ pre { background: var(--panel2); padding: 0.75rem; border-radius: 6px; overflow:
   animation-name: eye-particle-rise; animation-iteration-count: infinite; animation-timing-function: ease-out;
 }
 .hud-eye-preview .eye-readout { margin-top: 6px; font-size: 0.75rem; color: var(--muted, #9a93b5); text-transform: capitalize; }
+
+.grimoire-admin__kinds { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.grimoire-admin__kinds .is-active { border-color: var(--accent); color: var(--accent); }
+.grimoire-admin { display: grid; grid-template-columns: 260px 1fr; gap: 16px; margin-top: 16px; }
+.grimoire-admin__list ul { list-style: none; margin: 10px 0 0; max-height: 64vh; overflow: auto; }
+.grimoire-admin__list li + li { margin-top: 4px; }
+.grim-record {
+  width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 8px;
+  background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 6px;
+  padding: 6px 8px; cursor: pointer; font: inherit;
+}
+.grim-record.is-active { border-color: var(--accent); background: rgba(228, 194, 122, 0.08); }
+.grim-record i { color: var(--accent); font-style: normal; font-size: 0.75rem; letter-spacing: 0.04em; }
+.grimoire-admin__kicker { color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.75rem; }
+.grimoire-admin__tools { display: flex; gap: 8px; margin: 12px 0; }
+.grimoire-admin__sheet {
+  min-height: 220px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 8px;
+  background: #241c2e; color: #f3ead8; font-family: Georgia, 'Palatino Linotype', serif; font-size: 1.15rem; line-height: 1.45;
+}
+.grimoire-admin__sheet:focus { outline: 1px solid var(--accent); }
+.grimoire-admin__sheet b, .grimoire-admin__sheet strong { font-weight: 700; }
+.grimoire-admin__sheet i, .grimoire-admin__sheet em { font-style: italic; }
+.grimoire-admin__sheet u { text-decoration: underline; }
+.grimoire-admin__plain { color: var(--muted); font-size: 0.95rem; }
+.grimoire-admin__actions { display: flex; gap: 8px; margin-top: 12px; }
+@media (max-width: 860px) { .grimoire-admin { grid-template-columns: 1fr; } }
 
 @keyframes hud-eye-pulse {
   0%, 100% { transform: translate(-50%, -50%) scale(1); filter: brightness(1); }

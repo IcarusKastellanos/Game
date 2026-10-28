@@ -74,6 +74,31 @@
   color: var(--gold);
 }
 
+.ledger-choice:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.npc-relation p {
+  margin: 0 0 0.4em;
+}
+
+.npc-relation p:last-child {
+  margin-bottom: 0;
+}
+
+.ledger-aside.dim,
+.ledger-aside .dim {
+  opacity: 0.82;
+}
+
+.ledger-choice small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--gold);
+}
+
 .ledger-choice:hover,
 .ledger-buy:hover,
 .ledger-choice:focus-visible,

@@ -1,6 +1,62 @@
 import type { MagicTradition } from '../types/index.js';
 import { getAllBookContent, getBookContent } from './progression-content.js';
 import { parseActiveVows, parseLicensureMarks } from './licenses.js';
+import { backfillGrimoireIngredients, defaultGrimoire, parseGrimoire, type GrimoireState } from './grimoire.js';
+import { emptySocial, parsePlayerSocial } from '../social/index.js';
+
+export {
+  GRIMOIRE_INKS,
+  GRIMOIRE_MALEVOLENT_WARD,
+  GRIMOIRE_MANUSCRIPT_ITEM_ID,
+  GRIMOIRE_NOTE_COUNT,
+  backfillGrimoireIngredients,
+  cleanAuthoredGrimoireBody,
+  cleanAuthoredGrimoireTitle,
+  customizeGrimoire,
+  defaultGrimoire,
+  deleteAuthoredGrimoirePage,
+  deleteSharedGrimoirePage,
+  grimoireBondLabel,
+  grimoireKnowsSpell,
+  isMalevolentSpell,
+  malevolentGrimoireWard,
+  applyManuscriptEditToGrimoire,
+  applyManuscriptEditToInventory,
+  manuscriptMetadataFromPage,
+  parseGrimoire,
+  purgeManuscriptFromGrimoire,
+  purgeManuscriptFromInventory,
+  readManuscriptMeta,
+  receiveSharedGrimoirePage,
+  recordGrimoireCast,
+  recordGrimoireIngredients,
+  recordGrimoireNpc,
+  recordGrimoireSpirit,
+  recordGrimoireStudied,
+  selectGrimoireSpirit,
+  setAuthoredGrimoireActive,
+  setGrimoireNotes,
+  setGrimoireNpcNote,
+  setGrimoireSpellNote,
+  setGrimoireSpiritNote,
+  setSharedGrimoireActive,
+  shareSpellIntoGrimoire,
+  upsertAuthoredGrimoirePage,
+} from './grimoire.js';
+export type {
+  GrimoireAuthoredPage,
+  GrimoireCustomization,
+  GrimoireIngredientEntry,
+  GrimoireInk,
+  GrimoireManuscriptMeta,
+  GrimoireNpcEntry,
+  GrimoireSharedPage,
+  GrimoireSpellEntry,
+  GrimoireSpellSource,
+  GrimoireSpiritDraft,
+  GrimoireSpiritEncounter,
+  GrimoireState,
+} from './grimoire.js';
 
 export const SPECIALTY_AFFINITY_THRESHOLD = 25;
 export const MAX_POCKET_SPELLS = 3;
@@ -63,6 +119,17 @@ export interface QuestProgress {
   stage: string;
   startedAt: number;
   completedAt?: number;
+  failedAt?: number;
+  abandonedAt?: number;
+  /** Definition version this instance was started or reconciled against. */
+  version?: number;
+  objectives?: Record<string, { count: number; doneAt?: number }>;
+  choices?: string[];
+  onceKeys?: string[];
+  /** Short trail of signals that changed this instance. */
+  history?: { at: number; type: string; detail?: string }[];
+  /** Set when completion rewards have been granted. A second call must not pay again. */
+  rewardsGrantedAt?: number;
 }
 
 export interface PlayerProgression {
@@ -97,6 +164,25 @@ export interface PlayerProgression {
   shopStock?: Record<string, Record<string, number>>;
   /** Local calendar day key (`YYYY-M-D`) of the last noon shop restock for this player. */
   shopStockDay?: string;
+  /** Personal record of workings, ingredients, spirits, people, and the book's own hand. */
+  grimoire: GrimoireState;
+  /** Per-NPC bonds and community reputation. Separate from public and spiritual reputation. */
+  social?: import('../social/index.js').PlayerSocial;
+  /** Knowledge / rumor ids this player has personally discovered. */
+  discoveredKnowledge?: string[];
+  /** Teacher lesson ids already purchased or completed. */
+  completedLessons?: string[];
+  /** Multi-visit dialogue state keyed by dialogue tree id. */
+  dialogueState?: Record<
+    string,
+    {
+      visitCount: number;
+      lastNodeId?: string;
+      completedNodeIds?: string[];
+      lastSeenAt?: number;
+      flags?: string[];
+    }
+  >;
 }
 
 export interface ContentRecipe {
@@ -181,25 +267,109 @@ export interface ContentQuestNode {
   complete?: boolean;
 }
 
+export type QuestScope = 'personal' | 'party' | 'world';
+export type QuestOffer = 'on_talk' | 'follow_up' | 'event';
+export type QuestObjectiveType =
+  | 'talk'
+  | 'deliver'
+  | 'collect'
+  | 'defeat'
+  | 'discover'
+  | 'license'
+  | 'bond'
+  | 'interact'
+  | 'quest'
+  | 'schedule'
+  | 'dialogue'
+  | 'help_player'
+  | 'public_event'
+  | 'cast_spell';
+
+export interface QuestObjective {
+  id: string;
+  type: QuestObjectiveType;
+  optional?: boolean;
+  text?: string;
+  npcId?: string;
+  itemId?: string;
+  quantity?: number;
+  spellId?: string;
+  locationId?: string;
+  licenseId?: string;
+  stage?: string;
+  questId?: string;
+  choiceId?: string;
+  /** This objective counts only after the player makes this dialogue choice. */
+  afterChoiceId?: string;
+  eventId?: string;
+  interactableId?: string;
+  hour?: number;
+  count?: number;
+}
+
+export interface QuestRewardGrant {
+  items?: { itemId: string; quantity: number }[];
+  stats?: Record<string, number>;
+  /** Legacy alias → public reputation. */
+  reputation?: number;
+  publicReputation?: number;
+  spiritualReputation?: number;
+  /** Recognition licenses granted on quest complete. */
+  licenses?: string[];
+}
+
+export interface QuestDecision {
+  id: string;
+  choiceId: string;
+  setFlags?: string[];
+  /** Objective ids marked done when this choice is taken. */
+  waiveObjectives?: string[];
+  followUpQuestIds?: string[];
+  /** Used instead of the quest rewards when this choice was taken. */
+  rewards?: QuestRewardGrant;
+}
+
 export interface ContentQuest {
   id: string;
+  /** Bumped when a definition changes. In-progress instances keep their completion. */
+  version?: number;
   name: string;
   description: string;
+  /** Who shares progress. Defaults to personal. */
+  scope?: QuestScope;
   npcId?: string;
+  npcIds?: string[];
+  /** Bond stage id required before this quest is offered. */
+  minStage?: string;
+  offer?: QuestOffer;
+  prerequisites?: {
+    questsCompleted?: string[];
+    licenses?: string[];
+    vows?: string[];
+    coins?: number;
+    items?: { itemId: string; quantity: number }[];
+    storyFlags?: string[];
+    noStoryFlags?: string[];
+    publicReputation?: number;
+    spiritualReputation?: number;
+    bond?: import('../social/index.js').BondGate;
+  };
+  objectives?: QuestObjective[];
+  optionalObjectives?: QuestObjective[];
+  /** once: a completion sticks. always: may be offered again after completion. */
+  repeat?: 'once' | 'always';
+  followUpQuestIds?: string[];
+  expiresHours?: number;
+  party?: { contribution: 'any' | 'all'; requiredContributors?: number; reward: 'each' | 'leader' };
+  world?: { reward: 'each_contributor' };
+  failure?: { eventId?: string };
+  /** Dialogue choices that set flags, waive steps, or swap rewards. */
+  decisions?: QuestDecision[];
   startStage: string;
   nodes: ContentQuestNode[];
   /** Minimum Practitioner Level to accept / complete this quest. */
   minLevel?: number;
-  rewards?: {
-    items?: { itemId: string; quantity: number }[];
-    stats?: Record<string, number>;
-    /** Legacy alias → public reputation. */
-    reputation?: number;
-    publicReputation?: number;
-    spiritualReputation?: number;
-    /** Recognition licenses granted on quest complete. */
-    licenses?: string[];
-  };
+  rewards?: QuestRewardGrant;
 }
 
 export const BOOK_CONTENT: Record<
@@ -247,7 +417,22 @@ export function defaultProgression(): PlayerProgression {
     storyFlags: [],
     shopStock: {},
     shopStockDay: '',
+    grimoire: defaultGrimoire(),
+    social: emptySocial(),
+    discoveredKnowledge: [],
+    completedLessons: [],
+    dialogueState: {},
   };
+}
+
+export function withGrimoire(
+  progression: PlayerProgression,
+  update: (grimoire: GrimoireState) => GrimoireState
+): PlayerProgression {
+  const current = progression.grimoire ?? defaultGrimoire();
+  const next = update(current);
+  if (next === current) return progression;
+  return { ...progression, grimoire: next };
 }
 
 function parseSkillXp(raw: unknown): Partial<Record<string, number>> {
@@ -261,24 +446,43 @@ function parseSkillXp(raw: unknown): Partial<Record<string, number>> {
   return out;
 }
 
+/**
+ * Completions saved before quest versions existed already paid their rewards.
+ * Versioned instances keep an explicit rewardsGrantedAt so a finished step can still be paid once.
+ */
+function sealLegacyQuestRewards(quests: Record<string, QuestProgress>): Record<string, QuestProgress> {
+  const next: Record<string, QuestProgress> = {};
+  for (const [id, entry] of Object.entries(quests)) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.completedAt && entry.rewardsGrantedAt == null && entry.version == null) {
+      next[id] = { ...entry, rewardsGrantedAt: entry.completedAt };
+      continue;
+    }
+    next[id] = entry;
+  }
+  return next;
+}
+
 export function parseProgression(raw: unknown): PlayerProgression {
   const base = defaultProgression();
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Record<string, unknown>;
+  const npcRelationships =
+    o.npcRelationships && typeof o.npcRelationships === 'object'
+      ? (o.npcRelationships as Record<string, number>)
+      : base.npcRelationships;
   return {
-    npcRelationships:
-      o.npcRelationships && typeof o.npcRelationships === 'object'
-        ? (o.npcRelationships as Record<string, number>)
-        : base.npcRelationships,
+    npcRelationships,
     discoveredCorrespondences: Array.isArray(o.discoveredCorrespondences)
       ? (o.discoveredCorrespondences as string[])
       : base.discoveredCorrespondences,
     readBooks: Array.isArray(o.readBooks) ? (o.readBooks as string[]) : base.readBooks,
     pocketSpells: Array.isArray(o.pocketSpells) ? (o.pocketSpells as PocketSpell[]) : base.pocketSpells,
-    questProgress:
+    questProgress: sealLegacyQuestRewards(
       o.questProgress && typeof o.questProgress === 'object'
         ? (o.questProgress as Record<string, QuestProgress>)
-        : base.questProgress,
+        : base.questProgress
+    ),
     discoveredRecipes: mergeDiscoveredRecipes(
       Array.isArray(o.discoveredRecipes) ? (o.discoveredRecipes as string[]) : base.discoveredRecipes
     ),
@@ -310,7 +514,48 @@ export function parseProgression(raw: unknown): PlayerProgression {
       : [],
     shopStock: parseShopStock(o.shopStock),
     shopStockDay: typeof o.shopStockDay === 'string' ? o.shopStockDay : '',
+    grimoire: parseGrimoire(o.grimoire),
+    social: parsePlayerSocial(o.social, npcRelationships),
+    discoveredKnowledge: Array.isArray(o.discoveredKnowledge)
+      ? [...new Set((o.discoveredKnowledge as unknown[]).filter((id): id is string => typeof id === 'string'))]
+      : [],
+    completedLessons: Array.isArray(o.completedLessons)
+      ? [...new Set((o.completedLessons as unknown[]).filter((id): id is string => typeof id === 'string'))]
+      : [],
+    dialogueState: parseDialogueState(o.dialogueState),
   };
+}
+
+function parseDialogueState(
+  raw: unknown
+): NonNullable<PlayerProgression['dialogueState']> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: NonNullable<PlayerProgression['dialogueState']> = {};
+  for (const [treeId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object') continue;
+    const row = value as Record<string, unknown>;
+    out[treeId] = {
+      visitCount:
+        typeof row.visitCount === 'number' && Number.isFinite(row.visitCount)
+          ? Math.max(0, Math.floor(row.visitCount))
+          : 0,
+      ...(typeof row.lastNodeId === 'string' ? { lastNodeId: row.lastNodeId } : {}),
+      ...(Array.isArray(row.completedNodeIds)
+        ? {
+            completedNodeIds: row.completedNodeIds.filter(
+              (id): id is string => typeof id === 'string'
+            ),
+          }
+        : {}),
+      ...(typeof row.lastSeenAt === 'number' && Number.isFinite(row.lastSeenAt)
+        ? { lastSeenAt: row.lastSeenAt }
+        : {}),
+      ...(Array.isArray(row.flags)
+        ? { flags: row.flags.filter((id): id is string => typeof id === 'string') }
+        : {}),
+    };
+  }
+  return out;
 }
 
 function parseShopStock(raw: unknown): Record<string, Record<string, number>> {
@@ -351,7 +596,10 @@ export function discoverCorrespondences(
 ): PlayerProgression {
   const set = new Set(progression.discoveredCorrespondences);
   for (const id of itemIds) set.add(id);
-  return { ...progression, discoveredCorrespondences: [...set] };
+  return withGrimoire(
+    { ...progression, discoveredCorrespondences: [...set] },
+    (grimoire) => backfillGrimoireIngredients(grimoire, itemIds)
+  );
 }
 
 export function eligibleSpecialtyTraditions(

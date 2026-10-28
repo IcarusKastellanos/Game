@@ -56,7 +56,7 @@ export function createDefaultMapMetadata(partial?: Partial<MapProjectMetadata>):
     sceneId: partial?.sceneId ?? 'town',
     width: partial?.width ?? 32,
     height: partial?.height ?? 24,
-    tileSize: partial?.tileSize ?? 16,
+    tileSize: partial?.tileSize ?? 32,
     defaultLighting: partial?.defaultLighting ?? 'normal',
     defaultWeather: partial?.defaultWeather ?? 'clear',
     defaultMusic: partial?.defaultMusic ?? '',

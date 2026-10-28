@@ -48,6 +48,11 @@ export interface CastContext {
   /** Added to focus difficulty from binding hexes on the caster. */
   bindingPenalty?: number;
   progression?: PlayerProgression;
+  /**
+   * 0 or 1. When the target's grimoire indexes this malevolent spell,
+   * the working is a thread harder to land and a thread easier to notice.
+   */
+  targetGrimoireWard?: number;
 }
 
 export interface CastDiagnostics {
@@ -171,8 +176,9 @@ export class SpellEngine {
     const categoryFocus = this.categoryFocus(spell.category, ctx.casterStats);
     const affinityPoints = affinityBonus * 10;
     const pentaclePoints = pentacleBoost * 20;
+    const grimoireWard = ctx.targetSelf ? 0 : Math.max(0, Math.min(1, ctx.targetGrimoireWard ?? 0));
     const effectiveDifficulty =
-      Math.max(1, spell.difficulty - (ctx.effortReduction ?? 0)) + (ctx.bindingPenalty ?? 0);
+      Math.max(1, spell.difficulty - (ctx.effortReduction ?? 0)) + (ctx.bindingPenalty ?? 0) + grimoireWard;
 
     let potency =
       spell.basePotency *
@@ -227,7 +233,8 @@ export class SpellEngine {
     }
 
     const detected =
-      ctx.targetProtection !== undefined && ctx.casterStats.intuition < (ctx.targetProtection ?? 0);
+      ctx.targetProtection !== undefined &&
+      ctx.casterStats.intuition < (ctx.targetProtection ?? 0) + grimoireWard;
 
     potency = scalePotencyByLevel(potency, ctx.casterStats.experience);
     potency *= licenseHealingPotencyMultiplier(progression, spell.category);
@@ -274,8 +281,12 @@ export class SpellEngine {
     }
 
     const bindingPenalty = ctx.bindingPenalty ?? 0;
+    const grimoireWard = ctx.targetSelf ? 0 : Math.max(0, Math.min(1, ctx.targetGrimoireWard ?? 0));
     const skillBonus = (ctx.casterStats.ritualSkill + ctx.casterStats.intuition) / 20;
-    const accuracy = Math.min(0.45, Math.max(0.02, 0.15 + skillBonus / 10 - bindingPenalty / 120));
+    const accuracy = Math.min(
+      0.45,
+      Math.max(0.02, 0.15 + skillBonus / 10 - bindingPenalty / 120 - grimoireWard * 0.01)
+    );
     const roll = Math.random();
     const success = roll < accuracy;
 
