@@ -5,8 +5,6 @@ import {
   getIngredientIconHash,
   resolveItemIconPixels,
 } from '@witchcraft/shared';
-import { prisma } from '../services/db.js';
-import { shouldMergeStoredIngredientIcon } from './legacy-icon-hashes.js';
 import { contentRegistry } from './registry.js';
 
 export function hydrateIngredientIcon(item: ContentIngredient): ContentIngredient {
@@ -22,33 +20,11 @@ export function getPublicIngredients(): ContentIngredient[] {
 }
 
 /**
- * Postgres `data.iconPixels` is the live source of truth for item art.
- * Always overlay valid DB icons onto the JSON-loaded registry at boot / reload.
+ * Item art comes from ingredients.json (and live admin saves into the registry/file).
+ * Stale Postgres iconPixels are intentionally not overlaid — sync rewrites DB to match JSON.
  */
 export async function mergeIngredientIconsFromDb(): Promise<number> {
-  let merged = 0;
-  try {
-    const rows = await prisma.contentIngredient.findMany({
-      select: { id: true, data: true },
-    });
-    for (const row of rows) {
-      const existing = contentRegistry.ingredients.get(row.id);
-      if (!existing) continue;
-      const data = (row.data ?? {}) as { iconPixels?: string[] | null };
-      if (!shouldMergeStoredIngredientIcon(data.iconPixels)) continue;
-      contentRegistry.ingredients.set(row.id, {
-        ...existing,
-        iconPixels: [...(data.iconPixels as string[])],
-      });
-      merged++;
-    }
-    if (merged > 0) {
-      console.log(`[ContentRegistry] Applied DB item icons for ${merged} item(s)`);
-    }
-  } catch (err) {
-    console.warn('[ContentRegistry] Could not merge icons from DB:', err);
-  }
-  return merged;
+  return 0;
 }
 
 export function getIconManifest(): { revision: string; items: Record<string, string> } {

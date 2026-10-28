@@ -2,7 +2,6 @@ import { ICON_PIXEL_COUNT, hashIconPixels } from '@witchcraft/shared';
 
 /**
  * Hashes of the old 16×16 procedural item icons (flat tiles on a purple field).
- * Those never overlay admin / shipped 32×32 art.
  */
 const LEGACY_PROCEDURAL_ICON_HASHES = new Set<string>([
   '10zcew3',
@@ -44,24 +43,18 @@ export function isValidItemIconPixels(pixels: string[] | null | undefined): bool
 }
 
 /**
- * Item icons are owned by admin (Postgres + live registry).
- * Sync may seed from ingredients.json only when the DB has no valid icon yet.
- * Valid DB icons are never replaced by JSON / startup scripts.
+ * Shipped / admin-persisted JSON icons win. Postgres copies are rewritten to match
+ * on content:sync so stale DB art cannot stick across restarts.
  */
 export function resolveStoredIngredientIconPixels(
-  stored: string[] | null | undefined,
+  _stored: string[] | null | undefined,
   shipped: string[] | null | undefined
 ): string[] | null {
-  if (isValidItemIconPixels(stored) && !isLegacyProceduralIcon(stored)) {
-    return [...stored!];
-  }
-  if (isValidItemIconPixels(shipped)) {
-    return [...shipped!];
-  }
+  if (isValidItemIconPixels(shipped)) return [...shipped!];
   return null;
 }
 
-/** DB icon overlays JSON whenever it is a valid 32×32 plane. */
-export function shouldMergeStoredIngredientIcon(stored: string[] | null | undefined): boolean {
-  return isValidItemIconPixels(stored) && !isLegacyProceduralIcon(stored);
+/** DB icon overlay is disabled — ingredients.json + live admin saves own item art. */
+export function shouldMergeStoredIngredientIcon(_stored: string[] | null | undefined): boolean {
+  return false;
 }
