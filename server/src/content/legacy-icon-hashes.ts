@@ -1,12 +1,8 @@
-import {
-  ICON_PIXEL_COUNT,
-  generateItemIconPixels,
-  hashIconPixels,
-} from '@witchcraft/shared';
+import { ICON_PIXEL_COUNT, hashIconPixels } from '@witchcraft/shared';
 
 /**
  * Hashes of the old 16×16 procedural item icons (flat tiles on a purple field).
- * Database copies of that art give way to the sprites shipped in ingredients.json.
+ * Those never overlay admin / shipped 32×32 art.
  */
 const LEGACY_PROCEDURAL_ICON_HASHES = new Set<string>([
   '10zcew3',
@@ -43,58 +39,29 @@ export function isLegacyProceduralIcon(pixels: string[] | null | undefined): boo
   return LEGACY_PROCEDURAL_ICON_HASHES.has(hashIconPixels(pixels));
 }
 
-export type IngredientIconItem = {
-  id: string;
-  category: string;
-  name?: string;
-};
+export function isValidItemIconPixels(pixels: string[] | null | undefined): boolean {
+  return !!pixels && pixels.length === ICON_PIXEL_COUNT;
+}
 
 /**
- * Prefer shipped JSON icons over stale DB copies of procedural / legacy art.
- * Keeps true admin-painted overrides (anything that is not shipped and not generator output).
- *
- * Set FORCE_SHIPPED_ITEM_ICONS=1 to always write ingredients.json pixels (startup scripts).
+ * Item icons are owned by admin (Postgres + live registry).
+ * Sync may seed from ingredients.json only when the DB has no valid icon yet.
+ * Valid DB icons are never replaced by JSON / startup scripts.
  */
 export function resolveStoredIngredientIconPixels(
   stored: string[] | null | undefined,
-  shipped: string[] | null | undefined,
-  item: IngredientIconItem,
-  opts?: { forceShipped?: boolean }
+  shipped: string[] | null | undefined
 ): string[] | null {
-  const force =
-    opts?.forceShipped === true ||
-    process.env.FORCE_SHIPPED_ITEM_ICONS === '1' ||
-    process.env.FORCE_SHIPPED_ITEM_ICONS === 'true';
-
-  const shippedOk = shipped?.length === ICON_PIXEL_COUNT ? shipped : null;
-  if (force && shippedOk) return [...shippedOk];
-
-  if (!stored?.length) return shippedOk ? [...shippedOk] : null;
-  if (isLegacyProceduralIcon(stored)) return shippedOk ? [...shippedOk] : null;
-  if (stored.length !== ICON_PIXEL_COUNT) return shippedOk ? [...shippedOk] : null;
-
-  const storedHash = hashIconPixels(stored);
-  if (shippedOk && storedHash === hashIconPixels(shippedOk)) return [...shippedOk];
-
-  const procedural = generateItemIconPixels(item.id, item.category, item.name ?? item.id);
-  if (storedHash === hashIconPixels(procedural)) {
-    return shippedOk ? [...shippedOk] : null;
+  if (isValidItemIconPixels(stored) && !isLegacyProceduralIcon(stored)) {
+    return [...stored!];
   }
-
-  // Admin (or other) painted override — keep.
-  return [...stored];
+  if (isValidItemIconPixels(shipped)) {
+    return [...shipped!];
+  }
+  return null;
 }
 
-/** True when a DB icon should overlay the JSON registry at runtime. */
-export function shouldMergeStoredIngredientIcon(
-  stored: string[] | null | undefined,
-  shipped: string[] | null | undefined,
-  item: IngredientIconItem
-): boolean {
-  if (!stored?.length || stored.length !== ICON_PIXEL_COUNT) return false;
-  if (isLegacyProceduralIcon(stored)) return false;
-  const resolved = resolveStoredIngredientIconPixels(stored, shipped, item);
-  if (!resolved) return false;
-  // Only merge when we intentionally kept the stored custom art.
-  return hashIconPixels(resolved) === hashIconPixels(stored);
+/** DB icon overlays JSON whenever it is a valid 32×32 plane. */
+export function shouldMergeStoredIngredientIcon(stored: string[] | null | undefined): boolean {
+  return isValidItemIconPixels(stored) && !isLegacyProceduralIcon(stored);
 }

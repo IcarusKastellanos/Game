@@ -94,7 +94,7 @@ export async function renderItemEditor(
       </div>
       <div class="card editor-preview">
         <h2>32×32 Icon</h2>
-        <p class="muted-text">Drop an image to import, or paint pixels in the editor below.</p>
+        <p class="muted-text">Saved icons live in the database and update the live game immediately. Startup sync never overwrites them — only your admin saves change item art.</p>
         <div id="it-icon-drop"></div>
         ${spriteArtDivider('or paint pixels')}
         <div id="it-icon-editor"></div>

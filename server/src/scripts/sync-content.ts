@@ -14,11 +14,9 @@ function load<T>(file: string): T[] {
 /** Sync JSON content files into PostgreSQL for admin editing */
 async function syncContent() {
   console.log('[sync-content] Starting...');
-  if (process.env.FORCE_SHIPPED_ITEM_ICONS === '1' || process.env.FORCE_SHIPPED_ITEM_ICONS === 'true') {
-    console.log('[sync-content] FORCE_SHIPPED_ITEM_ICONS — rewriting item icons from ingredients.json');
-  }
+  console.log('[sync-content] Item icons: DB wins — JSON only seeds missing icons (admin saves are never overwritten).');
 
-  let iconsRestored = 0;
+  let iconsSeeded = 0;
   for (const ing of load<Record<string, unknown>>('ingredients.json')) {
     const iconPixels = ing.iconPixels as string[] | undefined;
     const existing = await prisma.contentIngredient.findUnique({
@@ -26,18 +24,9 @@ async function syncContent() {
       select: { data: true },
     });
     const stored = (existing?.data ?? {}) as { iconPixels?: string[] | null };
-    const keptPixels = resolveStoredIngredientIconPixels(stored.iconPixels, iconPixels, {
-      id: String(ing.id),
-      category: String(ing.category ?? 'herbs'),
-      name: String(ing.name ?? ing.id),
-    });
-    if (
-      iconPixels?.length &&
-      (!stored.iconPixels?.length ||
-        JSON.stringify(stored.iconPixels) !== JSON.stringify(keptPixels))
-    ) {
-      iconsRestored++;
-    }
+    const hadValidDb = resolveStoredIngredientIconPixels(stored.iconPixels, null) !== null;
+    const keptPixels = resolveStoredIngredientIconPixels(stored.iconPixels, iconPixels);
+    if (!hadValidDb && keptPixels) iconsSeeded++;
     await prisma.contentIngredient.upsert({
       where: { id: ing.id as string },
       create: {
@@ -58,8 +47,8 @@ async function syncContent() {
       },
     });
   }
-  if (iconsRestored > 0) {
-    console.log(`[sync-content] Restored/updated iconPixels for ${iconsRestored} ingredient(s)`);
+  if (iconsSeeded > 0) {
+    console.log(`[sync-content] Seeded missing iconPixels for ${iconsSeeded} ingredient(s) from JSON`);
   }
 
   for (const spell of load<Record<string, unknown>>('spells.json')) {
@@ -115,7 +104,7 @@ async function syncContent() {
     });
   }
 
-  console.log('[sync-content] Done (item icons prefer shipped JSON over legacy/procedural DB art).');
+  console.log('[sync-content] Done.');
 }
 
 syncContent()

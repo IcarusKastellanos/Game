@@ -22,7 +22,6 @@
     "db:seed": "npm run db:seed -w server",
     "db:seed:admin": "npm run db:seed:admin -w server",
     "content:sync": "npm run content:sync -w server",
-    "content:sync-icons": "FORCE_SHIPPED_ITEM_ICONS=1 npm run content:sync -w server",
     "content:validate-npc": "npm run build -w shared && node scripts/validate-npc-content.mjs",
     "test:shared": "npm run test -w shared",
     "assets:aura": "node scripts/generate-aura-ui-assets.mjs",

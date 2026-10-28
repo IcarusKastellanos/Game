@@ -21,7 +21,10 @@ export function getPublicIngredients(): ContentIngredient[] {
   });
 }
 
-/** Overlay custom (non-legacy) iconPixels from DB onto JSON-loaded registry. */
+/**
+ * Postgres `data.iconPixels` is the live source of truth for item art.
+ * Always overlay valid DB icons onto the JSON-loaded registry at boot / reload.
+ */
 export async function mergeIngredientIconsFromDb(): Promise<number> {
   let merged = 0;
   try {
@@ -32,23 +35,15 @@ export async function mergeIngredientIconsFromDb(): Promise<number> {
       const existing = contentRegistry.ingredients.get(row.id);
       if (!existing) continue;
       const data = (row.data ?? {}) as { iconPixels?: string[] | null };
-      if (
-        !shouldMergeStoredIngredientIcon(data.iconPixels, existing.iconPixels, {
-          id: existing.id,
-          category: existing.category,
-          name: existing.name,
-        })
-      ) {
-        continue;
-      }
+      if (!shouldMergeStoredIngredientIcon(data.iconPixels)) continue;
       contentRegistry.ingredients.set(row.id, {
         ...existing,
-        iconPixels: data.iconPixels as string[],
+        iconPixels: [...(data.iconPixels as string[])],
       });
       merged++;
     }
     if (merged > 0) {
-      console.log(`[ContentRegistry] Merged custom iconPixels from DB for ${merged} item(s)`);
+      console.log(`[ContentRegistry] Applied DB item icons for ${merged} item(s)`);
     }
   } catch (err) {
     console.warn('[ContentRegistry] Could not merge icons from DB:', err);
