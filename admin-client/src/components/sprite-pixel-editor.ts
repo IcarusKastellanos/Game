@@ -109,8 +109,12 @@ export function mountSpritePixelEditor(
 
   const paint = (ev: MouseEvent): void => {
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((ev.clientX - rect.left) / scale);
-    const y = Math.floor((ev.clientY - rect.top) / scale);
+    // Map from CSS box size, not buffer scale — max-width shrink must not clip the grid to ~16×16.
+    const cellW = rect.width / widthPx;
+    const cellH = rect.height / heightPx;
+    if (cellW <= 0 || cellH <= 0) return;
+    const x = Math.floor((ev.clientX - rect.left) / cellW);
+    const y = Math.floor((ev.clientY - rect.top) / cellH);
     if (x < 0 || y < 0 || x >= widthPx || y >= heightPx) return;
     if (colorTools.isEyedropperActive()) {
       colorTools.sampleAt(x, y);
