@@ -115,6 +115,7 @@ export function npcWorldSignature(payload: NpcWorldPayload): string {
         presence.interactableId ?? '',
         presence.dialogueNodeId ?? '',
         presence.notice ?? '',
+        presence.facing ?? '',
         presence.moving || !presence.tile ? '' : `${presence.tile.x},${presence.tile.y}`,
       ].join('|')
     )

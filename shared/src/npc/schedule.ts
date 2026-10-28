@@ -6,6 +6,7 @@ import type {
   NpcScheduleMovement,
   NpcScheduleOverride,
 } from '../types/index.js';
+import { directionFromDelta, type NpcWalkDirection } from './visual.js';
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 const INTERACTIONS = new Set<NpcScheduleInteraction>(['open', 'busy', 'away']);
@@ -38,6 +39,8 @@ export interface NpcPublicPresence {
   interactableId?: string;
   dialogueNodeId?: string;
   notice?: string;
+  /** 8-dir facing for walk/idle anims (derived from movement or default). */
+  facing?: import('./visual.js').NpcWalkDirection;
 }
 
 export interface NpcMapBounds {
@@ -100,13 +103,20 @@ export function resolveNpcPresence(input: NpcResolveInput): NpcPublicPresence {
   const problem = destinationProblem(place, input.maps, input.blocked);
   if (problem || !place) return heldPresence(input, activity.locationId, place);
   if (place.indoors || place.x == null || place.y == null) {
-    return finishPresence(input.npc, activity, place, null, false);
+    return finishPresence(input.npc, activity, place, null, false, input.previous?.facing);
   }
   const destination = { x: place.x, y: place.y };
   const previous = input.previous ?? null;
   if (previous && continuingWalk(previous, place, destination)) {
     if (input.nowMs >= (previous.moveEnd as number)) {
-      return finishPresence(input.npc, activity, place, destination, false);
+      return finishPresence(
+        input.npc,
+        activity,
+        place,
+        destination,
+        false,
+        facingForWalk(previous.from, previous.to, previous.facing)
+      );
     }
     return movingPresence(input.npc, activity, place, previous, input.nowMs);
   }
@@ -127,13 +137,23 @@ export function resolveNpcPresence(input: NpcResolveInput): NpcPublicPresence {
       to: destination,
       moveStart: input.nowMs,
       moveEnd: input.nowMs + duration,
+      facing: facingForWalk(from, destination, previous?.facing),
       ...(activity.activity ? { activity: activity.activity } : {}),
       ...(place.interactableId ? { interactableId: place.interactableId } : {}),
       ...(activity.dialogueNodeId ? { dialogueNodeId: activity.dialogueNodeId } : {}),
     };
     return movingPresence(input.npc, activity, place, started, input.nowMs);
   }
-  return finishPresence(input.npc, activity, place, destination, false);
+  return finishPresence(input.npc, activity, place, destination, false, previous?.facing);
+}
+
+function facingForWalk(
+  from: NpcTile | undefined,
+  to: NpcTile | undefined,
+  previous?: NpcWalkDirection
+): NpcWalkDirection {
+  if (!from || !to) return previous ?? 'down';
+  return directionFromDelta(to.x - from.x, to.y - from.y, previous ?? 'down');
 }
 
 /** Tile at `nowMs`. Clients interpolate from the published from/to timestamps. */
@@ -214,7 +234,8 @@ function finishPresence(
   activity: SelectedActivity,
   place: NpcPlace,
   tile: NpcTile | null,
-  moving: boolean
+  moving: boolean,
+  previousFacing?: NpcWalkDirection
 ): NpcPublicPresence {
   const indoors = place.indoors === true || tile == null;
   const interaction = indoors || moving ? 'away' : activity.interaction ?? 'open';
@@ -228,6 +249,7 @@ function finishPresence(
     indoors,
     held: false,
     moving,
+    facing: previousFacing ?? 'down',
     ...(activity.activity ? { activity: activity.activity } : {}),
     ...(interaction === 'busy' ? { notice: activityNotice(npc.name, activity) } : {}),
     ...(place.interactableId ? { interactableId: place.interactableId } : {}),
@@ -257,6 +279,7 @@ function movingPresence(
     to: walk.to,
     moveStart: walk.moveStart,
     moveEnd: walk.moveEnd,
+    facing: facingForWalk(walk.from, walk.to, walk.facing),
     ...(activity.activity ? { activity: activity.activity } : {}),
     ...(place.interactableId ? { interactableId: place.interactableId } : {}),
     ...(activity.dialogueNodeId ? { dialogueNodeId: activity.dialogueNodeId } : {}),

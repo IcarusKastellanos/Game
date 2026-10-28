@@ -3,9 +3,13 @@ import {
   TILE_SIZE,
   distanceToInteractableFootprintPx,
   interactRangeFromEdgePx,
+  npcIdleAnimKey,
   npcPresenceTile,
+  npcWalkAnimKey,
+  npcWalkSheetKey,
   placedObjectDepth,
   RENDER_LEVEL_PLAYER,
+  type NpcWalkDirection,
 } from '@witchcraft/shared';
 import type { ContentMapDefinition } from '@witchcraft/shared';
 import { gameState } from '../data/game-state';
@@ -17,6 +21,7 @@ import { configureFeetHitbox, configurePlayerPhysics } from '../systems/WorldMov
 import { worldTilesToPixels } from '../utils/world-coords';
 import { ambientAudio } from '../audio/AmbientAudio';
 import { TeleportEffect } from '../graphics/TeleportEffect';
+import { npcFacingFromPresence } from '../graphics/SpriteGenerator';
 
 /** Base scene for apartment and town — shared movement/multiplayer logic */
 export abstract class BaseWorldScene extends Phaser.Scene {
@@ -429,14 +434,14 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       if (posted.has(presence.npcId)) continue;
       const tile = npcPresenceTile(presence, now);
       if (!tile) continue;
-      const key = `npc_${presence.npcId}`;
+      const key = npcWalkSheetKey(presence.npcId);
       if (!this.textures.exists(key)) continue;
       wanted.add(presence.npcId);
       const x = tile.x * TILE_SIZE + TILE_SIZE / 2;
       const y = tile.y * TILE_SIZE + TILE_SIZE / 2;
       let sprite = this.npcWalkers.get(presence.npcId);
       if (!sprite?.active) {
-        sprite = this.add.sprite(x, y, key).setOrigin(0.5, 0.5);
+        sprite = this.add.sprite(x, y, key).setOrigin(0.5, 0.85);
         this.npcWalkers.set(presence.npcId, sprite);
       } else if (sprite.texture.key !== key) {
         sprite.setTexture(key);
@@ -444,6 +449,7 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       sprite.setPosition(x, y);
       sprite.setVisible(true);
       sprite.setDepth(placedObjectDepth(RENDER_LEVEL_PLAYER, y));
+      this.playNpcPresenceAnim(sprite, presence.npcId, presence);
       applyNpcPresenceChrome(sprite, presence.interaction);
     }
     for (const [npcId, sprite] of this.npcWalkers) {
@@ -452,6 +458,30 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       this.npcWalkers.delete(npcId);
     }
     this.applyPostedNpcChrome();
+  }
+
+  private playNpcPresenceAnim(
+    sprite: Phaser.GameObjects.Sprite,
+    npcId: string,
+    presence: { facing?: string; moving?: boolean; from?: { x: number; y: number }; to?: { x: number; y: number } }
+  ): void {
+    const facing = npcFacingFromPresence(presence) as NpcWalkDirection;
+    const walk = npcWalkAnimKey(npcId, facing);
+    const idle = npcIdleAnimKey(npcId, facing);
+    if (presence.moving && this.anims.exists(walk)) {
+      if (sprite.anims.currentAnim?.key !== walk) sprite.play(walk, true);
+      return;
+    }
+    if (this.anims.exists(idle)) {
+      if (sprite.anims.currentAnim?.key !== idle) sprite.play(idle, true);
+      return;
+    }
+    if (this.anims.exists(walk)) {
+      sprite.anims.stop();
+      const dirs = ['down', 'down-right', 'right', 'up-right', 'up', 'up-left', 'left', 'down-left'];
+      const row = Math.max(0, dirs.indexOf(facing));
+      sprite.setFrame(row * 4);
+    }
   }
 
   /** Tint posted NPC sprites from authoritative presence (busy / open). */
@@ -464,6 +494,11 @@ export abstract class BaseWorldScene extends Phaser.Scene {
       if (!inter || inter.type !== 'npc') return;
       const npcId = typeof inter.data?.npcId === 'string' ? inter.data.npcId : '';
       const presence = npcId ? byNpc.get(npcId) : undefined;
+      if (npcId && presence) this.playNpcPresenceAnim(sprite, npcId, presence);
+      else if (npcId) {
+        const idle = npcIdleAnimKey(npcId, 'down');
+        if (this.anims.exists(idle) && sprite.anims.currentAnim?.key !== idle) sprite.play(idle, true);
+      }
       applyNpcPresenceChrome(sprite, presence?.interaction);
     });
   }

@@ -19,6 +19,7 @@ export type ClientNpc = Pick<
   | 'faction'
   | 'biography'
   | 'spritePixels'
+  | 'visual'
   | 'capabilities'
   | 'conversationPolicy'
 > & {
@@ -54,6 +55,7 @@ export function toClientNpc(npc: ContentNpc, opts?: { omitSpritePixels?: boolean
       ? { spritePixels: npc.spritePixels }
       : {}),
     spriteHash,
+    ...(npc.visual ? { visual: npc.visual } : {}),
     ...(npc.capabilities?.length ? { capabilities: npc.capabilities } : {}),
     ...(npc.conversationPolicy ? { conversationPolicy: npc.conversationPolicy } : {}),
     ...(schedule.length ? { schedule } : {}),

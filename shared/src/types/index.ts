@@ -508,8 +508,12 @@ export interface ContentNpc {
   secrets?: string[];
   /** Actions offered at this NPC. Omitted lists are derived from dialogue, shop, and quests. */
   capabilities?: NpcCapability[];
-  /** Custom 16×16 overworld sprite pixels (admin-painted or imported) */
+  /** Custom 16×16 portrait pixels (People / encounter UI). Overworld uses walk/idle sheets. */
   spritePixels?: string[];
+  /** Procedural overworld look; omitted uses shipped defaults in NpcVisualProfile table. */
+  visual?: import('../npc/visual.js').NpcVisualProfile;
+  /** Optional authored 16×24 walk/idle sheets (hybrid override). */
+  spriteSheet?: import('../npc/visual.js').NpcAuthoredSpriteSheet;
   /** Trait scores 0–100. Colors reactions; never bypasses permissions or quest gates. */
   personality?: import('../npc/personality.js').PersonalityProfile;
   /** How concurrent players may talk to this NPC. */

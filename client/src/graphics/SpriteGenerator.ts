@@ -1,6 +1,21 @@
 import Phaser from 'phaser';
-import { TILE_SIZE } from '@witchcraft/shared';
+import {
+  TILE_SIZE,
+  NPC_WALK_DIRECTIONS,
+  npcIdleAnimKey,
+  npcIdleSheetKey,
+  npcLegacySpriteKey,
+  npcPortraitKey,
+  npcWalkAnimKey,
+  npcWalkSheetKey,
+  resolveNpcVisualProfile,
+  type NpcAccessory,
+  type NpcVisualProfile,
+  type NpcWalkDirection,
+} from '@witchcraft/shared';
 import { ensureMapSpriteTexture } from './MapSpriteTextures';
+
+const NPC_IDLE_FRAMES = 2;
 
 /** Stardew-inspired palette */
 const PAL = {
@@ -347,57 +362,328 @@ export function animKeyForDirection(sheetKey: string, dir: WalkDirection): strin
   return `${sheetKey}_${dir}`;
 }
 
-function hashNpcId(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
 function registerNpcPixelTexture(scene: Phaser.Scene, key: string, pixels: string[]): void {
   if (scene.textures.exists(key)) scene.textures.remove(key);
   ensureMapSpriteTexture(scene, key, TILE_SIZE, TILE_SIZE, pixels);
 }
 
-/** Unique 16-bit-style NPC portrait sprites per content id */
+function sliceSheet(
+  scene: Phaser.Scene,
+  key: string,
+  cols: number,
+  rows: number,
+  frameW: number,
+  frameH: number
+): void {
+  const tex = scene.textures.get(key);
+  tex.remove('__BASE');
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      tex.add(row * cols + col, 0, col * frameW, row * frameH, frameW, frameH);
+    }
+  }
+}
+
+function drawNpcCharacter(
+  g: Phaser.GameObjects.Graphics,
+  ox: number,
+  oy: number,
+  dir: NpcWalkDirection,
+  frame: number,
+  profile: NpcVisualProfile,
+  mode: 'walk' | 'idle'
+): void {
+  const c = profile.colors;
+  const buildPad = profile.build === 'sturdy' ? 1 : profile.build === 'slight' ? -1 : 0;
+  const tall = profile.build === 'tall' ? 1 : 0;
+  const bob =
+    mode === 'walk'
+      ? frame % 2 === 1
+        ? 1
+        : 0
+      : profile.idleStyle === 'breathe'
+        ? frame === 1
+          ? 1
+          : 0
+        : profile.idleStyle === 'shift'
+          ? frame === 1
+            ? 1
+            : 0
+          : frame === 1
+            ? 1
+            : 0;
+  const cx = ox + FRAME_W / 2;
+  const baseY = oy + FRAME_H - 4 + bob;
+
+  g.fillStyle(0x000000, 0.25);
+  g.fillEllipse(cx, baseY + 2, 10 + buildPad, 3);
+
+  const legOff = mode === 'walk' ? (frame === 1 ? 1 : frame === 3 ? -1 : 0) : 0;
+  g.fillStyle(c.pants, 1);
+  g.fillRect(cx - 4 - buildPad, baseY - 6 - tall, 3 + buildPad, 6 + (legOff > 0 ? 1 : 0) + tall);
+  g.fillRect(cx + 1, baseY - 6 - tall, 3 + buildPad, 6 + (legOff < 0 ? 1 : 0) + tall);
+  g.fillStyle(c.pantsDark, 1);
+  g.fillRect(cx - 4 - buildPad, baseY - 2, 3 + buildPad, 2);
+  g.fillRect(cx + 1, baseY - 2, 3 + buildPad, 2);
+
+  g.fillStyle(c.shirt, 1);
+  g.fillRect(cx - 5 - buildPad, baseY - 14 - tall, 10 + buildPad * 2, 9 + tall);
+  g.fillStyle(c.shirtLight, 1);
+  if (dir.includes('left') || dir === 'left') g.fillRect(cx - 5 - buildPad, baseY - 13 - tall, 2, 7);
+  if (dir.includes('right') || dir === 'right') g.fillRect(cx + 3, baseY - 13 - tall, 2, 7);
+
+  const accessories = profile.accessories ?? [];
+  drawNpcAccessories(g, cx, baseY, dir, accessories, c.accent ?? c.shirtLight, 'body');
+
+  g.fillStyle(c.skin, 1);
+  const armSwing = mode === 'walk' ? (frame === 1 ? 1 : frame === 3 ? -1 : 0) : frame === 1 ? 1 : 0;
+  const fidget = mode === 'idle' && profile.idleStyle === 'fidget' && frame === 1 ? 1 : 0;
+  g.fillRect(cx - 7 - buildPad, baseY - 12 + armSwing - tall, 2, 5);
+  g.fillRect(cx + 5 + buildPad, baseY - 12 - armSwing + fidget - tall, 2, 5);
+
+  g.fillStyle(c.skin, 1);
+  g.fillRect(cx - 4, baseY - 20 - tall, 8, 7);
+  g.fillStyle(c.skinShadow, 0.5);
+  if (dir === 'down' || dir.includes('down')) g.fillRect(cx - 2, baseY - 14 - tall, 4, 2);
+
+  drawNpcHair(g, cx, baseY - tall, dir, profile);
+  drawNpcAccessories(g, cx, baseY - tall, dir, accessories, c.accent ?? c.shirtLight, 'head');
+
+  g.fillStyle(PAL.outline, 1);
+  if (dir === 'down' || dir.includes('down')) {
+    g.fillRect(cx - 3, baseY - 18 - tall, 2, 2);
+    g.fillRect(cx + 1, baseY - 18 - tall, 2, 2);
+  } else if (dir.includes('left') || dir === 'left') {
+    g.fillRect(cx - 4, baseY - 18 - tall, 2, 2);
+  } else if (dir.includes('right') || dir === 'right') {
+    g.fillRect(cx + 2, baseY - 18 - tall, 2, 2);
+  }
+}
+
+function drawNpcHair(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  baseY: number,
+  dir: NpcWalkDirection,
+  profile: NpcVisualProfile
+): void {
+  const hair = profile.colors.hair;
+  g.fillStyle(hair, 1);
+  const style = profile.hairStyle;
+  if (style === 'balding') {
+    g.fillRect(cx - 4, baseY - 22, 8, 2);
+    g.fillRect(cx - 5, baseY - 21, 2, 3);
+    g.fillRect(cx + 3, baseY - 21, 2, 3);
+    return;
+  }
+  if (style === 'hood') {
+    g.fillStyle(profile.colors.shirt, 1);
+    g.fillRect(cx - 6, baseY - 23, 12, 8);
+    g.fillStyle(hair, 1);
+    g.fillRect(cx - 3, baseY - 20, 6, 3);
+    return;
+  }
+  g.fillRect(cx - 5, baseY - 22, 10, 4);
+  if (style === 'bun') {
+    g.fillRect(cx - 2, baseY - 24, 4, 3);
+  }
+  if (style === 'long' || style === 'wild') {
+    if (dir.includes('up') || dir === 'up') g.fillRect(cx - 5, baseY - 21, 10, 8);
+    else if (dir.includes('left') || dir === 'left') g.fillRect(cx - 7, baseY - 21, 5, 10);
+    else if (dir.includes('right') || dir === 'right') g.fillRect(cx + 2, baseY - 21, 5, 10);
+    else g.fillRect(cx - 5, baseY - 16, 3, 5), g.fillRect(cx + 2, baseY - 16, 3, 5);
+  } else if (dir.includes('up') || dir === 'up') {
+    g.fillRect(cx - 5, baseY - 21, 10, 6);
+  } else if (dir.includes('left') || dir === 'left') {
+    g.fillRect(cx - 6, baseY - 21, 4, 8);
+  } else if (dir.includes('right') || dir === 'right') {
+    g.fillRect(cx + 2, baseY - 21, 4, 8);
+  }
+  if (style === 'wild') {
+    g.fillRect(cx - 6, baseY - 23, 2, 2);
+    g.fillRect(cx + 4, baseY - 23, 2, 2);
+  }
+}
+
+function drawNpcAccessories(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  baseY: number,
+  dir: NpcWalkDirection,
+  accessories: NpcAccessory[],
+  accent: number,
+  layer: 'body' | 'head'
+): void {
+  for (const item of accessories) {
+    if (layer === 'body') {
+      if (item === 'apron') {
+        g.fillStyle(0xe8e0d0, 1);
+        g.fillRect(cx - 4, baseY - 12, 8, 7);
+      }
+      if (item === 'vest') {
+        g.fillStyle(accent, 1);
+        g.fillRect(cx - 5, baseY - 14, 2, 8);
+        g.fillRect(cx + 3, baseY - 14, 2, 8);
+      }
+      if (item === 'robe') {
+        g.fillStyle(accent, 0.85);
+        g.fillRect(cx - 6, baseY - 14, 12, 10);
+      }
+      if (item === 'tool_belt') {
+        g.fillStyle(0x5c4510, 1);
+        g.fillRect(cx - 5, baseY - 7, 10, 2);
+        g.fillStyle(accent, 1);
+        g.fillRect(cx + 2, baseY - 8, 3, 3);
+      }
+      if (item === 'satchel' && (dir.includes('left') || dir === 'left' || dir === 'down' || dir.includes('down'))) {
+        g.fillStyle(0x5c4510, 1);
+        g.fillRect(cx + 4, baseY - 11, 3, 4);
+      }
+      if (item === 'clipboard' && (dir === 'down' || dir.includes('down') || dir.includes('right'))) {
+        g.fillStyle(0xe8eef4, 1);
+        g.fillRect(cx + 4, baseY - 13, 3, 5);
+      }
+      if (item === 'crystal_pendant' && (dir === 'down' || dir.includes('down'))) {
+        g.fillStyle(accent, 1);
+        g.fillRect(cx - 1, baseY - 11, 2, 2);
+      }
+    } else {
+      if (item === 'glasses' && (dir === 'down' || dir.includes('down') || dir.includes('left') || dir.includes('right'))) {
+        g.fillStyle(0x88aacc, 0.9);
+        g.fillRect(cx - 4, baseY - 18, 3, 2);
+        g.fillRect(cx + 1, baseY - 18, 3, 2);
+      }
+      if (item === 'scarf') {
+        g.fillStyle(accent, 1);
+        g.fillRect(cx - 5, baseY - 15, 10, 2);
+        if (dir === 'down' || dir.includes('down')) g.fillRect(cx - 1, baseY - 13, 2, 4);
+      }
+      if (item === 'hat') {
+        g.fillStyle(accent, 1);
+        g.fillRect(cx - 6, baseY - 23, 12, 3);
+        g.fillRect(cx - 4, baseY - 25, 8, 2);
+      }
+    }
+  }
+}
+
+function generateNpcDirectionalSheet(
+  scene: Phaser.Scene,
+  key: string,
+  profile: NpcVisualProfile,
+  mode: 'walk' | 'idle',
+  framesPerDir: number
+): void {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const cols = framesPerDir;
+  const rows = NPC_WALK_DIRECTIONS.length;
+  const w = cols * FRAME_W;
+  const h = rows * FRAME_H;
+  const g = scene.make.graphics({ x: 0, y: 0 });
+  NPC_WALK_DIRECTIONS.forEach((dir, row) => {
+    for (let frame = 0; frame < framesPerDir; frame++) {
+      drawNpcCharacter(g, frame * FRAME_W, row * FRAME_H, dir, frame, profile, mode);
+    }
+  });
+  g.generateTexture(key, w, h);
+  g.destroy();
+  sliceSheet(scene, key, cols, rows, FRAME_W, FRAME_H);
+
+  NPC_WALK_DIRECTIONS.forEach((dir, row) => {
+    const frames = Array.from({ length: framesPerDir }, (_, i) => ({ key, frame: row * cols + i }));
+    const animKey = mode === 'walk' ? `${key}_${dir}` : `${key}_${dir}`;
+    if (scene.anims.exists(animKey)) scene.anims.remove(animKey);
+    scene.anims.create({
+      key: animKey,
+      frames,
+      frameRate: mode === 'walk' ? 8 : 2,
+      repeat: -1,
+    });
+  });
+}
+
+function generateNpcPortrait(
+  scene: Phaser.Scene,
+  npc: { id: string; spritePixels?: string[] },
+  profile: NpcVisualProfile
+): void {
+  const portrait = npcPortraitKey(npc.id);
+  const legacy = npcLegacySpriteKey(npc.id);
+  if (npc.spritePixels?.length === 256) {
+    registerNpcPixelTexture(scene, portrait, npc.spritePixels);
+    registerNpcPixelTexture(scene, legacy, npc.spritePixels);
+    return;
+  }
+  if (scene.textures.exists(portrait)) return;
+  const g = scene.make.graphics({ x: 0, y: 0 });
+  const c = profile.colors;
+  g.fillStyle(PAL.outline, 0.35);
+  g.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+  g.fillStyle(c.skin, 1);
+  g.fillRect(5, 3, 6, 5);
+  g.fillStyle(c.hair, 1);
+  g.fillRect(4, 2, 8, 3);
+  if (profile.hairStyle === 'long' || profile.hairStyle === 'wild') {
+    g.fillRect(3, 3, 2, 5);
+    g.fillRect(11, 3, 2, 5);
+  }
+  g.fillStyle(c.shirt, 1);
+  g.fillRect(4, 8, 8, 6);
+  g.fillStyle(PAL.outline, 1);
+  g.fillRect(6, 5, 1, 1);
+  g.fillRect(9, 5, 1, 1);
+  if (profile.accessories?.includes('glasses')) {
+    g.fillStyle(0x88aacc, 0.9);
+    g.fillRect(5, 5, 2, 1);
+    g.fillRect(9, 5, 2, 1);
+  }
+  g.fillStyle(c.accent ?? 0xffeedd, 1);
+  g.fillRect(5, 14, 6, 1);
+  g.generateTexture(portrait, TILE_SIZE, TILE_SIZE);
+  // Duplicate for any leftover legacy lookups.
+  if (scene.textures.exists(legacy)) scene.textures.remove(legacy);
+  g.generateTexture(legacy, TILE_SIZE, TILE_SIZE);
+  g.destroy();
+}
+
+/**
+ * Portraits (16×16) + 8-dir walk/idle overworld sheets (16×24).
+ * Authored spritePixels remain portraits only.
+ */
 export function generateNpcSprites(
   scene: Phaser.Scene,
-  npcs: { id: string; name: string; spritePixels?: string[] }[]
+  npcs: { id: string; name: string; spritePixels?: string[]; visual?: NpcVisualProfile }[]
 ): void {
   for (const npc of npcs) {
-    const key = `npc_${npc.id}`;
-    if (scene.textures.exists(key) && !npc.spritePixels?.length) continue;
+    const profile = resolveNpcVisualProfile(npc.id, npc.visual);
+    generateNpcPortrait(scene, npc, profile);
 
-    if (npc.spritePixels?.length === 256) {
-      registerNpcPixelTexture(scene, key, npc.spritePixels);
-      continue;
-    }
+    const walkKey = npcWalkSheetKey(npc.id);
+    const idleKey = npcIdleSheetKey(npc.id);
+    generateNpcDirectionalSheet(scene, walkKey, profile, 'walk', FRAMES_PER_DIR);
+    generateNpcDirectionalSheet(scene, idleKey, profile, 'idle', NPC_IDLE_FRAMES);
 
-    if (scene.textures.exists(key)) continue;
-    const hash = hashNpcId(npc.id);
-    const shirt = [0x6b4c8a, 0x4a7a6a, 0x8a5a4a, 0x5a6a8a, 0x7a4a6a][hash % 5];
-    const hair = [0x3d2314, 0x1a1a2a, 0x5c4033, 0x2a2a3a, 0x4a3020][(hash >> 3) % 5];
-    const skin = hash % 2 === 0 ? PAL.skin : 0xe8b890;
-
-    const g = scene.make.graphics({ x: 0, y: 0 });
-    g.fillStyle(PAL.outline, 0.35);
-    g.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-    g.fillStyle(skin, 1);
-    g.fillRect(5, 3, 6, 5);
-    g.fillStyle(hair, 1);
-    g.fillRect(4, 2, 8, 3);
-    if (hash % 3 === 0) g.fillRect(3, 3, 2, 4);
-    if (hash % 3 === 1) g.fillRect(11, 3, 2, 4);
-    g.fillStyle(shirt, 1);
-    g.fillRect(4, 8, 8, 6);
-    g.fillStyle(PAL.outline, 1);
-    g.fillRect(6, 5, 1, 1);
-    g.fillRect(9, 5, 1, 1);
-    g.fillStyle(0xffeedd, 1);
-    g.fillRect(5, 14, 6, 1);
-    g.generateTexture(key, TILE_SIZE, TILE_SIZE);
-    g.destroy();
+    // Sanity: anim helpers match registered keys.
+    void npcWalkAnimKey(npc.id, 'down');
+    void npcIdleAnimKey(npc.id, 'down');
   }
+}
+
+export function npcFacingFromPresence(presence: {
+  facing?: string;
+  moving?: boolean;
+  from?: { x: number; y: number };
+  to?: { x: number; y: number };
+}): NpcWalkDirection {
+  if (presence.facing && (NPC_WALK_DIRECTIONS as readonly string[]).includes(presence.facing)) {
+    return presence.facing as NpcWalkDirection;
+  }
+  if (presence.moving && presence.from && presence.to) {
+    return directionFromVelocity(
+      presence.to.x - presence.from.x,
+      presence.to.y - presence.from.y,
+      'down'
+    ) as NpcWalkDirection;
+  }
+  return 'down';
 }

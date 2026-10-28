@@ -56,6 +56,7 @@ export interface ClientContentBundle {
     dialogueTreeId: string;
     spritePixels?: string[];
     spriteHash?: string;
+    visual?: import('@witchcraft/shared').NpcVisualProfile;
     shopId?: string;
     locationId?: string;
   }[];
