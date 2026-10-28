@@ -1,9 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  NPC_IDLE_PIXEL_COUNT,
   NPC_VISUAL_PROFILES,
+  NPC_WALK_PIXEL_COUNT,
   directionFromDelta,
+  hashNpcAuthoredSpriteSheet,
+  normalizeNpcAuthoredSpriteSheet,
   npcIdleAnimKey,
+  npcVisualContentHash,
   npcWalkAnimKey,
   npcWalkSheetKey,
   resolveNpcPresence,
@@ -66,4 +71,56 @@ test('resolveNpcVisualProfile falls back for unknown NPCs', () => {
   const profile = resolveNpcVisualProfile('npc_unknown');
   assert.equal(profile.build, 'average');
   assert.ok(profile.colors.shirt);
+});
+
+test('normalizeNpcAuthoredSpriteSheet accepts walk-only and idle-only planes', () => {
+  const walk = Array.from({ length: NPC_WALK_PIXEL_COUNT }, () => '#ff00aa');
+  const idle = Array.from({ length: NPC_IDLE_PIXEL_COUNT }, () => '#00ffaa');
+  const walkOnly = normalizeNpcAuthoredSpriteSheet({
+    frameW: 16,
+    frameH: 24,
+    walkFrames: 4,
+    idleFrames: 2,
+    walkPixels: walk,
+  });
+  assert.ok(walkOnly?.walkPixels);
+  assert.equal(walkOnly?.idlePixels, undefined);
+
+  const idleOnly = normalizeNpcAuthoredSpriteSheet({
+    frameW: 16,
+    frameH: 24,
+    walkFrames: 4,
+    idleFrames: 2,
+    idlePixels: idle,
+  });
+  assert.ok(idleOnly?.idlePixels);
+  assert.equal(idleOnly?.walkPixels, undefined);
+
+  assert.equal(normalizeNpcAuthoredSpriteSheet({ walkPixels: ['#fff'] }), undefined);
+});
+
+test('authored sheet hash changes when pixels change', () => {
+  const walkA = Array.from({ length: NPC_WALK_PIXEL_COUNT }, () => '#111111');
+  const walkB = Array.from({ length: NPC_WALK_PIXEL_COUNT }, () => '#222222');
+  const a = hashNpcAuthoredSpriteSheet({
+    frameW: 16,
+    frameH: 24,
+    walkFrames: 4,
+    idleFrames: 2,
+    walkPixels: walkA,
+  });
+  const b = hashNpcAuthoredSpriteSheet({
+    frameW: 16,
+    frameH: 24,
+    walkFrames: 4,
+    idleFrames: 2,
+    walkPixels: walkB,
+  });
+  assert.ok(a);
+  assert.ok(b);
+  assert.notEqual(a, b);
+  assert.match(
+    npcVisualContentHash({ id: 'npc_mara', spriteSheet: { frameW: 16, frameH: 24, walkFrames: 4, idleFrames: 2, walkPixels: walkA } }),
+    /\|/
+  );
 });

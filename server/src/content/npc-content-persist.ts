@@ -36,6 +36,14 @@ export async function saveNpcDefinition(
     throw new ContentSaveError(message, 400);
   }
   const npc = parsed.npc;
+  const clearSpriteSheet =
+    !!value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    (value as { spriteSheet?: unknown }).spriteSheet === null;
+  if (clearSpriteSheet) {
+    delete npc.spriteSheet;
+  }
   const existing = await prisma.contentNpc.findUnique({ where: { id: npc.id } });
   const previous = [...contentRegistry.npcs.values()];
   const records = previous.map((entry) => (entry.id === npc.id ? npc : entry));
@@ -51,7 +59,7 @@ export async function saveNpcDefinition(
   const replaced = contentRegistry.npcs.get(npc.id);
   contentRegistry.npcs.set(npc.id, npc);
   try {
-    const dbRow = npcToDb(npc, existing?.data);
+    const dbRow = npcToDb(npc, existing?.data, { clearSpriteSheet });
     await prisma.contentNpc.upsert({
       where: { id: npc.id },
       create: dbRow as never,
@@ -142,6 +150,7 @@ export async function saveDialogueDefinition(
 function publicNpc(npc: ContentNpc): ContentNpc {
   const copy = { ...(npc as ContentNpc & { data?: unknown; revision?: unknown }) };
   delete copy.spritePixels;
+  delete copy.spriteSheet;
   delete (copy as { data?: unknown }).data;
   delete (copy as { revision?: unknown }).revision;
   return copy;

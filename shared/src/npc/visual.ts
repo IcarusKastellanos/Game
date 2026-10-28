@@ -51,15 +51,114 @@ export interface NpcVisualProfile {
   idleStyle?: 'breathe' | 'shift' | 'fidget';
 }
 
+/** Shared frame contract for procedural + authored overworld sheets. */
+export const NPC_SHEET_FRAME_W = 16;
+export const NPC_SHEET_FRAME_H = 24;
+export const NPC_WALK_FRAMES_PER_DIR = 4;
+export const NPC_IDLE_FRAMES_PER_DIR = 2;
+export const NPC_WALK_SHEET_COLS = NPC_WALK_FRAMES_PER_DIR;
+export const NPC_IDLE_SHEET_COLS = NPC_IDLE_FRAMES_PER_DIR;
+export const NPC_SHEET_ROWS = NPC_WALK_DIRECTIONS.length;
+export const NPC_WALK_SHEET_W = NPC_WALK_SHEET_COLS * NPC_SHEET_FRAME_W;
+export const NPC_WALK_SHEET_H = NPC_SHEET_ROWS * NPC_SHEET_FRAME_H;
+export const NPC_IDLE_SHEET_W = NPC_IDLE_SHEET_COLS * NPC_SHEET_FRAME_W;
+export const NPC_IDLE_SHEET_H = NPC_SHEET_ROWS * NPC_SHEET_FRAME_H;
+export const NPC_WALK_PIXEL_COUNT = NPC_WALK_SHEET_W * NPC_WALK_SHEET_H;
+export const NPC_IDLE_PIXEL_COUNT = NPC_IDLE_SHEET_W * NPC_IDLE_SHEET_H;
+
 /** Optional authored override — same grid as procedural sheets. */
 export interface NpcAuthoredSpriteSheet {
   frameW: 16;
   frameH: 24;
   walkFrames: number;
   idleFrames: number;
-  /** Flattened CSS colors for walk sheet then idle sheet, or a single packed sheet. */
+  /** Flattened CSS colors for the walk atlas (cols×rows frames). */
   walkPixels?: string[];
+  /** Flattened CSS colors for the idle atlas (cols×rows frames). */
   idlePixels?: string[];
+}
+
+export function npcWalkPixelCount(walkFrames = NPC_WALK_FRAMES_PER_DIR): number {
+  return walkFrames * NPC_SHEET_ROWS * NPC_SHEET_FRAME_W * NPC_SHEET_FRAME_H;
+}
+
+export function npcIdlePixelCount(idleFrames = NPC_IDLE_FRAMES_PER_DIR): number {
+  return idleFrames * NPC_SHEET_ROWS * NPC_SHEET_FRAME_W * NPC_SHEET_FRAME_H;
+}
+
+function hashPixelList(pixels: string[]): string {
+  let h = 2166136261;
+  for (const px of pixels) {
+    for (let i = 0; i < px.length; i++) {
+      h ^= px.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+  }
+  return (h >>> 0).toString(36);
+}
+
+/** True when at least one authored sheet plane is present and sized correctly. */
+export function isValidNpcAuthoredSpriteSheet(
+  sheet: NpcAuthoredSpriteSheet | null | undefined
+): sheet is NpcAuthoredSpriteSheet {
+  return normalizeNpcAuthoredSpriteSheet(sheet) != null;
+}
+
+/**
+ * Normalize / validate an authored override. Returns undefined when empty or invalid.
+ * Partial overrides are allowed (walk-only or idle-only).
+ */
+export function normalizeNpcAuthoredSpriteSheet(
+  value: unknown
+): NpcAuthoredSpriteSheet | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const walkFrames =
+    typeof raw.walkFrames === 'number' && Number.isFinite(raw.walkFrames)
+      ? Math.max(1, Math.round(raw.walkFrames))
+      : NPC_WALK_FRAMES_PER_DIR;
+  const idleFrames =
+    typeof raw.idleFrames === 'number' && Number.isFinite(raw.idleFrames)
+      ? Math.max(1, Math.round(raw.idleFrames))
+      : NPC_IDLE_FRAMES_PER_DIR;
+  const frameW = raw.frameW === 16 || raw.frameW == null ? 16 : null;
+  const frameH = raw.frameH === 24 || raw.frameH == null ? 24 : null;
+  if (frameW == null || frameH == null) return undefined;
+
+  const walkPixels = Array.isArray(raw.walkPixels)
+    ? raw.walkPixels.filter((px): px is string => typeof px === 'string')
+    : undefined;
+  const idlePixels = Array.isArray(raw.idlePixels)
+    ? raw.idlePixels.filter((px): px is string => typeof px === 'string')
+    : undefined;
+
+  const walkOk = walkPixels && walkPixels.length === npcWalkPixelCount(walkFrames);
+  const idleOk = idlePixels && idlePixels.length === npcIdlePixelCount(idleFrames);
+  if (!walkOk && !idleOk) return undefined;
+
+  return {
+    frameW: 16,
+    frameH: 24,
+    walkFrames,
+    idleFrames,
+    ...(walkOk ? { walkPixels } : {}),
+    ...(idleOk ? { idlePixels } : {}),
+  };
+}
+
+/** Content hash for authored walk/idle planes (empty → undefined). */
+export function hashNpcAuthoredSpriteSheet(
+  sheet: NpcAuthoredSpriteSheet | null | undefined
+): string | undefined {
+  const normalized = normalizeNpcAuthoredSpriteSheet(sheet);
+  if (!normalized) return undefined;
+  const parts = [
+    `w${normalized.walkFrames}`,
+    `i${normalized.idleFrames}`,
+    normalized.walkPixels ? hashPixelList(normalized.walkPixels) : '-',
+    normalized.idlePixels ? hashPixelList(normalized.idlePixels) : '-',
+  ];
+  return parts.join(':');
 }
 
 /** Sheet keys — npcId already includes the `npc_` prefix (e.g. npc_mara). */

@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 import {
   TILE_SIZE,
   NPC_WALK_DIRECTIONS,
+  NPC_IDLE_FRAMES_PER_DIR,
+  NPC_SHEET_FRAME_H,
+  NPC_SHEET_FRAME_W,
+  NPC_WALK_FRAMES_PER_DIR,
+  isTransparentPixel,
+  normalizeNpcAuthoredSpriteSheet,
   npcIdleAnimKey,
   npcIdleSheetKey,
   npcLegacySpriteKey,
@@ -10,12 +16,16 @@ import {
   npcWalkSheetKey,
   resolveNpcVisualProfile,
   type NpcAccessory,
+  type NpcAuthoredSpriteSheet,
   type NpcVisualProfile,
   type NpcWalkDirection,
 } from '@witchcraft/shared';
 import { ensureMapSpriteTexture } from './MapSpriteTextures';
 
-const NPC_IDLE_FRAMES = 2;
+const NPC_IDLE_FRAMES = NPC_IDLE_FRAMES_PER_DIR;
+const FRAME_W = NPC_SHEET_FRAME_W;
+const FRAME_H = NPC_SHEET_FRAME_H;
+const FRAMES_PER_DIR = NPC_WALK_FRAMES_PER_DIR;
 
 /** Stardew-inspired palette */
 const PAL = {
@@ -39,9 +49,6 @@ const PAL = {
   water: 0x4a90c4,
 };
 
-const FRAME_W = 16;
-const FRAME_H = 24;
-const FRAMES_PER_DIR = 4;
 /** 8 directions: down, down-right, right, up-right, up, up-left, left, down-left */
 const DIRECTIONS = ['down', 'down-right', 'right', 'up-right', 'up', 'up-left', 'left', 'down-left'] as const;
 
@@ -646,24 +653,106 @@ function generateNpcPortrait(
   g.destroy();
 }
 
+/** Register a flat authored atlas under a stable key and create per-direction animations. */
+function registerAuthoredNpcSheet(
+  scene: Phaser.Scene,
+  key: string,
+  pixels: string[],
+  framesPerDir: number,
+  mode: 'walk' | 'idle'
+): boolean {
+  const cols = framesPerDir;
+  const rows = NPC_WALK_DIRECTIONS.length;
+  const w = cols * FRAME_W;
+  const h = rows * FRAME_H;
+  if (pixels.length !== w * h) return false;
+
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const canvas = scene.textures.createCanvas(key, w, h);
+  if (!canvas) return false;
+  const ctx = canvas.getContext();
+  ctx.clearRect(0, 0, w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const color = pixels[y * w + x];
+      if (isTransparentPixel(color)) continue;
+      ctx.fillStyle = color!;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+  canvas.refresh();
+  sliceSheet(scene, key, cols, rows, FRAME_W, FRAME_H);
+
+  NPC_WALK_DIRECTIONS.forEach((dir, row) => {
+    const frames = Array.from({ length: framesPerDir }, (_, i) => ({ key, frame: row * cols + i }));
+    const animKey = `${key}_${dir}`;
+    if (scene.anims.exists(animKey)) scene.anims.remove(animKey);
+    scene.anims.create({
+      key: animKey,
+      frames,
+      frameRate: mode === 'walk' ? 8 : 2,
+      repeat: -1,
+    });
+  });
+  return true;
+}
+
+function applyAuthoredOrProceduralSheets(
+  scene: Phaser.Scene,
+  npcId: string,
+  profile: NpcVisualProfile,
+  sheet: NpcAuthoredSpriteSheet | undefined
+): void {
+  const walkKey = npcWalkSheetKey(npcId);
+  const idleKey = npcIdleSheetKey(npcId);
+  const authored = normalizeNpcAuthoredSpriteSheet(sheet);
+
+  const walkAuthored =
+    !!authored?.walkPixels &&
+    registerAuthoredNpcSheet(
+      scene,
+      walkKey,
+      authored.walkPixels,
+      authored.walkFrames || FRAMES_PER_DIR,
+      'walk'
+    );
+  if (!walkAuthored) {
+    generateNpcDirectionalSheet(scene, walkKey, profile, 'walk', FRAMES_PER_DIR);
+  }
+
+  const idleAuthored =
+    !!authored?.idlePixels &&
+    registerAuthoredNpcSheet(
+      scene,
+      idleKey,
+      authored.idlePixels,
+      authored.idleFrames || NPC_IDLE_FRAMES,
+      'idle'
+    );
+  if (!idleAuthored) {
+    generateNpcDirectionalSheet(scene, idleKey, profile, 'idle', NPC_IDLE_FRAMES);
+  }
+}
+
 /**
  * Portraits (16×16) + 8-dir walk/idle overworld sheets (16×24).
- * Authored spritePixels remain portraits only.
+ * Authored spritePixels remain portraits only; spriteSheet overrides walk/idle.
  */
 export function generateNpcSprites(
   scene: Phaser.Scene,
-  npcs: { id: string; name: string; spritePixels?: string[]; visual?: NpcVisualProfile }[]
+  npcs: {
+    id: string;
+    name: string;
+    spritePixels?: string[];
+    visual?: NpcVisualProfile;
+    spriteSheet?: NpcAuthoredSpriteSheet;
+  }[]
 ): void {
   for (const npc of npcs) {
     const profile = resolveNpcVisualProfile(npc.id, npc.visual);
     generateNpcPortrait(scene, npc, profile);
+    applyAuthoredOrProceduralSheets(scene, npc.id, profile, npc.spriteSheet);
 
-    const walkKey = npcWalkSheetKey(npc.id);
-    const idleKey = npcIdleSheetKey(npc.id);
-    generateNpcDirectionalSheet(scene, walkKey, profile, 'walk', FRAMES_PER_DIR);
-    generateNpcDirectionalSheet(scene, idleKey, profile, 'idle', NPC_IDLE_FRAMES);
-
-    // Sanity: anim helpers match registered keys.
     void npcWalkAnimKey(npc.id, 'down');
     void npcIdleAnimKey(npc.id, 'down');
   }
