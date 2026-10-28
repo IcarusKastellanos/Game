@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { getLicensesDocument, getRecognitionDocument } from '@witchcraft/shared';
+import { getLicensesDocument, getRecognitionDocument, toClientNpcs } from '@witchcraft/shared';
 import { contentRegistry } from '../content/registry.js';
 import { getPublicIngredients, getIconManifest, mergeIngredientIconsFromDb, verifyIconHashes } from '../content/ingredient-icons.js';
 import { mergeNpcSpritesFromDb } from '../content/npc-sprites.js';
@@ -10,14 +10,14 @@ import { getGrimoireEntries, grimoireEntryNames } from '../content/grimoire-entr
 
 export const contentRouter = Router();
 
-/** Public content API for client bootstrap */
+/** Public content API for client bootstrap — NPCs are stripped of server-only fields. */
 contentRouter.get('/all', (_req: Request, res: Response) => {
   res.json({
     ingredients: getPublicIngredients(),
     spells: [...contentRegistry.spells.values()],
     familiars: [...contentRegistry.familiars.values()],
     shops: [...contentRegistry.shops.values()],
-    npcs: [...contentRegistry.npcs.values()],
+    npcs: toClientNpcs(contentRegistry.npcs.values()),
     tiles: [...contentRegistry.tiles.values()],
     decorations: [...contentRegistry.decorations.values()],
     maps: [...contentRegistry.maps.values()],

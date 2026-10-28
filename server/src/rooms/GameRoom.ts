@@ -90,7 +90,9 @@ import {
   buildPeopleDossierPatch,
   npcPresenceTile,
   interactRangeFromEdgePx,
+  nextSeq,
   type GiftItemFacts,
+  type PlayerProgression,
   takeInventorySlot,
   withGrimoire,
   type SurvivalActivity,
@@ -145,7 +147,6 @@ import type { PermissionSlug } from '@witchcraft/shared';
 import { registerGameRoom, unregisterGameRoom } from './game-room-registry.js';
 import { SlidingWindowRateLimiter } from '../utils/rate-limit.js';
 import {
-  sendWorldState,
   handleDialogueProgression,
   handleUseItemProgression,
   handleReadBookComplete,
@@ -214,6 +215,9 @@ export class GameRoom extends Room<GameRoomState> {
 
   private studyCircleNotifiedHour = -1;
   private lastNpcWorldSig = '';
+  private worldStateSeq = 0;
+  private progressionSeq = new Map<string, number>();
+  private progressionSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private conversationLocks: NpcConversationLock[] = [];
 
   onCreate(options: { scene?: string; shard?: string }) {
@@ -278,6 +282,12 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   onDispose(): void {
+    for (const [sessionId, timer] of this.progressionSaveTimers) {
+      clearTimeout(timer);
+      this.progressionSaveTimers.delete(sessionId);
+      const data = this.playerData.get(sessionId);
+      if (data?.dbPlayerId) void savePlayer(data);
+    }
     unregisterGameRoom(this);
     unregisterPresenceRoom(this);
   }
@@ -288,7 +298,42 @@ export class GameRoom extends Room<GameRoomState> {
     const signature = npcWorldSignature(payload);
     if (!force && signature === this.lastNpcWorldSig) return;
     this.lastNpcWorldSig = signature;
-    this.broadcast('world_state', payload);
+    this.worldStateSeq = nextSeq(this.worldStateSeq);
+    this.broadcast('world_state', {
+      ...payload,
+      seq: this.worldStateSeq,
+      at: Date.now(),
+    });
+  }
+
+  /** Sequenced progression sync — clients drop older seq to avoid stale overwrites. */
+  private emitProgression(client: Client, progression: PlayerProgression): void {
+    const next = nextSeq(this.progressionSeq.get(client.sessionId));
+    this.progressionSeq.set(client.sessionId, next);
+    client.send('progression_update', { progression, seq: next, at: Date.now() });
+    this.scheduleProgressionSave(client.sessionId);
+  }
+
+  /** Reconnect / map-ready fallback: push authoritative world + private progression. */
+  private sendAuthoritativeNpcSync(client: Client): void {
+    const payload = currentNpcWorld();
+    this.worldStateSeq = nextSeq(this.worldStateSeq);
+    client.send('world_state', { ...payload, seq: this.worldStateSeq, at: Date.now() });
+    const progression = this.playerData.get(client.sessionId)?.progression;
+    if (progression) this.emitProgression(client, progression);
+  }
+
+  /** Debounced durable write for NPC bonds, discoveries, and cooldowns. */
+  private scheduleProgressionSave(sessionId: string): void {
+    const prior = this.progressionSaveTimers.get(sessionId);
+    if (prior) clearTimeout(prior);
+    const timer = setTimeout(() => {
+      this.progressionSaveTimers.delete(sessionId);
+      const data = this.playerData.get(sessionId);
+      if (!data?.dbPlayerId) return;
+      void savePlayer(data);
+    }, 1500);
+    this.progressionSaveTimers.set(sessionId, timer);
   }
 
   async onJoin(client: Client, options: { displayName?: string; username?: string; authToken?: string }) {
@@ -390,7 +435,6 @@ export class GameRoom extends Room<GameRoomState> {
       adminCommands: adminLink ? listCommands(adminLink.permissions) : [],
     });
 
-    sendWorldState(client);
     this.withProgression(client, player, (ctx) => {
       grantPendingQuestRewards(ctx);
       syncRecognition(ctx, { notify: false });
@@ -406,7 +450,8 @@ export class GameRoom extends Room<GameRoomState> {
     this.sendApartmentVisitState(client);
     this.refreshWardWeb(client.sessionId);
     this.sendPlayerSync(client, player);
-    client.send('progression_update', { progression: this.playerData.get(client.sessionId)?.progression });
+    // Sequenced world + progression so clients reset and ignore stale out-of-order updates.
+    this.sendAuthoritativeNpcSync(client);
     this.syncPlayerShopStock(client);
 
     this.recordMetPlayers(client.sessionId);
@@ -455,6 +500,12 @@ export class GameRoom extends Room<GameRoomState> {
     this.adminSessions.delete(client.sessionId);
     this.spellCastLimiter.reset(client.sessionId);
     this.survivalActivity.delete(client.sessionId);
+    this.progressionSeq.delete(client.sessionId);
+    const saveTimer = this.progressionSaveTimers.get(client.sessionId);
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      this.progressionSaveTimers.delete(client.sessionId);
+    }
     const eatTimer = this.eatingTimers.get(client.sessionId);
     if (eatTimer) {
       clearTimeout(eatTimer);
@@ -595,6 +646,7 @@ export class GameRoom extends Room<GameRoomState> {
       case 'presence_ready':
         this.sendPresenceSync(client);
         this.sendApartmentVisitState(client);
+        this.sendAuthoritativeNpcSync(client);
         this.broadcastPresence('join', client.sessionId);
         break;
       case 'move':
@@ -793,7 +845,7 @@ export class GameRoom extends Room<GameRoomState> {
       player,
       data,
       sendPlayerSync: (c, p) => this.sendPlayerSync(c, p),
-      sendProgression: (c, prog) => c.send('progression_update', { progression: prog }),
+      sendProgression: (c, prog) => this.emitProgression(c, prog),
       refreshWardWeb: (sessionId) => this.refreshWardWeb(sessionId),
       progressionFor: (sessionId) => this.playerData.get(sessionId)?.progression,
       resolvePlayer: (sessionId) => {
@@ -816,7 +868,7 @@ export class GameRoom extends Room<GameRoomState> {
       player,
       data,
       sendPlayerSync: (c, p) => this.sendPlayerSync(c, p),
-      sendProgression: (c, prog) => c.send('progression_update', { progression: prog }),
+      sendProgression: (c, prog) => this.emitProgression(c, prog),
       refreshWardWeb: (sessionId) => this.refreshWardWeb(sessionId),
       progressionFor: (sessionId) => this.playerData.get(sessionId)?.progression,
       resolvePlayer: (sessionId) => {
@@ -1354,7 +1406,7 @@ export class GameRoom extends Room<GameRoomState> {
         stats = xp.stats;
         if (data) {
           data.progression = xp.progression;
-          client.send('progression_update', { progression: data.progression });
+          this.emitProgression(client, data.progression);
         }
         if (xp.granted > 0) {
           client.send('notification', {
@@ -1401,7 +1453,7 @@ export class GameRoom extends Room<GameRoomState> {
         stats = xp.stats;
         if (data) {
           data.progression = xp.progression;
-          client.send('progression_update', { progression: data.progression });
+          this.emitProgression(client, data.progression);
         }
         if (player.scene === 'town') {
           const botch = applyReputationSource(stats, 'spiritual', 'botched_public_working');
@@ -1605,7 +1657,7 @@ export class GameRoom extends Room<GameRoomState> {
       const data = this.playerData.get(client.sessionId);
       if (data) {
         this.withProgression(client, player, (ctx) => noteQuestSpell(ctx, msg.spellId));
-        client.send('progression_update', { progression: data.progression });
+        this.emitProgression(client, data.progression);
       }
       this.refreshWardWeb(client.sessionId);
     } else {
@@ -1717,7 +1769,7 @@ export class GameRoom extends Room<GameRoomState> {
         const xp = grantExperience(player.stats, dataForXp.progression, 'ward_place');
         player.stats = xp.stats;
         dataForXp.progression = xp.progression;
-        client.send('progression_update', { progression: dataForXp.progression });
+        this.emitProgression(client, dataForXp.progression);
         if (xp.granted > 0) {
           client.send('notification', {
             type: 'notification',
@@ -1999,7 +2051,7 @@ export class GameRoom extends Room<GameRoomState> {
       data.progression = projected;
       if (!client || !player) continue;
       this.withProgression(client, player, (ctx) => grantPendingQuestRewards(ctx));
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
     }
   }
 
@@ -2106,7 +2158,7 @@ export class GameRoom extends Room<GameRoomState> {
         );
       }
       this.sendPlayerSync(client, player);
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
     }
     this.openGiftWindow(client, player, npcId, result.reaction);
   }
@@ -2167,7 +2219,7 @@ export class GameRoom extends Room<GameRoomState> {
       level: result.ok ? 'success' : 'info',
     });
     if (result.ok && !result.duplicate) {
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
     }
   }
 
@@ -2187,7 +2239,7 @@ export class GameRoom extends Room<GameRoomState> {
     const dossier = buildPeopleDossierPatch({ npc, progression: refreshed });
     if (data) {
       data.progression = withBondJournal(refreshed, npcId, npc.name, dossier);
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
     }
     client.send('open_ui', {
       ui: 'npc_actions',
@@ -2290,7 +2342,7 @@ export class GameRoom extends Room<GameRoomState> {
 
     const dossier = buildPeopleDossierPatch({ npc, progression: met.progression });
     met.progression = withBondJournal(met.progression, npcId, npc.name, dossier);
-    client.send('progression_update', { progression: met.progression });
+    this.emitProgression(client, met.progression);
   }
 
   private requireNpcPresent(client: Client, player: PlayerSchema, npcId: string) {
@@ -2391,7 +2443,8 @@ export class GameRoom extends Room<GameRoomState> {
     const next = withGrimoire(data.progression, (grimoire) => recordGrimoireIngredients(grimoire, entries));
     if (next === data.progression) return;
     data.progression = next;
-    this.clients.find((c) => c.sessionId === sessionId)?.send('progression_update', { progression: data.progression });
+    const progClient = this.clients.find((c) => c.sessionId === sessionId);
+    if (progClient) this.emitProgression(progClient, data.progression);
   }
 
   indexSharedSpell(
@@ -2406,7 +2459,7 @@ export class GameRoom extends Room<GameRoomState> {
     data.progression = { ...data.progression, grimoire: result.grimoire };
     const target = this.clients.find((c) => c.sessionId === sessionId);
     const spellName = contentRegistry.spells.get(spellId)?.name ?? 'a working';
-    target?.send('progression_update', { progression: data.progression });
+    if (target) this.emitProgression(target, data.progression);
     target?.send('notification', {
       type: 'notification',
       message: `${sharedByName} indexes ${spellName} in your grimoire. The page stays sealed until the working is yours to cast.`,
@@ -2421,7 +2474,7 @@ export class GameRoom extends Room<GameRoomState> {
     const result = mergeGrimoireWrite(data.progression, msg);
     if (result.progression) {
       data.progression = result.progression;
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
     }
     if (result.message && result.level) {
       client.send('notification', { type: 'notification', message: result.message, level: result.level });
@@ -2542,7 +2595,7 @@ export class GameRoom extends Room<GameRoomState> {
     player.inventory = taken.inventory;
     data.progression = { ...data.progression, grimoire: received.grimoire };
     this.sendPlayerSync(client, player);
-    client.send('progression_update', { progression: data.progression });
+    this.emitProgression(client, data.progression);
     client.send('notification', {
       type: 'notification',
       message:
@@ -2559,7 +2612,7 @@ export class GameRoom extends Room<GameRoomState> {
     const result = petitionGrimoireSpirit(data.progression, spiritId);
     if (result.progression !== data.progression) {
       data.progression = result.progression;
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
     }
     client.send('notification', { type: 'notification', message: result.message, level: result.level });
   }
@@ -2570,7 +2623,7 @@ export class GameRoom extends Room<GameRoomState> {
     const result = recallGrimoireSpirit(data.progression, spiritId);
     if (result.progression !== data.progression) {
       data.progression = result.progression;
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
     }
     client.send('notification', { type: 'notification', message: result.message, level: result.level });
   }
@@ -2673,7 +2726,7 @@ export class GameRoom extends Room<GameRoomState> {
         data.progression = withGrimoire(result.progression, (grimoire) =>
           recordGrimoireIngredients(grimoire, [{ itemId, count: quantity }])
         );
-        client.send('progression_update', { progression: data.progression });
+        this.emitProgression(client, data.progression);
       }
       if (data && shopNpcId) {
         this.withProgression(client, player, (ctx) => {
@@ -2701,7 +2754,7 @@ export class GameRoom extends Room<GameRoomState> {
       if (!data) continue;
       if (data.progression.shopStockDay === dayKey) continue;
       data.progression = shopSystem.restockPlayer(data.progression, dayKey);
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
       client.send('shop_stock', {
         reason: 'noon_restock',
         shops: shopSystem.playerStockSnapshot(data.progression),
@@ -2875,7 +2928,7 @@ export class GameRoom extends Room<GameRoomState> {
       const xp = grantExperience(player.stats, data.progression, 'familiar_bond');
       player.stats = xp.stats;
       data.progression = xp.progression;
-      client.send('progression_update', { progression: data.progression });
+      this.emitProgression(client, data.progression);
       if (xp.granted > 0) {
         client.send('notification', {
           type: 'notification',

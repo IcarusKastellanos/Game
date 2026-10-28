@@ -136,8 +136,13 @@ function checkSpecialtyOffer(_client: Client, _stats: PlayerStats): void {
   */
 }
 
-export function sendWorldState(client: Client): void {
-  client.send('world_state', currentNpcWorld());
+/** Send public NPC world presence without inventing a sequence (GameRoom owns seq). */
+export function sendWorldState(client: Client, seq?: number): void {
+  const payload = currentNpcWorld();
+  client.send('world_state', {
+    ...payload,
+    ...(seq != null ? { seq, at: Date.now() } : { at: Date.now() }),
+  });
 }
 
 /** Apply one content social event. Familiarity is mirrored; public reputation moves only when the event says so. */
