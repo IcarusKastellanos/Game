@@ -13,7 +13,7 @@ export class ApartmentScene extends BaseWorldScene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#3d2817');
+    this.cameras.main.setBackgroundColor('#c9bba8');
 
     attachSceneChangeHandler(this);
     window.addEventListener('game:map-layout-rebuilt', this.onMapLayoutRebuilt as EventListener);

@@ -47,6 +47,25 @@ const PAL = {
   wood: 0x8b6914,
   woodDark: 0x5c4510,
   woodLight: 0xb8923a,
+  /** Modern apartment oak floor */
+  oak: 0xd2a679,
+  oakDark: 0xb8895a,
+  oakLight: 0xe0b888,
+  oakSeam: 0x9a7348,
+  /** Soft plaster interior walls */
+  plaster: 0xe6ddd0,
+  plasterDark: 0xd4c8b8,
+  plasterShadow: 0xcbbfad,
+  baseboard: 0xf7f3ea,
+  baseboardLine: 0xddd4c4,
+  windowFrame: 0xf0ebe3,
+  windowPane: 0x7eb8d4,
+  windowPaneLight: 0xa8d4e8,
+  windowSill: 0xe8dfd0,
+  doorModern: 0xc4a882,
+  doorModernDark: 0xa88a62,
+  doorModernLight: 0xd4bc9a,
+  doorHandle: 0xc0c4c8,
   path: 0xc4a574,
   brick: 0x8b5a3c,
   brickDark: 0x6b3a24,
@@ -92,12 +111,24 @@ const TILE_DEFS: { key: string; draw: TileDraw }[] = [
   {
     key: 'tile_floor_wood',
     draw: (g, ox = 0, oy = 0) => {
-      g.fillStyle(PAL.wood, 1);
+      // Light natural oak planks — modern apartment floor
+      g.fillStyle(PAL.oak, 1);
       g.fillRect(ox, oy, TILE_SIZE, TILE_SIZE);
-      g.lineStyle(1, PAL.woodDark, 0.5);
-      g.lineBetween(ox, oy + u(8), ox + TILE_SIZE, oy + u(8));
-      g.lineBetween(ox, oy + u(16), ox + TILE_SIZE, oy + u(16));
-      g.lineBetween(ox, oy + u(24), ox + TILE_SIZE, oy + u(24));
+      g.fillStyle(PAL.oakLight, 1);
+      g.fillRect(ox, oy, TILE_SIZE, u(5));
+      g.fillRect(ox, oy + u(11), TILE_SIZE, u(4));
+      g.fillStyle(PAL.oakDark, 1);
+      g.fillRect(ox, oy + u(5), TILE_SIZE, u(1));
+      g.fillRect(ox, oy + u(10), TILE_SIZE, u(1));
+      g.fillRect(ox, oy + u(15), TILE_SIZE, u(1));
+      g.fillStyle(PAL.oakSeam, 1);
+      g.fillRect(ox + u(7), oy, u(1), u(5));
+      g.fillRect(ox + u(12), oy + u(6), u(1), u(4));
+      g.fillRect(ox + u(4), oy + u(11), u(1), u(4));
+      g.fillStyle(PAL.oakLight, 0.55);
+      g.fillRect(ox + u(2), oy + u(2), u(2), u(1));
+      g.fillRect(ox + u(9), oy + u(7), u(2), u(1));
+      g.fillRect(ox + u(6), oy + u(13), u(2), u(1));
     },
   },
   {
@@ -136,6 +167,54 @@ const TILE_DEFS: { key: string; draw: TileDraw }[] = [
       g.fillRect(ox + u(11), oy + u(4), u(3), u(10));
       g.fillRect(ox, oy + u(6), TILE_SIZE, u(2));
       g.fillRect(ox, oy + u(12), TILE_SIZE, u(2));
+    },
+  },
+  {
+    key: 'tile_wall_plaster',
+    draw: (g, ox = 0, oy = 0) => {
+      // Soft warm plaster with white baseboard
+      g.fillStyle(PAL.plaster, 1);
+      g.fillRect(ox, oy, TILE_SIZE, TILE_SIZE);
+      g.fillStyle(PAL.plasterShadow, 1);
+      g.fillRect(ox, oy, TILE_SIZE, u(2));
+      g.fillStyle(PAL.plasterDark, 1);
+      g.fillRect(ox, oy + u(2), TILE_SIZE, u(1));
+      g.fillStyle(PAL.baseboard, 1);
+      g.fillRect(ox, oy + u(13), TILE_SIZE, u(3));
+      g.fillStyle(PAL.baseboardLine, 1);
+      g.fillRect(ox, oy + u(12), TILE_SIZE, u(1));
+      g.fillStyle(PAL.plasterDark, 0.35);
+      g.fillRect(ox + u(4), oy + u(5), u(1), u(1));
+      g.fillRect(ox + u(11), oy + u(8), u(1), u(1));
+    },
+  },
+  {
+    key: 'tile_wall_window',
+    draw: (g, ox = 0, oy = 0) => {
+      // Large modern window set into plaster wall
+      g.fillStyle(PAL.plaster, 1);
+      g.fillRect(ox, oy, TILE_SIZE, TILE_SIZE);
+      g.fillStyle(PAL.plasterShadow, 1);
+      g.fillRect(ox, oy, TILE_SIZE, u(1));
+      g.fillStyle(PAL.windowFrame, 1);
+      g.fillRect(ox + u(1), oy + u(1), u(14), u(11));
+      g.fillStyle(PAL.windowPane, 1);
+      g.fillRect(ox + u(2), oy + u(2), u(5), u(4));
+      g.fillRect(ox + u(9), oy + u(2), u(5), u(4));
+      g.fillRect(ox + u(2), oy + u(7), u(5), u(4));
+      g.fillRect(ox + u(9), oy + u(7), u(5), u(4));
+      g.fillStyle(PAL.windowPaneLight, 1);
+      g.fillRect(ox + u(2), oy + u(2), u(2), u(2));
+      g.fillRect(ox + u(9), oy + u(2), u(2), u(2));
+      g.fillStyle(PAL.windowFrame, 1);
+      g.fillRect(ox + u(7), oy + u(2), u(2), u(9));
+      g.fillRect(ox + u(2), oy + u(6), u(12), u(1));
+      g.fillStyle(PAL.windowSill, 1);
+      g.fillRect(ox + u(1), oy + u(12), u(14), u(2));
+      g.fillStyle(PAL.baseboard, 1);
+      g.fillRect(ox, oy + u(14), TILE_SIZE, u(2));
+      g.fillStyle(PAL.baseboardLine, 1);
+      g.fillRect(ox, oy + u(13), TILE_SIZE, u(1));
     },
   },
 ];
@@ -317,12 +396,19 @@ function generateObjects(scene: Phaser.Scene): void {
     {
       key: 'obj_door',
       draw: (g) => {
-        g.fillStyle(PAL.wood, 1);
+        // Contemporary flat-panel door for apartment exit
+        g.fillStyle(PAL.doorModernDark, 1);
+        g.fillRect(u(2), u(1), u(12), u(14));
+        g.fillStyle(PAL.doorModern, 1);
         g.fillRect(u(3), u(2), u(10), u(12));
-        g.fillStyle(PAL.woodDark, 1);
-        g.fillRect(u(3), u(2), u(10), u(2));
-        g.fillStyle(0xffcc44, 1);
-        g.fillCircle(u(11), u(8), u(1));
+        g.fillStyle(PAL.doorModernLight, 1);
+        g.fillRect(u(4), u(3), u(8), u(4));
+        g.fillRect(u(4), u(8), u(8), u(5));
+        g.fillStyle(PAL.doorModernDark, 1);
+        g.fillRect(u(4), u(7), u(8), u(1));
+        g.fillStyle(PAL.doorHandle, 1);
+        g.fillRect(u(11), u(8), u(2), u(1));
+        g.fillRect(u(12), u(7), u(1), u(3));
       },
     },
     {

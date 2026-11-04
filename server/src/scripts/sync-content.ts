@@ -97,7 +97,15 @@ async function syncContent() {
         spawnPoints: map.spawnPoints as object,
         interactables: map.interactables as object,
       },
-      update: { name: map.name as string },
+      update: {
+        name: map.name as string,
+        width: map.width as number,
+        height: map.height as number,
+        tileSize: map.tileSize as number,
+        layers: map.layers as object,
+        spawnPoints: map.spawnPoints as object,
+        interactables: map.interactables as object,
+      },
     });
   }
 

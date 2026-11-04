@@ -42,14 +42,16 @@ export function generatePlaceholderTextures(scene: Phaser.Scene): void {
   const s = TILE_SIZE / 16;
 
   const colors: Record<string, number> = {
-    tile_floor_wood: 0x8b6914,
+    tile_floor_wood: 0xd2a679,
     tile_floor_stone: 0x666677,
     tile_grass: 0x3a7d44,
     tile_path: 0x9b7653,
     tile_wall_brick: 0x5c4033,
     tile_fence: 0x4a3728,
+    tile_wall_plaster: 0xe6ddd0,
+    tile_wall_window: 0x7eb8d4,
     obj_altar: 0x4a0080,
-    obj_door: 0x6b4423,
+    obj_door: 0xc4a882,
     obj_bed: 0x8844aa,
     obj_red_bed: 0xcc3333,
     obj_shelf: 0x553311,
@@ -193,8 +195,9 @@ export function buildMapFromDefinition(
   evictMapSpritePixelTextures(scene);
   ensureCollisionTexture(scene);
   const floorKey = mapDef.sceneId === 'apartment' ? 'tile_floor_wood' : 'tile_grass';
-  const wallKey = mapDef.sceneId === 'apartment' ? 'tile_wall_brick' : 'tile_fence';
+  const wallKey = mapDef.sceneId === 'apartment' ? 'tile_wall_plaster' : 'tile_fence';
   const pathKey = 'tile_path';
+  const doorX = Math.floor(mapDef.width / 2);
 
   const useSavedTiles = runtimeLayersHaveTiles(mapDef);
 
@@ -218,12 +221,23 @@ export function buildMapFromDefinition(
         continue;
       }
 
+      if (mapDef.sceneId === 'apartment') {
+        const isDoorOpening = y === mapDef.height - 1 && x === doorX;
+        if (isBorder && !isDoorOpening) {
+          const key =
+            y === 0 && x >= 2 && x <= mapDef.width - 3 ? 'tile_wall_window' : wallKey;
+          placeTile(wallLayer, px, py, key, true);
+        } else {
+          placeTile(floorLayer, px, py, floorKey, false);
+        }
+        continue;
+      }
+
       if (isBorder) {
         placeTile(wallLayer, px, py, wallKey, true);
       } else {
         const isPath =
-          mapDef.sceneId === 'town' &&
-          (x === Math.floor(mapDef.width / 2) || y === Math.floor(mapDef.height / 2));
+          x === Math.floor(mapDef.width / 2) || y === Math.floor(mapDef.height / 2);
         placeTile(floorLayer, px, py, isPath ? pathKey : floorKey, false);
       }
     }

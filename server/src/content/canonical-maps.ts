@@ -3,7 +3,14 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContentMapDefinition } from '@witchcraft/shared';
 import type { MapBuilderDocument, MapProjectMetadata } from '@witchcraft/shared';
-import { createDefaultMapMetadata, createEmptyMapDocument, ensureMapDocumentTiles, craftStationTypeFromInteractable, isCraftingInteractable } from '@witchcraft/shared';
+import {
+  createDefaultMapMetadata,
+  createEmptyMapDocument,
+  ensureMapDocumentTiles,
+  craftStationTypeFromInteractable,
+  isCraftingInteractable,
+  runtimeLayersHaveTiles,
+} from '@witchcraft/shared';
 import { prisma } from '../services/db.js';
 import type { ContentRegistry } from './registry.js';
 
@@ -99,11 +106,15 @@ export function applyCanonicalWorldMapsToRegistry(registry: ContentRegistry, for
   let count = 0;
   for (const map of loadCanonicalWorldMaps()) {
     const existing = registry.maps.get(map.id);
-    const broken =
-      !existing ||
-      ((existing.interactables?.length ?? 0) === 0 &&
-        (existing.placedFurniture?.length ?? 0) === 0 &&
-        (existing.placedDecorations?.length ?? 0) === 0);
+    const emptyDecor =
+      (existing?.interactables?.length ?? 0) === 0 &&
+      (existing?.placedFurniture?.length ?? 0) === 0 &&
+      (existing?.placedDecorations?.length ?? 0) === 0;
+    // When maps.json ships authored tile paint (e.g. modern apartment), replace live
+    // copies that still have empty layers so procedural brick/wood fallbacks go away.
+    const missingAuthoredPaint =
+      !!existing && runtimeLayersHaveTiles(map) && !runtimeLayersHaveTiles(existing);
+    const broken = !existing || emptyDecor || missingAuthoredPaint;
     if (force || broken) {
       registry.maps.set(map.id, structuredClone(map));
       count++;
@@ -273,13 +284,16 @@ export async function ensureCanonicalMapProjects(): Promise<void> {
       continue;
     }
 
-    // Repair published canonical rows stripped by an empty editor publish
+    // Repair published canonical rows stripped by an empty editor publish,
+    // or still missing authored tile paint from maps.json (legacy empty layers).
     const version = existing.currentVersionId
       ? await prisma.mapVersion.findUnique({ where: { id: existing.currentVersionId } })
       : null;
     const doc = version?.document as MapBuilderDocument | undefined;
     const hasInteractables = (doc?.interactables?.length ?? 0) > 0 || (doc?.portals?.length ?? 0) > 0;
-    if (!hasInteractables) {
+    const docHasPaint = !!doc?.layers?.some((l) => l.cells?.some((row) => row.some((v) => v > 0)));
+    const needsAuthoredPaint = runtimeLayersHaveTiles(map) && !docHasPaint;
+    if (!hasInteractables || needsAuthoredPaint) {
       const restoredDoc = runtimeMapToBuilderDocument(map);
       const nextVersion = existing.version + 1;
       const newVersion = await prisma.mapVersion.create({

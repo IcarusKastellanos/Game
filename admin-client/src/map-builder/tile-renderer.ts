@@ -18,6 +18,23 @@ const PAL = {
   grassLight: '#7bc96f',
   wood: '#8b6914',
   woodDark: '#5c4510',
+  oak: '#d2a679',
+  oakDark: '#b8895a',
+  oakLight: '#e0b888',
+  oakSeam: '#9a7348',
+  plaster: '#e6ddd0',
+  plasterDark: '#d4c8b8',
+  plasterShadow: '#cbbfad',
+  baseboard: '#f7f3ea',
+  baseboardLine: '#ddd4c4',
+  windowFrame: '#f0ebe3',
+  windowPane: '#7eb8d4',
+  windowPaneLight: '#a8d4e8',
+  windowSill: '#e8dfd0',
+  doorModern: '#c4a882',
+  doorModernDark: '#a88a62',
+  doorModernLight: '#d4bc9a',
+  doorHandle: '#c0c4c8',
   path: '#c4a574',
   brick: '#8b5a3c',
   brickDark: '#6b3a24',
@@ -56,15 +73,24 @@ const DRAWERS: Record<string, DrawFn> = {
   },
   tile_floor_wood(ctx, ox, oy, size) {
     const s = size / LOGICAL_TILE;
-    ctx.fillStyle = PAL.wood;
+    ctx.fillStyle = PAL.oak;
     ctx.fillRect(ox, oy, size, size);
-    ctx.strokeStyle = PAL.woodDark;
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth = Math.max(1, s);
-    ctx.beginPath();
-    ctx.moveTo(ox, oy + 8 * s);
-    ctx.lineTo(ox + size, oy + 8 * s);
-    ctx.stroke();
+    ctx.fillStyle = PAL.oakLight;
+    ctx.fillRect(ox, oy, size, 5 * s);
+    ctx.fillRect(ox, oy + 11 * s, size, 4 * s);
+    ctx.fillStyle = PAL.oakDark;
+    ctx.fillRect(ox, oy + 5 * s, size, 1 * s);
+    ctx.fillRect(ox, oy + 10 * s, size, 1 * s);
+    ctx.fillRect(ox, oy + 15 * s, size, 1 * s);
+    ctx.fillStyle = PAL.oakSeam;
+    ctx.fillRect(ox + 7 * s, oy, 1 * s, 5 * s);
+    ctx.fillRect(ox + 12 * s, oy + 6 * s, 1 * s, 4 * s);
+    ctx.fillRect(ox + 4 * s, oy + 11 * s, 1 * s, 4 * s);
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = PAL.oakLight;
+    ctx.fillRect(ox + 2 * s, oy + 2 * s, 2 * s, 1 * s);
+    ctx.fillRect(ox + 9 * s, oy + 7 * s, 2 * s, 1 * s);
+    ctx.fillRect(ox + 6 * s, oy + 13 * s, 2 * s, 1 * s);
     ctx.globalAlpha = 1;
   },
   tile_floor_stone(ctx, ox, oy, size) {
@@ -93,6 +119,50 @@ const DRAWERS: Record<string, DrawFn> = {
     ctx.fillRect(ox, oy + 6 * s, size, 2 * s);
     ctx.fillRect(ox, oy + 12 * s, size, 2 * s);
   },
+  tile_wall_plaster(ctx, ox, oy, size) {
+    const s = size / LOGICAL_TILE;
+    ctx.fillStyle = PAL.plaster;
+    ctx.fillRect(ox, oy, size, size);
+    ctx.fillStyle = PAL.plasterShadow;
+    ctx.fillRect(ox, oy, size, 2 * s);
+    ctx.fillStyle = PAL.plasterDark;
+    ctx.fillRect(ox, oy + 2 * s, size, 1 * s);
+    ctx.fillStyle = PAL.baseboard;
+    ctx.fillRect(ox, oy + 13 * s, size, 3 * s);
+    ctx.fillStyle = PAL.baseboardLine;
+    ctx.fillRect(ox, oy + 12 * s, size, 1 * s);
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = PAL.plasterDark;
+    ctx.fillRect(ox + 4 * s, oy + 5 * s, 1 * s, 1 * s);
+    ctx.fillRect(ox + 11 * s, oy + 8 * s, 1 * s, 1 * s);
+    ctx.globalAlpha = 1;
+  },
+  tile_wall_window(ctx, ox, oy, size) {
+    const s = size / LOGICAL_TILE;
+    ctx.fillStyle = PAL.plaster;
+    ctx.fillRect(ox, oy, size, size);
+    ctx.fillStyle = PAL.plasterShadow;
+    ctx.fillRect(ox, oy, size, 1 * s);
+    ctx.fillStyle = PAL.windowFrame;
+    ctx.fillRect(ox + 1 * s, oy + 1 * s, 14 * s, 11 * s);
+    ctx.fillStyle = PAL.windowPane;
+    ctx.fillRect(ox + 2 * s, oy + 2 * s, 5 * s, 4 * s);
+    ctx.fillRect(ox + 9 * s, oy + 2 * s, 5 * s, 4 * s);
+    ctx.fillRect(ox + 2 * s, oy + 7 * s, 5 * s, 4 * s);
+    ctx.fillRect(ox + 9 * s, oy + 7 * s, 5 * s, 4 * s);
+    ctx.fillStyle = PAL.windowPaneLight;
+    ctx.fillRect(ox + 2 * s, oy + 2 * s, 2 * s, 2 * s);
+    ctx.fillRect(ox + 9 * s, oy + 2 * s, 2 * s, 2 * s);
+    ctx.fillStyle = PAL.windowFrame;
+    ctx.fillRect(ox + 7 * s, oy + 2 * s, 2 * s, 9 * s);
+    ctx.fillRect(ox + 2 * s, oy + 6 * s, 12 * s, 1 * s);
+    ctx.fillStyle = PAL.windowSill;
+    ctx.fillRect(ox + 1 * s, oy + 12 * s, 14 * s, 2 * s);
+    ctx.fillStyle = PAL.baseboard;
+    ctx.fillRect(ox, oy + 14 * s, size, 2 * s);
+    ctx.fillStyle = PAL.baseboardLine;
+    ctx.fillRect(ox, oy + 13 * s, size, 1 * s);
+  },
   obj_altar(ctx, ox, oy, size) {
     const s = size / LOGICAL_TILE;
     ctx.fillStyle = PAL.woodDark;
@@ -104,11 +174,18 @@ const DRAWERS: Record<string, DrawFn> = {
   },
   obj_door(ctx, ox, oy, size) {
     const s = size / LOGICAL_TILE;
-    ctx.fillStyle = PAL.wood;
+    ctx.fillStyle = PAL.doorModernDark;
+    ctx.fillRect(ox + 2 * s, oy + 1 * s, 12 * s, 14 * s);
+    ctx.fillStyle = PAL.doorModern;
     ctx.fillRect(ox + 3 * s, oy + 2 * s, 10 * s, 12 * s);
-    ctx.fillStyle = PAL.woodDark;
-    ctx.fillRect(ox + 3 * s, oy + 2 * s, 10 * s, 2 * s);
-    fillCircle(ctx, ox + 11 * s, oy + 8 * s, 1 * s, '#ffcc44');
+    ctx.fillStyle = PAL.doorModernLight;
+    ctx.fillRect(ox + 4 * s, oy + 3 * s, 8 * s, 4 * s);
+    ctx.fillRect(ox + 4 * s, oy + 8 * s, 8 * s, 5 * s);
+    ctx.fillStyle = PAL.doorModernDark;
+    ctx.fillRect(ox + 4 * s, oy + 7 * s, 8 * s, 1 * s);
+    ctx.fillStyle = PAL.doorHandle;
+    ctx.fillRect(ox + 11 * s, oy + 8 * s, 2 * s, 1 * s);
+    ctx.fillRect(ox + 12 * s, oy + 7 * s, 1 * s, 3 * s);
   },
   obj_tree(ctx, ox, oy, size) {
     const s = size / LOGICAL_TILE;
