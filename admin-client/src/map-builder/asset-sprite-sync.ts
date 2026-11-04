@@ -1,3 +1,4 @@
+import { TILE_SIZE } from '@witchcraft/shared';
 import { mapBuilderApi } from './api.js';
 import { getSpritePixels, getTilesetSprites } from './sprite-storage.js';
 import { registerCustomSprite } from './tile-renderer.js';
@@ -19,13 +20,18 @@ export async function syncCustomSpritesFromAssets(): Promise<void> {
   for (const row of furniture as { spriteRef?: string; width?: number; height?: number; properties?: unknown }[]) {
     const px = getSpritePixels(row.properties);
     if (px && row.spriteRef) {
-      registerCustomSprite(row.spriteRef, px, (row.width ?? 1) * 32, (row.height ?? 1) * 32);
+      registerCustomSprite(
+        row.spriteRef,
+        px,
+        (row.width ?? 1) * TILE_SIZE,
+        (row.height ?? 1) * TILE_SIZE
+      );
     }
   }
 
   for (const row of decorations as { spriteRef?: string; properties?: unknown }[]) {
     const px = getSpritePixels(row.properties);
-    if (px && row.spriteRef) registerCustomSprite(row.spriteRef, px);
+    if (px && row.spriteRef) registerCustomSprite(row.spriteRef, px, TILE_SIZE, TILE_SIZE);
   }
 
   for (const row of tilesets as { data?: unknown }[]) {

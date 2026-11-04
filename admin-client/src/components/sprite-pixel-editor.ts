@@ -1,7 +1,11 @@
 /** Variable-size pixel sprite editor for map builder assets. */
 
-import { TILE_SIZE, isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
-import { nearestNeighborResizePixels } from './image-import.js';
+import {
+  TILE_SIZE,
+  isTransparentPixel,
+  MAP_TRANSPARENT_PIXEL,
+  normalizeSpritePixelsToSize,
+} from '@witchcraft/shared';
 import { mountPixelColorTools } from './pixel-color-tools.js';
 
 const TILE_PX = TILE_SIZE;
@@ -190,22 +194,11 @@ export function mountSpritePixelEditor(
 }
 
 function normalizePixels(input: string[] | undefined, widthPx: number, heightPx: number): string[] {
-  if (!input?.length) return Array(widthPx * heightPx).fill(MAP_TRANSPARENT_PIXEL);
-  if (input.length === widthPx * heightPx) return [...input];
-
-  let oldW: number;
-  let oldH: number;
-  const side = Math.round(Math.sqrt(input.length));
-  if (side * side === input.length) {
-    oldW = side;
-    oldH = side;
-  } else {
-    oldW = widthPx;
-    oldH = Math.max(1, Math.ceil(input.length / oldW));
-  }
-
-  // Scale mismatched buffers to fill the editor (avoids a 16×16 stamp in the corner of 32×32).
-  return nearestNeighborResizePixels(input, oldW, oldH, widthPx, heightPx);
+  return normalizeSpritePixelsToSize(input, widthPx, heightPx, {
+    widthTiles: Math.max(1, Math.round(widthPx / TILE_PX)),
+    heightTiles: Math.max(1, Math.round(heightPx / TILE_PX)),
+    tilePx: TILE_PX,
+  });
 }
 
 function remapPixels(
@@ -225,6 +218,11 @@ function remapPixels(
 }
 
 export function spritePixelsToDataUrl(pixels: string[], widthPx: number, heightPx: number): string {
+  const normalized = normalizeSpritePixelsToSize(pixels, widthPx, heightPx, {
+    widthTiles: Math.max(1, Math.round(widthPx / TILE_PX)),
+    heightTiles: Math.max(1, Math.round(heightPx / TILE_PX)),
+    tilePx: TILE_PX,
+  });
   const canvas = document.createElement('canvas');
   canvas.width = widthPx;
   canvas.height = heightPx;
@@ -232,7 +230,7 @@ export function spritePixelsToDataUrl(pixels: string[], widthPx: number, heightP
   ctx.clearRect(0, 0, widthPx, heightPx);
   for (let y = 0; y < heightPx; y++) {
     for (let x = 0; x < widthPx; x++) {
-      const color = pixels[y * widthPx + x] ?? MAP_TRANSPARENT_PIXEL;
+      const color = normalized[y * widthPx + x] ?? MAP_TRANSPARENT_PIXEL;
       if (isTransparentPixel(color)) continue;
       ctx.fillStyle = color;
       ctx.fillRect(x, y, 1, 1);

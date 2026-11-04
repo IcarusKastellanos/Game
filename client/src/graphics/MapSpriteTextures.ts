@@ -1,5 +1,10 @@
 import Phaser from 'phaser';
-import { isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
+import {
+  TILE_SIZE,
+  isTransparentPixel,
+  MAP_TRANSPARENT_PIXEL,
+  normalizeSpritePixelsToSize,
+} from '@witchcraft/shared';
 
 /** Stable hash so sprite edits get a new texture key instead of reusing stale cache. */
 function hashPixelArray(pixels: string[]): string {
@@ -18,6 +23,45 @@ function pixelTextureKey(spriteRef: string, widthPx: number, heightPx: number, p
   return `${spriteRef}__px__${widthPx}x${heightPx}__${hashPixelArray(pixels)}`;
 }
 
+function resolveBuiltinKey(scene: Phaser.Scene, key: string): string | null {
+  if (scene.textures.exists(key)) return key;
+  const objKey = key.startsWith('obj_') ? key : `obj_${key}`;
+  if (objKey !== key && scene.textures.exists(objKey)) return objKey;
+  return null;
+}
+
+/**
+ * Draw a 1-tile builtin into a larger footprint without tiling or non-uniform stretch:
+ * nearest-neighbor uniform scale, centered, transparent padding.
+ */
+function ensureScaledBuiltinTexture(
+  scene: Phaser.Scene,
+  baseKey: string,
+  widthPx: number,
+  heightPx: number
+): string {
+  const texKey = `${baseKey}__fit__${widthPx}x${heightPx}`;
+  if (scene.textures.exists(texKey)) return texKey;
+
+  const canvas = scene.textures.createCanvas(texKey, widthPx, heightPx);
+  if (!canvas) return baseKey;
+  const ctx = canvas.getContext();
+  ctx.clearRect(0, 0, widthPx, heightPx);
+  ctx.imageSmoothingEnabled = false;
+
+  const src = scene.textures.get(baseKey).getSourceImage() as CanvasImageSource;
+  const srcW = (src as HTMLCanvasElement).width || TILE_SIZE;
+  const srcH = (src as HTMLCanvasElement).height || TILE_SIZE;
+  const scale = Math.min(widthPx / srcW, heightPx / srcH);
+  const dw = Math.max(1, Math.round(srcW * scale));
+  const dh = Math.max(1, Math.round(srcH * scale));
+  const dx = Math.floor((widthPx - dw) / 2);
+  const dy = Math.floor((heightPx - dh) / 2);
+  ctx.drawImage(src, 0, 0, srcW, srcH, dx, dy, dw, dh);
+  canvas.refresh();
+  return texKey;
+}
+
 /** Register a map sprite texture from custom pixels (supports transparency). */
 export function ensureMapSpriteTexture(
   scene: Phaser.Scene,
@@ -27,18 +71,24 @@ export function ensureMapSpriteTexture(
   pixels?: string[]
 ): string {
   if (!pixels?.length) {
-    if (scene.textures.exists(key)) {
-      return key;
-    }
-    const objKey = key.startsWith('obj_') ? key : `obj_${key}`;
-    if (objKey !== key && scene.textures.exists(objKey)) {
-      return objKey;
+    const builtin = resolveBuiltinKey(scene, key);
+    if (builtin) {
+      if (widthPx === TILE_SIZE && heightPx === TILE_SIZE) return builtin;
+      return ensureScaledBuiltinTexture(scene, builtin, widthPx, heightPx);
     }
     generateFallbackObjectTexture(scene, key, widthPx, heightPx);
     return key;
   }
 
-  const texKey = pixelTextureKey(key, widthPx, heightPx, pixels);
+  const widthTiles = Math.max(1, Math.round(widthPx / TILE_SIZE));
+  const heightTiles = Math.max(1, Math.round(heightPx / TILE_SIZE));
+  const normalized = normalizeSpritePixelsToSize(pixels, widthPx, heightPx, {
+    widthTiles,
+    heightTiles,
+    tilePx: TILE_SIZE,
+  });
+
+  const texKey = pixelTextureKey(key, widthPx, heightPx, normalized);
   if (scene.textures.exists(texKey)) return texKey;
 
   const canvas = scene.textures.createCanvas(texKey, widthPx, heightPx);
@@ -47,7 +97,7 @@ export function ensureMapSpriteTexture(
   ctx.clearRect(0, 0, widthPx, heightPx);
   for (let y = 0; y < heightPx; y++) {
     for (let x = 0; x < widthPx; x++) {
-      const color = pixels[y * widthPx + x] ?? MAP_TRANSPARENT_PIXEL;
+      const color = normalized[y * widthPx + x] ?? MAP_TRANSPARENT_PIXEL;
       if (isTransparentPixel(color)) continue;
       ctx.fillStyle = color;
       ctx.fillRect(x, y, 1, 1);
@@ -69,12 +119,19 @@ function generateFallbackObjectTexture(scene: Phaser.Scene, key: string, widthPx
 
 export function mapSpriteTextureKey(spriteRef: string, widthPx: number, heightPx: number, pixels?: string[]): string {
   if (!pixels?.length) return spriteRef;
-  return pixelTextureKey(spriteRef, widthPx, heightPx, pixels);
+  const widthTiles = Math.max(1, Math.round(widthPx / TILE_SIZE));
+  const heightTiles = Math.max(1, Math.round(heightPx / TILE_SIZE));
+  const normalized = normalizeSpritePixelsToSize(pixels, widthPx, heightPx, {
+    widthTiles,
+    heightTiles,
+    tilePx: TILE_SIZE,
+  });
+  return pixelTextureKey(spriteRef, widthPx, heightPx, normalized);
 }
 
 /** Drop cached pixel textures before rebuilding a map (avoids stale art after live updates). */
 export function evictMapSpritePixelTextures(scene: Phaser.Scene): void {
   for (const key of scene.textures.getTextureKeys()) {
-    if (key.includes('__px__')) scene.textures.remove(key);
+    if (key.includes('__px__') || key.includes('__fit__')) scene.textures.remove(key);
   }
 }
