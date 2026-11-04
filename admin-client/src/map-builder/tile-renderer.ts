@@ -1,6 +1,12 @@
 /** Canvas 2D tile drawing — matches client SpriteGenerator stardew tiles */
 
-import { TILE_SIZE, isTransparentPixel, MAP_TRANSPARENT_PIXEL } from '@witchcraft/shared';
+import {
+  TILE_SIZE,
+  isTransparentPixel,
+  MAP_TRANSPARENT_PIXEL,
+  normalizeSpritePixelsToSize,
+  nearestNeighborResizePixels,
+} from '@witchcraft/shared';
 
 /** Drawer math is authored against a 16×16 cell; output uses the game tile size. */
 const LOGICAL_TILE = 16;
@@ -184,6 +190,11 @@ function drawBuiltinTile(ctx: CanvasRenderingContext2D, spriteKey: string, ox: n
 }
 
 function buildCanvasFromPixels(pixels: string[], width: number, height: number): HTMLCanvasElement {
+  const normalized = normalizeSpritePixelsToSize(pixels, width, height, {
+    widthTiles: Math.max(1, Math.round(width / TILE)),
+    heightTiles: Math.max(1, Math.round(height / TILE)),
+    tilePx: TILE,
+  });
   const c = document.createElement('canvas');
   c.width = width;
   c.height = height;
@@ -191,7 +202,7 @@ function buildCanvasFromPixels(pixels: string[], width: number, height: number):
   ctx.clearRect(0, 0, width, height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const color = pixels[y * width + x] ?? MAP_TRANSPARENT_PIXEL;
+      const color = normalized[y * width + x] ?? MAP_TRANSPARENT_PIXEL;
       if (isTransparentPixel(color)) continue;
       ctx.fillStyle = color;
       ctx.fillRect(x, y, 1, 1);
@@ -214,10 +225,17 @@ export function registerCustomSprite(spriteKey: string, pixels: string[], widthP
       height = Math.max(1, Math.ceil(pixels.length / width));
     } else {
       width = width ?? side;
-      height = height ?? Math.max(1, Math.ceil(pixels.length / width));
+      height = height ?? Math.max(1, Math.ceil(pixels.length / Math.max(1, width ?? side)));
     }
   }
-  customSprites.set(spriteKey, { pixels: [...pixels], width, height });
+  const widthTiles = Math.max(1, Math.round(width / TILE));
+  const heightTiles = Math.max(1, Math.round(height / TILE));
+  const normalized = normalizeSpritePixelsToSize(pixels, width, height, {
+    widthTiles,
+    heightTiles,
+    tilePx: TILE,
+  });
+  customSprites.set(spriteKey, { pixels: normalized, width, height });
   cache.delete(spriteKey);
 }
 
@@ -226,19 +244,22 @@ export function unregisterCustomSprite(spriteKey: string): void {
   cache.delete(spriteKey);
 }
 
+/**
+ * Rasterize a builtin drawer into a footprint.
+ * Multi-tile: draw once at TILE, then nearest-neighbor scale into the footprint
+ * (never stamp/tile the same cell — that caused repeating furniture textures).
+ */
 export function rasterizeBuiltinSprite(spriteKey: string, widthTiles = 1, heightTiles = 1): string[] | null {
   const w = widthTiles * TILE;
   const h = heightTiles * TILE;
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext('2d')!;
-  for (let ty = 0; ty < heightTiles; ty++) {
-    for (let tx = 0; tx < widthTiles; tx++) {
-      drawBuiltinTile(ctx, spriteKey, tx * TILE, ty * TILE, TILE);
-    }
-  }
-  return canvasToPixels(c);
+  const cell = document.createElement('canvas');
+  cell.width = TILE;
+  cell.height = TILE;
+  const cellCtx = cell.getContext('2d')!;
+  drawBuiltinTile(cellCtx, spriteKey, 0, 0, TILE);
+  const cellPixels = canvasToPixels(cell);
+  if (widthTiles === 1 && heightTiles === 1) return cellPixels;
+  return nearestNeighborResizePixels(cellPixels, TILE, TILE, w, h);
 }
 
 export function getTileCanvas(spriteKey: string): HTMLCanvasElement {

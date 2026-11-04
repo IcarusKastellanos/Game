@@ -375,6 +375,17 @@ function generateObjects(scene: Phaser.Scene): void {
         g.fillRect(u(2), u(3), u(12), u(5));
       },
     },
+    {
+      key: 'obj_cleanser',
+      draw: (g) => {
+        g.fillStyle(0x4a6a8a, 1);
+        g.fillRect(u(3), u(4), u(10), u(10));
+        g.fillStyle(0x88ccee, 1);
+        g.fillRect(u(5), u(6), u(6), u(6));
+        g.fillStyle(0xffffff, 0.7);
+        g.fillRect(u(7), u(2), u(2), u(3));
+      },
+    },
   ];
 
   for (const { key, draw } of objs) {
